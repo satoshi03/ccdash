@@ -1,0 +1,46 @@
+# Development files
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build artifacts (keep only the built server in bin/)
+backend/bin/
+backend/configs/
+backend/internal/**/*_test.go
+backend/**/*.test
+backend/**/*.out
+
+# Frontend development files
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
+frontend/.env.production.local
+
+# Documentation and project files
+*.md
+!README.md
+CLAUDE.md
+docker-compose.yml
+Makefile
+README-docker.md
+
+# Test files
+**/*_test.go
+**/*.test.js
+**/test/
+**/tests/
+
+# Git
+.git/
+.gitignore

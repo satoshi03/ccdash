@@ -1,0 +1,43 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: claudeee-backend
+    ports:
+      - "8080:8080"
+    volumes:
+      # Claude Code logs directory
+      - ~/.claude:/root/.claude:ro
+      # Database persistence
+      - claudeee-db:/root/.claudeee
+    environment:
+      - GIN_MODE=release
+      - PORT=8080
+    networks:
+      - claudeee-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: claudeee-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://localhost:8080/api
+    networks:
+      - claudeee-network
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+networks:
+  claudeee-network:
+    driver: bridge
+
+volumes:
+  claudeee-db:
+    driver: local

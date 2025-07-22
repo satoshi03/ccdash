@@ -1,0 +1,55 @@
+{
+  "name": "claudeee",
+  "version": "0.1.0",
+  "description": "Claude Code Monitoring - A comprehensive monitoring for Claude Code",
+  "main": "bin/claudeee.js",
+  "bin": {
+    "claudeee": "./bin/claudeee.js"
+  },
+  "scripts": {
+    "start": "node bin/claudeee.js",
+    "build": "npm run build:backend && npm run build:frontend",
+    "build:backend": "cd backend && go build -o ../bin/claudeee-server cmd/server/main.go",
+    "build:frontend": "cd frontend && npm run build",
+    "dev": "npm run dev:backend & npm run dev:frontend",
+    "dev:backend": "cd backend && go run cmd/server/main.go",
+    "dev:frontend": "cd frontend && npm run dev",
+    "postinstall": "npm run build || echo 'Build failed, but continuing...'"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "monitoring",
+    "task-scheduler",
+    "ai",
+    "development-tools",
+    "cli"
+  ],
+  "author": "Claude Code Team",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/claudeee/claudeee.git"
+  },
+  "bugs": {
+    "url": "https://github.com/claudeee/claudeee/issues"
+  },
+  "homepage": "https://github.com/claudeee/claudeee#readme",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "preferGlobal": true,
+  "files": [
+    "bin/",
+    "frontend/",
+    "backend/",
+    "README.md",
+    "CLAUDE.md"
+  ]
+}

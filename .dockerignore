@@ -1,0 +1,48 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+README.md
+CLAUDE.md
+
+# Build artifacts
+**/bin/
+**/build/
+**/.next/
+**/dist/
+**/out/
+
+# Dependencies
+**/node_modules/
+**/go.sum
+
+# Database files
+**/*.db
+**/*.db-journal
+**/*.db-shm
+**/*.db-wal
+
+# Log files
+**/*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Temporary files
+**/tmp/
+**/temp/
