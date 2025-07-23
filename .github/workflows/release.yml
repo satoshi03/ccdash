@@ -60,7 +60,7 @@ jobs:
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: 0
+          CGO_ENABLED: 1
         run: |
           cd backend
           go build -ldflags="-s -w" -o ../bin/claudeee-server-${{ matrix.suffix }}${{ matrix.ext }} cmd/server/main.go
