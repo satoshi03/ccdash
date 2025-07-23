@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"claudeee-backend/internal/models"
-	_ "github.com/marcboeker/go-duckdb/v2"
+	_ "github.com/marcboeker/go-duckdb"
 )
 
 func setupTestDBForStateManager(t *testing.T) (*sql.DB, *FileSyncStateManager) {

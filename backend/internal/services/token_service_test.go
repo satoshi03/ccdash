@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	_ "github.com/marcboeker/go-duckdb/v2"
+	_ "github.com/marcboeker/go-duckdb"
 )
 
 func setupTestDB(t *testing.T) *sql.DB {

@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"claudeee-backend/internal/models"
-	_ "github.com/marcboeker/go-duckdb/v2"
+	_ "github.com/marcboeker/go-duckdb"
 )
 
 func setupTestDBForJSONL(t *testing.T) (*sql.DB, *TokenService, *SessionService) {
