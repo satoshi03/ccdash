@@ -2,6 +2,19 @@
 
 Claudeee is a web application that monitors the execution status of Claude Code and performs task scheduling.
 
+## 📋 Supported Platforms
+
+Claudeee supports the following platforms:
+
+| Platform | Architecture | Status |
+|----------|-------------|---------|
+| **macOS** | Intel (x64) | ✅ Supported |
+| **macOS** | Apple Silicon (ARM64) | ✅ Supported |
+| **Linux** | x64 | ✅ Supported |
+| **Windows** | x64 | ✅ Supported |
+
+> **Note**: Linux ARM64 is not currently supported due to build complexity with DuckDB CGO dependencies.
+
 ## Quickstart
 
 ```bash
@@ -11,12 +24,15 @@ npx claudeee
 # Or, global installation
 npm install -g claudeee
 claudeee
+
+# Start with custom ports
+claudeee --backend-port 8081 --frontend-port 3001
 ```
 
 After installation, access the following URLs in your browser:
 
-  - **Frontend**: http://localhost:3000
-  - **Backend API**: http://localhost:8080
+  - **Frontend**: http://localhost:3000 (or your custom port)
+  - **Backend API**: http://localhost:8080 (or your custom port)
 
 ## Overview
 
@@ -153,8 +169,13 @@ Claudeee offers the following commands:
 npx claudeee
 npx claudeee start
 
+# Start with custom ports
+npx claudeee --backend-port 8081 --frontend-port 3001
+npx claudeee -bp 8081 -fp 3001
+
 # Start in development mode (with hot-reloading)
 npx claudeee dev
+npx claudeee dev --backend-port 8081
 
 # Build the application
 npx claudeee build
@@ -165,6 +186,12 @@ npx claudeee help
 # Display version
 npx claudeee version
 ```
+
+### Command Line Options
+
+- `--backend-port, -bp`: Backend server port (default: 8080)
+- `--frontend-port, -fp`: Frontend server port (default: 3000)
+- `--help, -h`: Show help message
 
 ### Prerequisites
 

@@ -26,8 +26,7 @@ class PlatformDetector {
         'arm64': 'darwin-arm64'
       },
       'linux': {
-        'x64': 'linux-amd64',
-        'arm64': 'linux-arm64'
+        'x64': 'linux-amd64'
       },
       'win32': {
         'x64': 'windows-amd64.exe'
