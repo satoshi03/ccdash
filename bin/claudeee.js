@@ -137,8 +137,33 @@ async function buildFrontend() {
   });
 }
 
-// Start backend server
-function startBackend() {
+
+// Parse command line arguments
+function parseArgs() {
+  const args = process.argv.slice(2);
+  let command = 'start';
+  let backendPort = 8080;
+  let frontendPort = 3000;
+  
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    
+    if (arg === '--backend-port' || arg === '-bp') {
+      backendPort = parseInt(args[i + 1]) || 8080;
+      i++;
+    } else if (arg === '--frontend-port' || arg === '-fp') {
+      frontendPort = parseInt(args[i + 1]) || 3000;
+      i++;
+    } else if (!arg.startsWith('-')) {
+      command = arg;
+    }
+  }
+  
+  return { command, backendPort, frontendPort };
+}
+
+// Start backend server with custom port
+function startBackend(port = 8080, frontendPort = 3000) {
   const serverPath = path.join(packageRoot, 'bin', 'claudeee-server');
   
   if (!fs.existsSync(serverPath)) {
@@ -146,22 +171,32 @@ function startBackend() {
     process.exit(1);
   }
   
-  log.info('Starting backend server on http://localhost:8080');
+  log.info(`Starting backend server on http://localhost:${port}`);
   const backendProcess = spawn(serverPath, [], {
     stdio: 'inherit',
-    detached: false
+    detached: false,
+    env: {
+      ...process.env,
+      PORT: port.toString(),
+      FRONTEND_URL: `http://localhost:${frontendPort}`
+    }
   });
   
   return backendProcess;
 }
 
-// Start frontend server
-function startFrontend() {
-  log.info('Starting frontend server on http://localhost:3000');
+// Start frontend server with custom port
+function startFrontend(port = 3000, backendPort = 8080) {
+  log.info(`Starting frontend server on http://localhost:${port}`);
   const frontendProcess = spawn('npm', ['run', 'start'], {
     cwd: frontendPath,
     stdio: 'inherit',
-    detached: false
+    detached: false,
+    env: {
+      ...process.env,
+      PORT: port.toString(),
+      NEXT_PUBLIC_API_URL: `http://localhost:${backendPort}`
+    }
   });
   
   return frontendProcess;
@@ -169,8 +204,7 @@ function startFrontend() {
 
 // Main CLI function
 async function main() {
-  const args = process.argv.slice(2);
-  const command = args[0] || 'start';
+  const { command, backendPort, frontendPort } = parseArgs();
   
   log.logo();
   
@@ -200,8 +234,8 @@ async function main() {
         }
         
         // Start both services
-        const backendProcess = startBackend();
-        const frontendProcess = startFrontend();
+        const backendProcess = startBackend(backendPort, frontendPort);
+        const frontendProcess = startFrontend(frontendPort, backendPort);
         
         // Handle process cleanup
         const cleanup = () => {
@@ -219,8 +253,8 @@ async function main() {
         process.on('SIGTERM', cleanup);
         
         log.success('claudeee is running!');
-        log.info('Backend:  http://localhost:8080');
-        log.info('Frontend: http://localhost:3000');
+        log.info(`Backend:  http://localhost:${backendPort}`);
+        log.info(`Frontend: http://localhost:${frontendPort}`);
         log.info('Press Ctrl+C to stop');
         
         break;
@@ -238,15 +272,27 @@ async function main() {
       case 'dev':
       case 'development':
         log.info('Starting claudeee in development mode...');
+        log.info(`Backend:  http://localhost:${backendPort}`);
+        log.info(`Frontend: http://localhost:${frontendPort}`);
         
         const devBackend = spawn('go', ['run', 'cmd/server/main.go'], {
           cwd: backendPath,
-          stdio: 'inherit'
+          stdio: 'inherit',
+          env: {
+            ...process.env,
+            PORT: backendPort.toString(),
+            FRONTEND_URL: `http://localhost:${frontendPort}`
+          }
         });
         
         const devFrontend = spawn('npm', ['run', 'dev'], {
           cwd: frontendPath,
-          stdio: 'inherit'
+          stdio: 'inherit',
+          env: {
+            ...process.env,
+            PORT: frontendPort.toString(),
+            NEXT_PUBLIC_API_URL: `http://localhost:${backendPort}`
+          }
         });
         
         const devCleanup = () => {
@@ -269,7 +315,7 @@ async function main() {
       case '--help':
       case '-h':
         console.log(`
-Usage: claudeee [command]
+Usage: claudeee [command] [options]
 
 Commands:
   start, run    Start claudeee (default)
@@ -277,11 +323,16 @@ Commands:
   build         Build the application
   help          Show this help message
 
+Options:
+  --backend-port, -bp   Backend server port (default: 8080)
+  --frontend-port, -fp  Frontend server port (default: 3000)
+
 Examples:
-  npx claudeee           # Start the application
-  npx claudeee dev       # Start in development mode
-  npx claudeee build     # Build the application
-  npx claudeee help      # Show help
+  npx claudeee                           # Start with default ports
+  npx claudeee --backend-port 8081       # Start with custom backend port
+  npx claudeee -bp 8081 -fp 3001         # Start with custom ports
+  npx claudeee dev --backend-port 8081   # Development mode with custom backend port
+  npx claudeee build                     # Build the application
 
 For more information, visit: https://github.com/claudeee/claudeee
         `);

@@ -70,7 +70,7 @@ export function Header({ onSettingsChange }: HeaderProps) {
         <div className="flex flex-1 items-center justify-end space-x-2">
           <div className="hidden items-center space-x-2 sm:flex">
             <Button variant="ghost" size="sm" asChild>
-              <Link href="https://github.com/claudeee/claudeee" target="_blank" rel="noopener noreferrer">
+              <Link href="https://github.com/satoshi03/claudeee" target="_blank" rel="noopener noreferrer">
                 <Github className="h-4 w-4" />
                 <span className="sr-only">GitHub</span>
               </Link>
