@@ -1,24 +1,23 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
-import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { RefreshCw } from "lucide-react"
 import { TokenUsageCard } from "@/components/token-usage-card"
 import { SessionList } from "@/components/session-list"
 import { ProjectOverview } from "@/components/project-overview"
 import { useTokenUsage, useSessions, useSyncLogs, useAvailableTokens } from "@/hooks/use-api"
 import { useI18n } from "@/hooks/use-i18n"
 import { Settings, getSettings, PLAN_LIMITS } from "@/lib/settings"
+import { Session } from "@/lib/api"
 
 export default function Dashboard() {
   const { data: tokenUsage, loading: tokenLoading, error: tokenError, refetch: refetchTokens } = useTokenUsage()
   const { data: sessions, loading: sessionsLoading, error: sessionsError, refetch: refetchSessions } = useSessions()
   const { sync: syncLogs } = useSyncLogs()
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [settings, setSettings] = useState<Settings>(() => getSettings())
+  const [settings] = useState<Settings>(() => getSettings())
   const { data: availableTokens, refetch: refetchAvailable } = useAvailableTokens(settings.plan)
-  const { t, language, changeLanguage } = useI18n()
+  const { t } = useI18n()
 
   const refreshData = useCallback(async () => {
     setIsRefreshing(true)
@@ -49,7 +48,7 @@ export default function Dashboard() {
     return () => clearInterval(interval)
   }, [isRefreshing, settings.autoRefreshInterval, refreshData])
 
-  const convertSessionsToProjects = (sessions: unknown[]) => {
+  const convertSessionsToProjects = (sessions: Session[]) => {
     const projectMap = new Map()
     
     sessions.forEach(session => {
@@ -82,7 +81,7 @@ export default function Dashboard() {
     const projectsArray = Array.from(projectMap.values())
     projectsArray.forEach(project => {
       // 各プロジェクト内のセッションを最終実行時間でソート
-      project.sessions.sort((a, b) => {
+      project.sessions.sort((a: { endTime: Date | null; startTime: Date }, b: { endTime: Date | null; startTime: Date }) => {
         const aTime = a.endTime || a.startTime
         const bTime = b.endTime || b.startTime
         return bTime.getTime() - aTime.getTime()

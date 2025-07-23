@@ -16,6 +16,7 @@ import { LanguageSelector } from "@/components/language-selector"
 import { SettingsModal } from "@/components/settings-modal"
 import { useI18n } from "@/hooks/use-i18n"
 import { useSyncLogs } from "@/hooks/use-api"
+import { Settings } from "@/lib/settings"
 import { 
   Menu, 
   RefreshCw, 
@@ -24,7 +25,7 @@ import {
 } from "lucide-react"
 
 interface HeaderProps {
-  onSettingsChange?: (settings: any) => void
+  onSettingsChange?: (settings: Settings) => void
 }
 
 export function Header({ onSettingsChange }: HeaderProps) {

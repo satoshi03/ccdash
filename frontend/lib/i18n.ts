@@ -287,11 +287,11 @@ export const translations: Record<Language, Translations> = {
 // 翻訳取得関数
 export function getTranslation(language: Language, key: string): string {
   const keys = key.split('.')
-  let value: any = translations[language]
+  let value: unknown = translations[language]
   
   for (const k of keys) {
     if (value && typeof value === 'object' && k in value) {
-      value = value[k]
+      value = value[k as keyof typeof value]
     } else {
       // フォールバック: 日本語を試す
       if (language !== 'ja') {

@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Folder, Clock, ExternalLink } from "lucide-react"
+import { Folder } from "lucide-react"
 import Link from "next/link"
 import { useI18n } from "@/hooks/use-i18n"
 

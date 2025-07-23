@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Languages, Check } from "lucide-react"
-import { Language, loadLanguage, saveLanguage } from "@/lib/i18n"
+import { Language, loadLanguage } from "@/lib/i18n"
 
 interface LanguageSelectorProps {
   currentLanguage?: Language

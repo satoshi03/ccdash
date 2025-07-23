@@ -20,6 +20,26 @@ import { ArrowLeft, Clock, MessageSquare, Code2, User, Bot, Copy, Check } from "
 import { api, PaginatedMessages } from "@/lib/api"
 import { useI18n } from "@/hooks/use-i18n"
 
+type Message = {
+  id: string
+  session_id: string
+  parent_uuid: string | null
+  is_sidechain: boolean
+  user_type: string | null
+  message_type: string | null
+  message_role: string | null
+  model: string | null
+  content: string | null
+  input_tokens: number
+  cache_creation_input_tokens: number
+  cache_read_input_tokens: number
+  output_tokens: number
+  service_tier: string | null
+  request_id: string | null
+  timestamp: string
+  created_at: string
+};
+
 interface SessionDetail {
   session: {
     id: string
@@ -38,25 +58,7 @@ interface SessionDetail {
     last_activity: string
     generated_code: string[]
   }
-  messages: Array<{
-    id: string
-    session_id: string
-    parent_uuid: string | null
-    is_sidechain: boolean
-    user_type: string | null
-    message_type: string | null
-    message_role: string | null
-    model: string | null
-    content: string | null
-    input_tokens: number
-    cache_creation_input_tokens: number
-    cache_read_input_tokens: number
-    output_tokens: number
-    service_tier: string | null
-    request_id: string | null
-    timestamp: string
-    created_at: string
-  }> | PaginatedMessages
+  messages: Array<Message> | PaginatedMessages
   token_usage: {
     total_tokens: number
     input_tokens: number
@@ -134,7 +136,7 @@ function SessionDetailContent() {
     return matches.map(match => match.replace(/```\w*\n?|\n```/g, '').trim())
   }
 
-  const renderMessageContent = (message: unknown) => {
+  const renderMessageContent = (message: Message) => {
     if (!message.content) return <div className="text-muted-foreground text-sm">{t('session.noContent')}</div>
 
     // Safety check for content type
@@ -157,56 +159,59 @@ function SessionDetailContent() {
         if (Array.isArray(parsed)) {
           return (
             <div className="space-y-2">
-              {parsed.map((item: unknown, index: number) => (
-                <div key={index} className="bg-muted p-3 rounded-md">
-                  {item.type === 'text' && (
-                    <div className="whitespace-pre-wrap text-sm">{item.text}</div>
-                  )}
-                  {item.type === 'tool_use' && (
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Code2 className="w-4 h-4" />
-                        <span className="font-medium">{item.name}</span>
+              {parsed.map((item: unknown, index: number) => {
+                const itemObj = item as Record<string, unknown>
+                return (
+                  <div key={index} className="bg-muted p-3 rounded-md">
+                    {itemObj.type === 'text' && (
+                      <div className="whitespace-pre-wrap text-sm">{itemObj.text as string}</div>
+                    )}
+                    {itemObj.type === 'tool_use' && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Code2 className="w-4 h-4" />
+                          <span className="font-medium">{itemObj.name as string}</span>
+                        </div>
+                        <pre className="text-xs bg-background p-2 rounded overflow-x-auto">
+                          {JSON.stringify(itemObj.input, null, 2)}
+                        </pre>
                       </div>
-                      <pre className="text-xs bg-background p-2 rounded overflow-x-auto">
-                        {JSON.stringify(item.input, null, 2)}
-                      </pre>
-                    </div>
-                  )}
-                  {item.type === 'tool_result' && (
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <Code2 className="w-4 h-4" />
-                        <span className="font-medium">{t('session.toolResult')}</span>
-                        {item.tool_use_id && (
-                          <span className="text-xs text-muted-foreground">({item.tool_use_id.slice(-8)})</span>
-                        )}
+                    )}
+                    {itemObj.type === 'tool_result' && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <Code2 className="w-4 h-4" />
+                          <span className="font-medium">{t('session.toolResult')}</span>
+                          {(itemObj.tool_use_id && typeof itemObj.tool_use_id === 'string') ? (
+                            <span className="text-xs text-muted-foreground">({itemObj.tool_use_id.slice(-8)})</span>
+                          ) : null}
+                        </div>
+                        <div className="text-xs bg-background p-2 rounded whitespace-pre-wrap">
+                          {typeof itemObj.content === 'string' ? itemObj.content : JSON.stringify(itemObj.content, null, 2) as string}
+                        </div>
                       </div>
-                      <div className="text-xs bg-background p-2 rounded whitespace-pre-wrap">
-                        {typeof item.content === 'string' ? item.content : JSON.stringify(item.content, null, 2)}
+                    )}
+                    {itemObj.type === 'thinking' && (
+                      <div>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="font-medium text-purple-600">💭 {t('session.thinking')}</span>
+                        </div>
+                        <div className="text-xs bg-purple-50 p-2 rounded whitespace-pre-wrap">
+                          {String(itemObj.thinking)}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  {item.type === 'thinking' && (
-                    <div>
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="font-medium text-purple-600">💭 {t('session.thinking')}</span>
+                    )}
+                    {!itemObj.type && (
+                      <div>
+                        <div className="text-xs text-muted-foreground mb-2">{t('session.unknownItemType')}</div>
+                        <pre className="text-xs bg-background p-2 rounded overflow-x-auto">
+                          {JSON.stringify(itemObj, null, 2)}
+                        </pre>
                       </div>
-                      <div className="text-xs bg-purple-50 p-2 rounded whitespace-pre-wrap">
-                        {item.thinking}
-                      </div>
-                    </div>
-                  )}
-                  {!item.type && (
-                    <div>
-                      <div className="text-xs text-muted-foreground mb-2">{t('session.unknownItemType')}</div>
-                      <pre className="text-xs bg-background p-2 rounded overflow-x-auto">
-                        {JSON.stringify(item, null, 2)}
-                      </pre>
-                    </div>
-                  )}
-                </div>
-              ))}
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )
         }
@@ -277,11 +282,11 @@ function SessionDetailContent() {
     )
   }
 
-  const { session, messages, token_usage } = sessionDetail
+  const { session, messages } = sessionDetail
   
   // Type guard to check if messages is paginated
   const isPaginated = (messages: unknown): messages is PaginatedMessages => {
-    return messages && typeof messages === 'object' && 'messages' in messages && 'total' in messages
+    return Boolean(messages && typeof messages === 'object' && messages !== null && 'messages' in messages && 'total' in messages)
   }
   
   const messageList = isPaginated(messages) ? messages.messages : messages
