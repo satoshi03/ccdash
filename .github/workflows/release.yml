@@ -365,7 +365,11 @@ jobs:
         run: |
           cd test-package
           npm pack
-          npm install -g claudeee-*.tgz
+          # Get the actual tarball filename (cross-platform compatible)
+          TARBALL=$(node -e "console.log(require('./package.json').name + '-' + require('./package.json').version + '.tgz')")
+          echo "Installing tarball: $TARBALL"
+          npm install -g "$TARBALL"
+        shell: bash
 
       - name: Test CLI
         run: |
