@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"claudeee-backend/internal/models"
-	_ "github.com/marcboeker/go-duckdb"
+	_ "github.com/marcboeker/go-duckdb/v2"
 )
 
 func setupTestDBForActivity(t *testing.T) (*sql.DB, *SessionActivityDetector) {

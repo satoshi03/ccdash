@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	
 	"claudeee-backend/internal/services"
-	_ "github.com/marcboeker/go-duckdb"
+	_ "github.com/marcboeker/go-duckdb/v2"
 )
 
 func Initialize() (*sql.DB, error) {
