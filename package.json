@@ -14,7 +14,10 @@
     "dev": "npm run dev:backend & npm run dev:frontend",
     "dev:backend": "cd backend && go run cmd/server/main.go",
     "dev:frontend": "cd frontend && npm run dev",
-    "postinstall": "npm run build || echo 'Build failed, but continuing...'"
+    "postinstall": "node scripts/postinstall.js",
+    "preuninstall": "node scripts/postinstall.js cleanup",
+    "test": "echo \"No tests specified\" && exit 0",
+    "prepublishOnly": "npm run test"
   },
   "keywords": [
     "claude",
@@ -47,9 +50,18 @@
   "preferGlobal": true,
   "files": [
     "bin/",
-    "frontend/",
-    "backend/",
+    "scripts/",
+    "frontend/.next/",
+    "frontend/package.json",
+    "frontend/node_modules/",
     "README.md",
     "CLAUDE.md"
-  ]
+  ],
+  "cpu": [
+    "x64",
+    "arm64"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
 }

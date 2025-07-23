@@ -1,0 +1,327 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 1.0.0)'
+        required: true
+        default: '1.0.0'
+
+env:
+  NODE_VERSION: '18'
+  GO_VERSION: '1.21'
+
+jobs:
+  build-backend:
+    name: Build Backend Binaries
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: darwin
+            goarch: amd64
+            suffix: darwin-amd64
+          - goos: darwin
+            goarch: arm64
+            suffix: darwin-arm64
+          - goos: linux
+            goarch: amd64
+            suffix: linux-amd64
+          - goos: linux
+            goarch: arm64
+            suffix: linux-arm64
+          - goos: windows
+            goarch: amd64
+            suffix: windows-amd64
+            ext: .exe
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Cache Go modules
+        uses: actions/cache@v3
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('backend/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Build backend binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          cd backend
+          go build -ldflags="-s -w" -o ../bin/claudeee-server-${{ matrix.suffix }}${{ matrix.ext }} cmd/server/main.go
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: backend-binaries
+          path: bin/claudeee-server-*
+
+  build-frontend:
+    name: Build Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+
+      - name: Build frontend
+        run: |
+          cd frontend
+          npm run build
+
+      - name: Upload frontend build
+        uses: actions/upload-artifact@v3
+        with:
+          name: frontend-build
+          path: frontend/.next/
+
+  create-release:
+    name: Create Release Package
+    needs: [build-backend, build-frontend]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Download backend binaries
+        uses: actions/download-artifact@v3
+        with:
+          name: backend-binaries
+          path: bin/
+
+      - name: Download frontend build
+        uses: actions/download-artifact@v3
+        with:
+          name: frontend-build
+          path: frontend/.next/
+
+      - name: Set executable permissions
+        run: |
+          chmod +x bin/claudeee-server-*
+          ls -la bin/
+
+      - name: Install frontend dependencies for package
+        run: |
+          cd frontend
+          npm ci --production
+
+      - name: Get version from tag or input
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update package.json version
+        run: |
+          npm version ${{ steps.version.outputs.version }} --no-git-tag-version
+
+      - name: Create npm package
+        run: |
+          # Create package structure
+          mkdir -p dist/bin
+          mkdir -p dist/frontend
+          mkdir -p dist/scripts
+          
+          # Copy binaries
+          cp bin/claudeee-server-* dist/bin/
+          
+          # Copy frontend build and dependencies
+          cp -r frontend/.next dist/frontend/
+          cp -r frontend/node_modules dist/frontend/ 2>/dev/null || echo "No node_modules to copy"
+          cp frontend/package.json dist/frontend/
+          
+          # Copy root files
+          cp package.json dist/
+          cp bin/claudeee.js dist/
+          cp README.md dist/ 2>/dev/null || echo "README.md will be created"
+          cp CLAUDE.md dist/ 2>/dev/null || echo "CLAUDE.md will be created"
+
+      - name: Create README for npm
+        run: |
+          cat > dist/README.md << 'EOF'
+          # Claudeee - Claude Code Monitor & Task Scheduler
+
+          A comprehensive monitoring and task scheduling tool for Claude Code.
+
+          ## Installation
+
+          ```bash
+          npm install -g claudeee
+          ```
+
+          ## Usage
+
+          ```bash
+          # Start with default ports
+          claudeee
+
+          # Start with custom ports
+          claudeee --backend-port 8081 --frontend-port 3001
+
+          # Development mode
+          claudeee dev
+
+          # Build project
+          claudeee build
+
+          # Show help
+          claudeee help
+          ```
+
+          ## Features
+
+          - Monitor Claude Code usage and token consumption
+          - Track sessions and activities
+          - Task scheduling capabilities
+          - Web-based dashboard
+          - Cross-platform support
+
+          ## Requirements
+
+          - Node.js 18+
+          - Modern web browser
+
+          ## Support
+
+          For issues and feature requests, visit: https://github.com/claudeee/claudeee
+          EOF
+
+      - name: Test package
+        run: |
+          cd dist
+          npm pack --dry-run
+
+      - name: Publish to npm
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        run: |
+          cd dist
+          npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ steps.version.outputs.version }}
+          body: |
+            ## Changes in ${{ steps.version.outputs.version }}
+            
+            ### 🚀 Features
+            - Cross-platform binaries included
+            - Improved installation process
+            - Enhanced CLI with port configuration
+            
+            ### 📦 Installation
+            ```bash
+            npm install -g claudeee@${{ steps.version.outputs.version }}
+            ```
+            
+            ### 🔧 Usage
+            ```bash
+            claudeee --backend-port 8081 --frontend-port 3001
+            ```
+            
+            ### 📋 Supported Platforms
+            - macOS (Intel & Apple Silicon)
+            - Linux (x64 & ARM64)
+            - Windows (x64)
+          draft: false
+          prerelease: false
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: npm-package
+          path: dist/
+
+  test-package:
+    name: Test Package Installation
+    needs: create-release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node-version: [18, 20]
+    
+    steps:
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      - name: Download package
+        uses: actions/download-artifact@v3
+        with:
+          name: npm-package
+          path: test-package/
+
+      - name: Test package installation
+        run: |
+          cd test-package
+          npm pack
+          npm install -g claudeee-*.tgz
+
+      - name: Test CLI
+        run: |
+          claudeee help
+          claudeee version
+
+      - name: Test platform detection
+        run: |
+          node -e "
+            const path = require('path');
+            const fs = require('fs');
+            const platform = process.platform;
+            const arch = process.arch;
+            console.log('Platform:', platform, 'Arch:', arch);
+            
+            // Check if appropriate binary exists
+            let binaryName = 'claudeee-server-';
+            if (platform === 'darwin') {
+              binaryName += arch === 'arm64' ? 'darwin-arm64' : 'darwin-amd64';
+            } else if (platform === 'linux') {
+              binaryName += arch === 'arm64' ? 'linux-arm64' : 'linux-amd64';
+            } else if (platform === 'win32') {
+              binaryName += 'windows-amd64.exe';
+            }
+            console.log('Expected binary:', binaryName);
+          "
