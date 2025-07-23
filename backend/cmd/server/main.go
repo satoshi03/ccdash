@@ -41,25 +41,19 @@ func main() {
 		c.Next()
 	})
 
-	v1 := r.Group("/api/v1")
+	api := r.Group("/api")
 	{
-		v1.GET("/health", func(c *gin.Context) {
+		api.GET("/health", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{
 				"status": "healthy",
 				"message": "Claudeee API is running",
 			})
 		})
 		
-		v1.GET("/token-usage", handler.GetTokenUsage)
-		v1.GET("/sessions", handler.GetSessions)
-		v1.GET("/sessions/:id", handler.GetSessionDetails)
-		v1.GET("/sessions/:id/activity", handler.GetSessionActivityReport)
-		v1.POST("/sync-logs", handler.SyncLogs)
-	}
-	
-	api := r.Group("/api")
-	{
 		api.GET("/token-usage", handler.GetTokenUsage)
+		api.GET("/sessions", handler.GetSessions)
+		api.GET("/sessions/:id", handler.GetSessionDetails)
+		api.GET("/sessions/:id/activity", handler.GetSessionActivityReport)
 		api.GET("/claude/sessions/recent", handler.GetRecentSessions)
 		api.GET("/claude/available-tokens", handler.GetAvailableTokens)
 		api.GET("/costs/current-month", handler.GetCurrentMonthCosts)

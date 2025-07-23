@@ -107,7 +107,7 @@ class ApiClient {
   }
 
   async getSessionDetail(sessionId: string, page?: number, pageSize?: number): Promise<SessionDetail> {
-    let url = `/v1/sessions/${sessionId}`
+    let url = `/sessions/${sessionId}`
     if (page !== undefined || pageSize !== undefined) {
       const params = new URLSearchParams()
       if (page !== undefined) params.append('page', page.toString())
