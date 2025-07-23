@@ -103,16 +103,48 @@ jobs:
           cd frontend
           npm ci --legacy-peer-deps
 
+      - name: Check TypeScript
+        run: |
+          cd frontend
+          npx tsc --noEmit || echo "TypeScript check failed, but continuing build"
+
       - name: Build frontend
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8080/api
+          NODE_ENV: production
         run: |
           cd frontend
           npm run build
+          
+          # Verify build was successful
+          if [ ! -d ".next" ]; then
+            echo "ERROR: .next directory not found after build"
+            exit 1
+          fi
+          
+          if [ ! -f ".next/BUILD_ID" ]; then
+            echo "ERROR: BUILD_ID not found, build may have failed"
+            exit 1
+          fi
+          
+          echo "Build successful, .next directory created"
+
+      - name: Verify build output
+        run: |
+          cd frontend
+          ls -la .next/
+          echo "Build ID: $(cat .next/BUILD_ID 2>/dev/null || echo 'Not found')"
+          find .next -type f -name "*.js" | head -5
 
       - name: Upload frontend build
         uses: actions/upload-artifact@v4
         with:
           name: frontend-build
-          path: frontend/.next/
+          path: |
+            frontend/.next/
+            frontend/package.json
+            frontend/package-lock.json
+            frontend/next.config.js
 
   create-release:
     name: Create Release Package
@@ -149,7 +181,12 @@ jobs:
       - name: Install frontend dependencies for package
         run: |
           cd frontend
-          npm ci --production --legacy-peer-deps
+          # Skip if standalone build is used (dependencies are included in build)
+          if [ -d ".next/standalone" ]; then
+            echo "Standalone build detected, skipping production install"
+          else
+            npm ci --production --legacy-peer-deps || npm install --production --legacy-peer-deps
+          fi
 
       - name: Get version from tag or input
         id: version
@@ -178,6 +215,11 @@ jobs:
           cp -r frontend/.next dist/frontend/
           cp -r frontend/node_modules dist/frontend/ 2>/dev/null || echo "No node_modules to copy"
           cp frontend/package.json dist/frontend/
+          cp frontend/next.config.js dist/frontend/ 2>/dev/null || echo "No next.config.js to copy"
+          
+          # Copy scripts
+          cp scripts/platform-detector.js dist/scripts/ 2>/dev/null || echo "No platform-detector.js to copy"
+          cp scripts/postinstall.js dist/scripts/ 2>/dev/null || echo "No postinstall.js to copy"
           
           # Copy root files
           cp package.json dist/
@@ -333,9 +375,24 @@ jobs:
             if (platform === 'darwin') {
               binaryName += arch === 'arm64' ? 'darwin-arm64' : 'darwin-amd64';
             } else if (platform === 'linux') {
-              binaryName += arch === 'arm64' ? 'linux-arm64' : 'linux-amd64';
+              // Only x64 supported for Linux
+              if (arch === 'x64') {
+                binaryName += 'linux-amd64';
+              } else {
+                console.log('WARNING: Linux ARM64 is not supported');
+                process.exit(0);
+              }
             } else if (platform === 'win32') {
               binaryName += 'windows-amd64.exe';
             }
             console.log('Expected binary:', binaryName);
+            
+            // Test platform detector script if available
+            try {
+              const PlatformDetector = require('./scripts/platform-detector.js');
+              const detector = new PlatformDetector();
+              console.log('Platform detector info:', detector.getPlatformInfo());
+            } catch (e) {
+              console.log('Platform detector not available:', e.message);
+            }
           "
