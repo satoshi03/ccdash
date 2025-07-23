@@ -18,26 +18,35 @@ env:
 jobs:
   build-backend:
     name: Build Backend Binaries
-    runs-on: ubuntu-latest
     strategy:
       matrix:
         include:
+          # macOS builds (Intel & Apple Silicon)
           - goos: darwin
             goarch: amd64
             suffix: darwin-amd64
+            runner: macos-13  # Intel-based macOS
           - goos: darwin
             goarch: arm64
             suffix: darwin-arm64
+            runner: macos-latest  # Apple Silicon macOS
+          # Linux builds
           - goos: linux
             goarch: amd64
             suffix: linux-amd64
+            runner: ubuntu-latest
           - goos: linux
             goarch: arm64
             suffix: linux-arm64
+            runner: ubuntu-latest  # Will use cross-compilation with native tooling
+          # Windows build
           - goos: windows
             goarch: amd64
             suffix: windows-amd64
             ext: .exe
+            runner: windows-latest
+    
+    runs-on: ${{ matrix.runner }}
 
     steps:
       - name: Checkout code
@@ -51,10 +60,20 @@ jobs:
       - name: Cache Go modules
         uses: actions/cache@v4
         with:
-          path: ~/go/pkg/mod
-          key: ${{ runner.os }}-go-${{ hashFiles('backend/go.sum') }}
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-${{ matrix.goarch }}-go-${{ hashFiles('backend/go.sum') }}
           restore-keys: |
+            ${{ runner.os }}-${{ matrix.goarch }}-go-
             ${{ runner.os }}-go-
+
+      - name: Set up cross-compilation for Linux ARM64
+        if: matrix.goos == 'linux' && matrix.goarch == 'arm64'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+          echo "CC=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
 
       - name: Build backend binary
         env:
@@ -63,6 +82,7 @@ jobs:
           CGO_ENABLED: 1
         run: |
           cd backend
+          go mod tidy
           go build -ldflags="-s -w" -o ../bin/claudeee-server-${{ matrix.suffix }}${{ matrix.ext }} cmd/server/main.go
 
       - name: Upload binary artifact
