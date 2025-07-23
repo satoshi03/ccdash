@@ -199,7 +199,18 @@ jobs:
 
       - name: Update package.json version
         run: |
-          npm version ${{ steps.version.outputs.version }} --no-git-tag-version
+          NEW_VERSION=${{ steps.version.outputs.version }}
+          CURRENT_VERSION=$(node -p "require('./frontend/package.json').version")
+
+          echo "Current package.json version: $CURRENT_VERSION"
+          echo "Target version: $NEW_VERSION"
+
+          if [ "$NEW_VERSION" != "$CURRENT_VERSION" ]; then
+            echo "Version needs to be updated. Updating to $NEW_VERSION."
+            npm version "$NEW_VERSION" --no-git-tag-version
+          else
+            echo "Version is already $CURRENT_VERSION. No change needed."
+          fi
 
       - name: Create npm package
         run: |
