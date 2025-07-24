@@ -188,16 +188,41 @@ function startBackend(port = 8080, frontendPort = 3000) {
 // Start frontend server with custom port
 function startFrontend(port = 3000, backendPort = 8080) {
   log.info(`Starting frontend server on http://localhost:${port}`);
-  const frontendProcess = spawn('npm', ['run', 'start'], {
-    cwd: frontendPath,
-    stdio: 'inherit',
-    detached: false,
-    env: {
-      ...process.env,
-      PORT: port.toString(),
-      NEXT_PUBLIC_API_URL: `http://localhost:${backendPort}`
-    }
-  });
+  
+  // Check if standalone build exists
+  const standalonePath = path.join(frontendPath, 'standalone', 'server.js');
+  const standaloneDir = path.join(frontendPath, 'standalone');
+  
+  let frontendProcess;
+  
+  if (fs.existsSync(standalonePath)) {
+    // Use standalone build
+    log.info('Using standalone Next.js build');
+    frontendProcess = spawn('node', ['server.js'], {
+      cwd: standaloneDir,
+      stdio: 'inherit',
+      detached: false,
+      env: {
+        ...process.env,
+        PORT: port.toString(),
+        NEXT_PUBLIC_API_URL: `http://localhost:${backendPort}`,
+        HOSTNAME: '0.0.0.0'
+      }
+    });
+  } else {
+    // Fallback to npm start
+    log.info('Using npm start (standalone build not found)');
+    frontendProcess = spawn('npm', ['run', 'start'], {
+      cwd: frontendPath,
+      stdio: 'inherit',
+      detached: false,
+      env: {
+        ...process.env,
+        PORT: port.toString(),
+        NEXT_PUBLIC_API_URL: `http://localhost:${backendPort}`
+      }
+    });
+  }
   
   return frontendProcess;
 }

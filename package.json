@@ -51,11 +51,11 @@
   "files": [
     "bin/",
     "scripts/",
-    "frontend/.next/",
+    "frontend/.next/standalone/",
+    "frontend/.next/static/",
     "frontend/package.json",
-    "frontend/node_modules/",
-    "README.md",
-    "CLAUDE.md"
+    "frontend/next.config.js",
+    "README.md"
   ],
   "cpu": [
     "x64",

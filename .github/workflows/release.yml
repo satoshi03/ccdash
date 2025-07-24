@@ -178,14 +178,15 @@ jobs:
           chmod +x bin/claudeee-server-*
           ls -la bin/
 
-      - name: Install frontend dependencies for package
+      - name: Check frontend build type
         run: |
           cd frontend
-          # Skip if standalone build is used (dependencies are included in build)
           if [ -d ".next/standalone" ]; then
-            echo "Standalone build detected, skipping production install"
+            echo "✅ Standalone build detected - no additional dependencies needed"
+            echo "STANDALONE_BUILD=true" >> $GITHUB_ENV
           else
-            npm ci --production --legacy-peer-deps || npm install --production --legacy-peer-deps
+            echo "⚠️ Regular build detected - will include minimal dependencies"
+            echo "STANDALONE_BUILD=false" >> $GITHUB_ENV
           fi
 
       - name: Get version from tag or input
@@ -223,9 +224,14 @@ jobs:
           cp bin/claudeee-server-* dist/bin/
           cp bin/claudeee.js dist/bin/
           
-          # Copy frontend build and dependencies
-          cp -r frontend/.next dist/frontend/
-          cp -r frontend/node_modules dist/frontend/ 2>/dev/null || echo "No node_modules to copy"
+          # Copy frontend build (standalone mode only)
+          if [ -d "frontend/.next/standalone" ]; then
+            cp -r frontend/.next/standalone dist/frontend/
+            cp -r frontend/.next/static dist/frontend/
+          else
+            echo "Standalone build not found, copying .next directory"
+            cp -r frontend/.next dist/frontend/
+          fi
           cp frontend/package.json dist/frontend/
           cp frontend/next.config.js dist/frontend/ 2>/dev/null || echo "No next.config.js to copy"
           
