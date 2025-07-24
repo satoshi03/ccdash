@@ -1,5 +1,5 @@
 {
-  "name": "@satoshi03/claudeee",
+  "name": "claudeee",
   "version": "0.1.0",
   "description": "Claude Code Monitoring - A comprehensive monitoring for Claude Code",
   "main": "bin/claudeee.js",

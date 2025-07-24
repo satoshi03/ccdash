@@ -18,15 +18,12 @@ Claudeee supports the following platforms:
 ## Quickstart
 
 ```bash
-# Run instantly using NPX (scoped package)
-npx @satoshi03/claudeee
+# Run instantly using NPX
+npx claudeee
 
 # Or, global installation
-npm install -g @satoshi03/claudeee
+npm install -g claudeee
 claudeee
-
-# Alternative: Download and install from GitHub releases
-# Visit: https://github.com/satoshi03/claudeee/releases
 
 # Start with custom ports
 claudeee --backend-port 8081 --frontend-port 3001
