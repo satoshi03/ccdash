@@ -86,7 +86,14 @@ func (p *JSONLParser) parseJSONLFile(filePath, projectName string) error {
 	}
 	defer file.Close()
 	
+	fileName := filepath.Base(filePath)
 	scanner := bufio.NewScanner(file)
+	
+	// Increase buffer size to handle very long lines (up to 10MB)
+	const maxCapacity = 10 * 1024 * 1024 // 10MB
+	buf := make([]byte, maxCapacity)
+	scanner.Buffer(buf, maxCapacity)
+	
 	lineCount := 0
 	processedCount := 0
 	
@@ -99,12 +106,14 @@ func (p *JSONLParser) parseJSONLFile(filePath, projectName string) error {
 		
 		var entry models.LogEntry
 		if err := json.Unmarshal([]byte(line), &entry); err != nil {
-			fmt.Printf("Error unmarshaling line %d: %v\n", lineCount, err)
+			fmt.Printf("Error unmarshaling line %d in file %s: %v\n", lineCount, fileName, err)
+			fmt.Printf("Problematic JSON line: %s\n", line)
 			continue
 		}
 		
 		if err := p.processLogEntry(&entry, projectName); err != nil {
-			fmt.Printf("Error processing log entry %d: %v\n", lineCount, err)
+			fmt.Printf("Error processing log entry %d in file %s (UUID: %s, SessionID: %s): %v\n", lineCount, fileName, entry.UUID, entry.SessionID, err)
+			fmt.Printf("Entry details: %+v\n", entry)
 			continue
 		}
 		processedCount++

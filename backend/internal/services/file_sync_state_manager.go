@@ -94,74 +94,47 @@ func (f *FileSyncStateManager) GetFileState(filePath string) (*models.FileProces
 	return &state, nil
 }
 
-// UpdateFileState updates or inserts the processing state of a file
+// UpdateFileState updates or inserts the processing state of a file using UPSERT
 func (f *FileSyncStateManager) UpdateFileState(state *models.FileProcessingState) error {
-	// Check if record exists
-	existingState, err := f.GetFileState(state.FilePath)
-	if err != nil {
-		return fmt.Errorf("failed to check existing state: %w", err)
+	now := time.Now()
+	state.UpdatedAt = now
+	state.LastSyncTime = now
+	
+	// Use INSERT OR REPLACE to handle both insert and update atomically
+	query := `
+		INSERT OR REPLACE INTO file_sync_state (
+			file_path, last_modified, file_size, last_processed_line,
+			processed_until, checksum, sync_status, last_sync_time,
+			error_message, created_at, updated_at
+		) VALUES (
+			?, ?, ?, ?, ?, ?, ?, ?, ?, 
+			COALESCE((SELECT created_at FROM file_sync_state WHERE file_path = ?), ?),
+			?
+		)
+	`
+	
+	// Set created_at to now if it's a new record
+	if state.CreatedAt.IsZero() {
+		state.CreatedAt = now
 	}
 	
-	state.UpdatedAt = time.Now()
+	_, err := f.db.Exec(query,
+		state.FilePath,
+		state.LastModified,
+		state.FileSize,
+		state.LastProcessedLine,
+		state.ProcessedUntil,
+		state.Checksum,
+		state.SyncStatus,
+		state.LastSyncTime,
+		state.ErrorMessage,
+		state.FilePath, // for COALESCE subquery
+		state.CreatedAt,
+		state.UpdatedAt,
+	)
 	
-	if existingState == nil {
-		// Insert new record
-		query := `
-			INSERT INTO file_sync_state (
-				file_path, last_modified, file_size, last_processed_line,
-				processed_until, checksum, sync_status, last_sync_time,
-				error_message, created_at, updated_at
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		`
-		
-		state.CreatedAt = time.Now()
-		state.LastSyncTime = time.Now()
-		
-		_, err = f.db.Exec(query,
-			state.FilePath,
-			state.LastModified,
-			state.FileSize,
-			state.LastProcessedLine,
-			state.ProcessedUntil,
-			state.Checksum,
-			state.SyncStatus,
-			state.LastSyncTime,
-			state.ErrorMessage,
-			state.CreatedAt,
-			state.UpdatedAt,
-		)
-		
-		if err != nil {
-			return fmt.Errorf("failed to insert file state: %w", err)
-		}
-	} else {
-		// Update existing record
-		query := `
-			UPDATE file_sync_state 
-			SET last_modified = ?, file_size = ?, last_processed_line = ?,
-				processed_until = ?, checksum = ?, sync_status = ?,
-				last_sync_time = ?, error_message = ?, updated_at = ?
-			WHERE file_path = ?
-		`
-		
-		state.LastSyncTime = time.Now()
-		
-		_, err = f.db.Exec(query,
-			state.LastModified,
-			state.FileSize,
-			state.LastProcessedLine,
-			state.ProcessedUntil,
-			state.Checksum,
-			state.SyncStatus,
-			state.LastSyncTime,
-			state.ErrorMessage,
-			state.UpdatedAt,
-			state.FilePath,
-		)
-		
-		if err != nil {
-			return fmt.Errorf("failed to update file state: %w", err)
-		}
+	if err != nil {
+		return fmt.Errorf("failed to upsert file state: %w", err)
 	}
 	
 	return nil
@@ -261,8 +234,19 @@ func (f *FileSyncStateManager) GetAllFileStates() ([]models.FileProcessingState,
 	return states, nil
 }
 
-// CleanupOldStates removes state records for files that no longer exist
+// CleanupOldStates removes state records for files that no longer exist and resets stuck processing states
 func (f *FileSyncStateManager) CleanupOldStates() error {
+	// First, reset any stuck "processing" states that are older than 5 minutes
+	fiveMinutesAgo := time.Now().Add(-5 * time.Minute)
+	_, err := f.db.Exec(`
+		UPDATE file_sync_state 
+		SET sync_status = 'pending', error_message = 'Reset from stuck processing state' 
+		WHERE sync_status = 'processing' AND last_sync_time < ?
+	`, fiveMinutesAgo)
+	if err != nil {
+		fmt.Printf("Warning: failed to reset stuck processing states: %v\n", err)
+	}
+
 	states, err := f.GetAllFileStates()
 	if err != nil {
 		return fmt.Errorf("failed to get file states for cleanup: %w", err)

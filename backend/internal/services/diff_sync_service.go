@@ -224,6 +224,12 @@ func (d *DiffSyncService) processFileFromLine(filePath string, startLine int) (i
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
+	
+	// Increase buffer size to handle very long lines (up to 10MB)
+	const maxCapacity = 10 * 1024 * 1024 // 10MB
+	buf := make([]byte, maxCapacity)
+	scanner.Buffer(buf, maxCapacity)
+	
 	lineCount := 0
 	processedCount := 0
 
@@ -372,79 +378,42 @@ func (d *DiffSyncService) convertContentToString(content interface{}) string {
 }
 
 func (d *DiffSyncService) insertMessage(message *models.Message) error {
-	// Check if message exists
-	var exists bool
-	checkQuery := `SELECT EXISTS(SELECT 1 FROM messages WHERE id = ?)`
-	err := d.db.QueryRow(checkQuery, message.ID).Scan(&exists)
+	// Use INSERT OR REPLACE to handle both insert and update atomically
+	upsertQuery := `
+		INSERT OR REPLACE INTO messages (
+			id, session_id, parent_uuid, is_sidechain, user_type, message_type,
+			message_role, model, content, input_tokens, cache_creation_input_tokens,
+			cache_read_input_tokens, output_tokens, service_tier, request_id,
+			timestamp, created_at
+		) VALUES (
+			?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+			COALESCE((SELECT created_at FROM messages WHERE id = ?), ?)
+		)
+	`
+	
+	now := time.Now()
+	_, err := d.db.Exec(upsertQuery,
+		message.ID,
+		message.SessionID,
+		message.ParentUUID,
+		message.IsSidechain,
+		message.UserType,
+		message.MessageType,
+		message.MessageRole,
+		message.Model,
+		message.Content,
+		message.InputTokens,
+		message.CacheCreationInputTokens,
+		message.CacheReadInputTokens,
+		message.OutputTokens,
+		message.ServiceTier,
+		message.RequestID,
+		message.Timestamp,
+		message.ID, // for COALESCE subquery
+		now,        // created_at for new records
+	)
 	if err != nil {
-		return fmt.Errorf("failed to check message existence: %w", err)
-	}
-
-	if exists {
-		// Update existing message
-		updateQuery := `
-			UPDATE messages SET 
-				session_id = ?, parent_uuid = ?, is_sidechain = ?, user_type = ?, 
-				message_type = ?, message_role = ?, model = ?, content = ?, 
-				input_tokens = ?, cache_creation_input_tokens = ?, 
-				cache_read_input_tokens = ?, output_tokens = ?, service_tier = ?, 
-				request_id = ?, timestamp = ?
-			WHERE id = ?
-		`
-		_, err = d.db.Exec(updateQuery,
-			message.SessionID,
-			message.ParentUUID,
-			message.IsSidechain,
-			message.UserType,
-			message.MessageType,
-			message.MessageRole,
-			message.Model,
-			message.Content,
-			message.InputTokens,
-			message.CacheCreationInputTokens,
-			message.CacheReadInputTokens,
-			message.OutputTokens,
-			message.ServiceTier,
-			message.RequestID,
-			message.Timestamp,
-			message.ID,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to update message: %w", err)
-		}
-	} else {
-		// Insert new message
-		insertQuery := `
-			INSERT INTO messages (
-				id, session_id, parent_uuid, is_sidechain, user_type, message_type,
-				message_role, model, content, input_tokens, cache_creation_input_tokens,
-				cache_read_input_tokens, output_tokens, service_tier, request_id,
-				timestamp, created_at
-			) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-		`
-
-		_, err = d.db.Exec(insertQuery,
-			message.ID,
-			message.SessionID,
-			message.ParentUUID,
-			message.IsSidechain,
-			message.UserType,
-			message.MessageType,
-			message.MessageRole,
-			message.Model,
-			message.Content,
-			message.InputTokens,
-			message.CacheCreationInputTokens,
-			message.CacheReadInputTokens,
-			message.OutputTokens,
-			message.ServiceTier,
-			message.RequestID,
-			message.Timestamp,
-			time.Now(),
-		)
-		if err != nil {
-			return fmt.Errorf("failed to insert message: %w", err)
-		}
+		return fmt.Errorf("failed to upsert message: %w", err)
 	}
 
 	return nil

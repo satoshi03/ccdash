@@ -143,8 +143,8 @@ func (h *Handler) GetSessionDetails(c *gin.Context) {
 func (h *Handler) SyncLogs(c *gin.Context) {
 	db := c.MustGet("db").(*sql.DB)
 	
-	// Temporarily disable differential sync due to issues
-	useDiffSync := false
+	// Enable differential sync to fix partial log reading issues
+	useDiffSync := true
 	
 	if useDiffSync {
 		// Use new differential sync service
