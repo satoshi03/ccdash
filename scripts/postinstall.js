@@ -117,11 +117,57 @@ class PostInstallSetup {
   }
 
   /**
+   * Build frontend if needed
+   */
+  async buildFrontend() {
+    const { spawn } = require('child_process');
+    const frontendPath = path.join(this.packageRoot, 'frontend');
+    const standalonePath = path.join(frontendPath, '.next', 'standalone', 'server.js');
+    
+    if (fs.existsSync(standalonePath)) {
+      this.log('Frontend already built, skipping build step');
+      return;
+    }
+    
+    if (!fs.existsSync(path.join(frontendPath, 'package.json'))) {
+      this.log('Frontend directory not found, skipping build step');
+      return;
+    }
+    
+    this.log('Building frontend...');
+    
+    return new Promise((resolve, reject) => {
+      const buildProcess = spawn('npm', ['run', 'build'], {
+        cwd: frontendPath,
+        stdio: 'inherit'
+      });
+      
+      buildProcess.on('close', (code) => {
+        if (code === 0) {
+          this.log('Frontend built successfully', 'success');
+          resolve();
+        } else {
+          this.log('Frontend build completed with warnings', 'warning');
+          resolve(); // Continue even with warnings
+        }
+      });
+      
+      buildProcess.on('error', (err) => {
+        this.log(`Frontend build failed: ${err.message}`, 'warning');
+        resolve(); // Don't fail the entire setup
+      });
+    });
+  }
+
+  /**
    * Main setup process
    */
   async setup() {
     try {
       this.log('Starting claudeee post-install setup...');
+      
+      // Build frontend first
+      await this.buildFrontend();
       
       // Check platform support
       if (!this.detector.isSupported()) {

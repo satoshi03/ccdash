@@ -190,8 +190,8 @@ function startFrontend(port = 3000, backendPort = 8080) {
   log.info(`Starting frontend server on http://localhost:${port}`);
   
   // Check if standalone build exists
-  const standalonePath = path.join(frontendPath, 'standalone', 'server.js');
-  const standaloneDir = path.join(frontendPath, 'standalone');
+  const standalonePath = path.join(frontendPath, '.next', 'standalone', 'server.js');
+  const standaloneDir = path.join(frontendPath, '.next', 'standalone');
   
   let frontendProcess;
   
@@ -256,6 +256,12 @@ async function main() {
         // Install frontend dependencies if needed
         if (!checkNodeDependencies()) {
           await installFrontendDependencies();
+        }
+        
+        // Build frontend if standalone build doesn't exist
+        const standalonePath = path.join(frontendPath, '.next', 'standalone', 'server.js');
+        if (!fs.existsSync(standalonePath)) {
+          await buildFrontend();
         }
         
         // Start both services
