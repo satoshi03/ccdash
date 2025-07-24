@@ -248,7 +248,10 @@ jobs:
           ## Installation
 
           ```bash
-          npm install -g claudeee
+          # NPM package (scoped)
+          npm install -g @satoshi03/claudeee
+          
+          # Or download binaries from GitHub releases
           ```
 
           ## Usage
@@ -294,12 +297,18 @@ jobs:
           npm pack --dry-run
 
       - name: Publish to npm
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && secrets.NPM_TOKEN != ''
         run: |
           cd dist
           npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Skip npm publish (no token)
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/') && secrets.NPM_TOKEN == ''
+        run: |
+          echo "⚠️  NPM_TOKEN not configured, skipping npm publish"
+          echo "Package tarball is available in GitHub release artifacts"
 
       - name: Create GitHub Release
         if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
@@ -317,7 +326,7 @@ jobs:
             
             ### 📦 Installation
             ```bash
-            npm install -g claudeee@${{ steps.version.outputs.version }}
+            npm install -g @satoshi03/claudeee@${{ steps.version.outputs.version }}
             ```
             
             ### 🔧 Usage
