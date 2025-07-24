@@ -365,7 +365,10 @@ jobs:
         run: |
           cd test-package
           echo "=== Package structure ==="
-          find . -type f -name "*.js" -o -name "package.json" | head -20
+          find . -type f \( -name "*.js" -o -name "package.json" \) 2>/dev/null | head -20 || true
+          echo "=== Key files ==="
+          ls -la bin/ 2>/dev/null || echo "No bin directory"
+          ls -la package.json 2>/dev/null || echo "No package.json"
           echo "=== package.json bin section ==="
           node -e "console.log(JSON.stringify(require('./package.json').bin, null, 2))"
         shell: bash
