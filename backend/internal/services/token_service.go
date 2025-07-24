@@ -24,39 +24,69 @@ const (
 )
 
 func (s *TokenService) GetCurrentTokenUsage() (*models.TokenUsage, error) {
-	// 現在時刻から5時間のウィンドウを計算
-	now := time.Now()
-	potentialWindowStart := now.Add(-WINDOW_DURATION)
+	now := time.Now().UTC()
 	
-	// 5時間のウィンドウ内で最初のメッセージがある時刻を取得
-	windowStartQuery := `
-		SELECT MIN(timestamp) 
-		FROM messages 
-		WHERE timestamp >= ?
+	// アクティブなセッションの開始時刻を取得
+	activeSessionQuery := `
+		SELECT s.start_time
+		FROM sessions s
+		WHERE s.start_time >= ?
+		ORDER BY s.start_time DESC
+		LIMIT 1
 	`
 	
-	var actualWindowStart sql.NullTime
-	err := s.db.QueryRow(windowStartQuery, potentialWindowStart).Scan(&actualWindowStart)
+	// 過去24時間からアクティブセッションを探す
+	past24Hours := now.Add(-24 * time.Hour)
+	var sessionStartTime sql.NullTime
+	err := s.db.QueryRow(activeSessionQuery, past24Hours).Scan(&sessionStartTime)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get window start: %w", err)
+		return nil, fmt.Errorf("failed to get current window start: %w", err)
 	}
 	
-	// ウィンドウの開始時刻と終了時刻を決定
 	var windowStart, windowEnd time.Time
 	
-	if actualWindowStart.Valid {
-		// メッセージが存在する場合、そのメッセージの時刻からウィンドウを計算
-		windowStart = actualWindowStart.Time
-		// リセット時間を毎時0分に調整（8:30→13:00のように）
-		windowEnd = s.roundToNextHour(windowStart.Add(WINDOW_DURATION))
+	if sessionStartTime.Valid {
+		// セッション開始から5時間後がリセット時間
+		sessionResetTime := s.roundToNextHour(sessionStartTime.Time.Add(WINDOW_DURATION))
 		
-		// ウィンドウ終了時刻が現在時刻より前の場合は、現在時刻から5時間のウィンドウを使用
-		if windowEnd.Before(now) {
-			windowStart = potentialWindowStart
-			windowEnd = s.roundToNextHour(now.Add(WINDOW_DURATION))
+		// 現在時刻がリセット時間を過ぎているかチェック
+		if now.After(sessionResetTime) {
+			// リセット後の最初のメッセージを探す
+			postResetQuery := `
+				SELECT MIN(timestamp) 
+				FROM messages 
+				WHERE timestamp >= ?
+			`
+			var postResetStart sql.NullTime
+			err = s.db.QueryRow(postResetQuery, sessionResetTime).Scan(&postResetStart)
+			if err != nil {
+				return nil, fmt.Errorf("failed to get post-reset messages: %w", err)
+			}
+			
+			if postResetStart.Valid {
+				// リセット時刻からウィンドウを開始（実際のメッセージ時刻ではなく）
+				windowStart = sessionResetTime
+				windowEnd = s.roundToNextHour(windowStart.Add(WINDOW_DURATION))
+			} else {
+				// リセット後にメッセージがない場合は空のウィンドウ（トークン数0）
+				return &models.TokenUsage{
+					TotalTokens:    0,
+					InputTokens:    0,
+					OutputTokens:   0,
+					UsageLimit:     s.getUsageLimit(),
+					UsageRate:      0,
+					WindowStart:    sessionResetTime,
+					WindowEnd:      s.roundToNextHour(now.Add(WINDOW_DURATION)),
+					ActiveSessions: 0,
+				}, nil
+			}
+		} else {
+			// まだリセットされていない - セッション開始からの計算
+			windowStart = sessionStartTime.Time
+			windowEnd = sessionResetTime
 		}
 	} else {
-		// メッセージがない場合は、現在時刻から5時間後をリセット時間とする
+		// メッセージがない場合
 		windowStart = now
 		windowEnd = s.roundToNextHour(now.Add(WINDOW_DURATION))
 	}

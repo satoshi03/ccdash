@@ -91,7 +91,7 @@ async function installFrontendDependencies() {
   return new Promise((resolve, reject) => {
     log.info('Installing frontend dependencies...');
     
-    const installProcess = spawn('npm', ['install'], {
+    const installProcess = spawn('npm', ['install', '--legacy-peer-deps'], {
       cwd: frontendPath,
       stdio: 'inherit'
     });

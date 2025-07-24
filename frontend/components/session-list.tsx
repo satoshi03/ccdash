@@ -130,7 +130,7 @@ export function SessionList({ projects }: SessionListProps) {
                     )}
                     <div>
                       <CardTitle className="text-base">{project.originalPath.split("/").pop()}</CardTitle>
-                      <CardDescription className="text-sm">{project.originalPath}</CardDescription>
+                      <CardDescription className="text-sm break-all">{project.originalPath}</CardDescription>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -171,7 +171,7 @@ export function SessionList({ projects }: SessionListProps) {
                             </Badge>
                           </div>
                         </TableCell>
-                        <TableCell className="font-mono text-sm">{session.sessionId}</TableCell>
+                        <TableCell className="font-mono text-sm truncate">{session.sessionId}</TableCell>
                         <TableCell>
                           {formatDate(session.startTime)}
                         </TableCell>

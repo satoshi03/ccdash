@@ -145,7 +145,7 @@ function SessionDetailContent() {
       return (
         <div className="space-y-2">
           <div className="text-xs text-muted-foreground">{t('session.rawObjectContent')}</div>
-          <pre className="bg-muted p-3 rounded-md text-xs overflow-x-auto">
+          <pre className="bg-muted p-3 rounded-md text-xs max-w-full min-w-0">
             {JSON.stringify(message.content, null, 2)}
           </pre>
         </div>
@@ -164,7 +164,7 @@ function SessionDetailContent() {
                 return (
                   <div key={index} className="bg-muted p-3 rounded-md">
                     {itemObj.type === 'text' && (
-                      <div className="whitespace-pre-wrap text-sm">{itemObj.text as string}</div>
+                      <div className="whitespace-pre-wrap break-words text-sm max-w-full overflow-hidden">{itemObj.text as string}</div>
                     )}
                     {itemObj.type === 'tool_use' && (
                       <div>
@@ -172,7 +172,7 @@ function SessionDetailContent() {
                           <Code2 className="w-4 h-4" />
                           <span className="font-medium">{itemObj.name as string}</span>
                         </div>
-                        <pre className="text-xs bg-background p-2 rounded overflow-x-auto">
+                        <pre className="bg-background p-2 rounded overflow-x-scroll max-w-full min-w-0 text-xs whitespace-pre-wrap">
                           {JSON.stringify(itemObj.input, null, 2)}
                         </pre>
                       </div>
@@ -186,7 +186,7 @@ function SessionDetailContent() {
                             <span className="text-xs text-muted-foreground">({itemObj.tool_use_id.slice(-8)})</span>
                           ) : null}
                         </div>
-                        <div className="text-xs bg-background p-2 rounded whitespace-pre-wrap">
+                        <div className="text-xs bg-background p-2 rounded whitespace-pre-wrap break-words max-w-full overflow-hidden">
                           {typeof itemObj.content === 'string' ? itemObj.content : JSON.stringify(itemObj.content, null, 2) as string}
                         </div>
                       </div>
@@ -204,7 +204,7 @@ function SessionDetailContent() {
                     {!itemObj.type && (
                       <div>
                         <div className="text-xs text-muted-foreground mb-2">{t('session.unknownItemType')}</div>
-                        <pre className="text-xs bg-background p-2 rounded overflow-x-auto">
+                        <pre className="text-xs bg-background p-2 rounded overflow-x-auto max-w-full min-w-0">
                           {JSON.stringify(itemObj, null, 2)}
                         </pre>
                       </div>
@@ -231,7 +231,7 @@ function SessionDetailContent() {
 
     return (
       <div className="space-y-3">
-        <div className="whitespace-pre-wrap text-sm">{textWithoutCode}</div>
+        <div className="whitespace-pre-wrap break-words text-sm max-w-full overflow-hidden">{textWithoutCode}</div>
         {codeBlocks.length > 0 && (
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-sm font-medium">
@@ -239,7 +239,7 @@ function SessionDetailContent() {
 {t('session.codeGenerated')} ({codeBlocks.length}個)
             </div>
             {codeBlocks.map((code, index) => (
-              <pre key={index} className="bg-muted p-3 rounded-md text-xs overflow-x-auto">
+              <pre key={index} className="bg-muted p-3 rounded-md text-xs overflow-x-auto max-w-full min-w-0">
                 {code}
               </pre>
             ))}
@@ -327,7 +327,7 @@ function SessionDetailContent() {
                 <div>
                   <span className="text-muted-foreground">{t('session.sessionId')}</span>
                   <div className="flex items-center gap-2 mt-1">
-                    <code className="font-mono text-xs bg-muted px-2 py-1 rounded flex-1">{session.id}</code>
+                    <code className="font-mono text-xs bg-muted px-2 py-1 rounded flex-1 truncate">{session.id}</code>
                     <Button
                       variant="outline"
                       size="sm"
@@ -344,7 +344,7 @@ function SessionDetailContent() {
                 </div>
                 <div>
                   <span className="text-muted-foreground">{t('session.project')}</span>
-                  <p className="font-medium">{session.project_path}</p>
+                  <p className="font-medium break-all">{session.project_path}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">{t('session.status')}</span>
@@ -418,7 +418,7 @@ function SessionDetailContent() {
             <ScrollArea className="h-[600px] pr-4">
               <div className="space-y-4">
                 {messageList.map((message, index) => (
-                  <div key={message.id} className="border rounded-lg p-4">
+                  <div key={message.id} className="border rounded-lg p-4 min-w-0 overfl">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center gap-2">
                         {message.message_role === 'user' ? (
