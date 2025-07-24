@@ -1,6 +1,6 @@
 {
   "name": "claudeee",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Claude Code Monitoring - A comprehensive monitoring for Claude Code",
   "main": "bin/claudeee.js",
   "bin": {
@@ -17,7 +17,7 @@
     "postinstall": "node scripts/postinstall.js",
     "preuninstall": "node scripts/postinstall.js cleanup",
     "test": "echo \"No tests specified\" && exit 0",
-    "prepublishOnly": "npm run test"
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "claude",
@@ -51,10 +51,7 @@
   "files": [
     "bin/",
     "scripts/",
-    "frontend/.next/standalone/",
-    "frontend/.next/static/",
-    "frontend/package.json",
-    "frontend/next.config.js",
+    "frontend/",
     "README.md"
   ],
   "cpu": [

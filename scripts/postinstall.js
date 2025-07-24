@@ -117,6 +117,48 @@ class PostInstallSetup {
   }
 
   /**
+   * Install frontend dependencies
+   */
+  async installFrontendDependencies() {
+    const { spawn } = require('child_process');
+    const frontendPath = path.join(this.packageRoot, 'frontend');
+    const nodeModulesPath = path.join(frontendPath, 'node_modules');
+    
+    if (fs.existsSync(nodeModulesPath)) {
+      this.log('Frontend dependencies already installed');
+      return;
+    }
+    
+    if (!fs.existsSync(path.join(frontendPath, 'package.json'))) {
+      this.log('Frontend directory not found, skipping dependency installation');
+      return;
+    }
+    
+    this.log('Installing frontend dependencies...');
+    
+    return new Promise((resolve) => {
+      const installProcess = spawn('npm', ['install'], {
+        cwd: frontendPath,
+        stdio: 'inherit'
+      });
+      
+      installProcess.on('close', (code) => {
+        if (code === 0) {
+          this.log('Frontend dependencies installed successfully', 'success');
+        } else {
+          this.log('Frontend dependency installation completed with warnings', 'warning');
+        }
+        resolve(); // Continue regardless of exit code
+      });
+      
+      installProcess.on('error', (err) => {
+        this.log(`Frontend dependency installation failed: ${err.message}`, 'warning');
+        resolve(); // Don't fail the entire setup
+      });
+    });
+  }
+
+  /**
    * Build frontend if needed
    */
   async buildFrontend() {
@@ -136,7 +178,7 @@ class PostInstallSetup {
     
     this.log('Building frontend...');
     
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const buildProcess = spawn('npm', ['run', 'build'], {
         cwd: frontendPath,
         stdio: 'inherit'
@@ -145,11 +187,10 @@ class PostInstallSetup {
       buildProcess.on('close', (code) => {
         if (code === 0) {
           this.log('Frontend built successfully', 'success');
-          resolve();
         } else {
           this.log('Frontend build completed with warnings', 'warning');
-          resolve(); // Continue even with warnings
         }
+        resolve(); // Continue regardless of exit code
       });
       
       buildProcess.on('error', (err) => {
@@ -166,7 +207,10 @@ class PostInstallSetup {
     try {
       this.log('Starting claudeee post-install setup...');
       
-      // Build frontend first
+      // Install frontend dependencies first
+      await this.installFrontendDependencies();
+      
+      // Build frontend
       await this.buildFrontend();
       
       // Check platform support
