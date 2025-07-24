@@ -1,6 +1,6 @@
 {
   "name": "claudeee",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Claude Code Monitoring - A comprehensive monitoring for Claude Code",
   "main": "bin/claudeee.js",
   "bin": {
