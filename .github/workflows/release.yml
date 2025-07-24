@@ -383,12 +383,33 @@ jobs:
           npm install -g "$TARBALL"
           
           # Debug: Check if binary was installed correctly
-          echo "=== NPM global bin directory ==="
-          npm bin -g
-          echo "=== Files in global bin directory ==="
-          ls -la "$(npm bin -g)" | grep claudeee || echo "No claudeee binary found"
+          echo "=== NPM global directories ==="
+          NPM_PREFIX=$(npm prefix -g 2>/dev/null || echo "/usr/local")
+          echo "NPM global prefix: $NPM_PREFIX"
+          
+          # Try multiple possible bin directories
+          POSSIBLE_BIN_DIRS=(
+            "$NPM_PREFIX/bin"
+            "/usr/local/bin"
+            "$HOME/.npm-global/bin"
+            "$(npm config get prefix 2>/dev/null)/bin"
+          )
+          
+          echo "=== Checking possible bin directories ==="
+          for BIN_DIR in "${POSSIBLE_BIN_DIRS[@]}"; do
+            if [ -d "$BIN_DIR" ]; then
+              echo "Checking $BIN_DIR:"
+              ls -la "$BIN_DIR" | grep claudeee || echo "  No claudeee binary found"
+            else
+              echo "$BIN_DIR: Directory not found"
+            fi
+          done
+          
           echo "=== Testing which claudeee ==="
           which claudeee || echo "claudeee not found in PATH"
+          
+          echo "=== Current PATH ==="
+          echo "$PATH" | tr ':' '\n' | head -10
         shell: bash
 
       - name: Test CLI
