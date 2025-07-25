@@ -167,11 +167,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: frontend-build
-          path: |
-            frontend/.next/
-            frontend/package-runtime.json
-            frontend/next.config.js
-            frontend/runtime-deps/
+          path: frontend/
+          include-hidden-files: true
 
   create-release:
     name: Create Release Package
@@ -198,7 +195,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: frontend-build
-          path: frontend-build/
+          path: ./
 
       - name: Get version from tag or input
         id: version
@@ -227,39 +224,39 @@ jobs:
           cp bin/claudeee.js dist/bin/
           
           # Setup frontend distribution in bin/frontend-dist/
-          if [ -d "frontend-build" ]; then
+          if [ -d "frontend" ]; then
             echo "Setting up frontend distribution..."
             
             # Ensure frontend-dist directory exists
             mkdir -p dist/bin/frontend-dist
             
             # Copy .next build output if it exists
-            if [ -d "frontend-build/.next" ]; then
-              cp -r frontend-build/.next dist/bin/frontend-dist/
+            if [ -d "frontend/.next" ]; then
+              cp -r frontend/.next dist/bin/frontend-dist/
               echo "Copied .next build output"
             else
-              echo "ERROR: No .next directory found in frontend-build"
-              find frontend-build -name "*.next" -o -name ".next" | head -5
+              echo "ERROR: No .next directory found in frontend"
+              find frontend -name "*.next" -o -name ".next" | head -5
               exit 1
             fi
             
             # Copy runtime package.json
-            if [ -f "frontend-build/package-runtime.json" ]; then
-              cp frontend-build/package-runtime.json dist/bin/frontend-dist/package.json
+            if [ -f "frontend/package-runtime.json" ]; then
+              cp frontend/package-runtime.json dist/bin/frontend-dist/package.json
             else
               echo "ERROR: No package-runtime.json found"
               exit 1
             fi
             
             # Copy next.config.js if it exists
-            if [ -f "frontend-build/next.config.js" ]; then
-              cp frontend-build/next.config.js dist/bin/frontend-dist/
+            if [ -f "frontend/next.config.js" ]; then
+              cp frontend/next.config.js dist/bin/frontend-dist/
             fi
             
             # Setup minimal node_modules for runtime
-            if [ -d "frontend-build/runtime-deps" ]; then
+            if [ -d "frontend/runtime-deps" ]; then
               mkdir -p dist/bin/frontend-dist/node_modules
-              cp -r frontend-build/runtime-deps/* dist/bin/frontend-dist/node_modules/
+              cp -r frontend/runtime-deps/* dist/bin/frontend-dist/node_modules/
               echo "Runtime dependencies copied to frontend-dist/node_modules"
               ls -la dist/bin/frontend-dist/node_modules/
             else
@@ -269,7 +266,7 @@ jobs:
             echo "Frontend distribution created:"
             find dist/bin/frontend-dist -maxdepth 2 -type f | head -10
           else
-            echo "ERROR: No frontend-build directory found"
+            echo "ERROR: No frontend directory found"
             exit 1
           fi
           
@@ -498,6 +495,8 @@ jobs:
           find . -maxdepth 3 -type f | head -20
           echo "=== Frontend-dist contents ==="
           ls -la bin/frontend-dist/ 2>/dev/null || echo "No frontend-dist directory"
+          echo "=== Frontend-dist .next contents ==="
+          ls -la bin/frontend-dist/.next/ 2>/dev/null || echo "No .next directory in frontend-dist"
           echo "=== Package.json bin section ==="
           node -e "console.log(JSON.stringify(require('./package.json').bin, null, 2))"
         shell: bash
