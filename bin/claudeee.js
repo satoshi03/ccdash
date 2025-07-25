@@ -42,6 +42,24 @@ const packageRoot = path.dirname(__dirname);
 const backendPath = path.join(packageRoot, 'backend');
 const frontendPath = path.join(packageRoot, 'frontend');
 
+// Check if we're running from an npm package installation
+function isNpmPackage() {
+  // Check for npm environment variables
+  if (process.env.npm_package_name === 'claudeee' || 
+      process.env.npm_config_global === 'true') {
+    return true;
+  }
+  
+  // Check if we're in a node_modules directory
+  if (packageRoot.includes('node_modules')) {
+    return true;
+  }
+  
+  // Check if we don't have development files (indicating we're a packaged install)
+  return !fs.existsSync(path.join(packageRoot, '.git')) &&
+         !fs.existsSync(path.join(packageRoot, 'go.mod'));
+}
+
 // Check if Go is installed
 function checkGoInstallation() {
   return new Promise((resolve) => {
@@ -253,15 +271,20 @@ async function main() {
           await buildBackend();
         }
         
-        // Install frontend dependencies if needed
-        if (!checkNodeDependencies()) {
-          await installFrontendDependencies();
-        }
-        
-        // Build frontend if standalone build doesn't exist
-        const standalonePath = path.join(frontendPath, '.next', 'standalone', 'server.js');
-        if (!fs.existsSync(standalonePath)) {
-          await buildFrontend();
+        // Skip frontend setup for npm packages
+        if (!isNpmPackage()) {
+          // Install frontend dependencies if needed
+          if (!checkNodeDependencies()) {
+            await installFrontendDependencies();
+          }
+          
+          // Build frontend if standalone build doesn't exist
+          const standalonePath = path.join(frontendPath, '.next', 'standalone', 'server.js');
+          if (!fs.existsSync(standalonePath)) {
+            await buildFrontend();
+          }
+        } else {
+          log.info('Running from npm package, skipping frontend build');
         }
         
         // Start both services
@@ -293,15 +316,27 @@ async function main() {
       case 'build':
         log.info('Building claudeee...');
         await buildBackend();
-        if (!checkNodeDependencies()) {
-          await installFrontendDependencies();
+        
+        if (!isNpmPackage()) {
+          if (!checkNodeDependencies()) {
+            await installFrontendDependencies();
+          }
+          await buildFrontend();
+        } else {
+          log.info('Running from npm package, skipping frontend build');
         }
-        await buildFrontend();
+        
         log.success('Build completed successfully!');
         break;
         
       case 'dev':
       case 'development':
+        if (isNpmPackage()) {
+          log.error('Development mode is not available for npm package installations.');
+          log.info('Please clone the repository from GitHub to use development mode.');
+          process.exit(1);
+        }
+        
         log.info('Starting claudeee in development mode...');
         log.info(`Backend:  http://localhost:${backendPort}`);
         log.info(`Frontend: http://localhost:${frontendPort}`);
