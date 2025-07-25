@@ -23,6 +23,7 @@ func NewSessionService(db *sql.DB) *SessionService {
 }
 
 func (s *SessionService) GetAllSessions() ([]models.SessionSummary, error) {
+	// Simplified query without JOIN for better performance
 	query := `
 		SELECT 
 			s.id,
@@ -35,13 +36,8 @@ func (s *SessionService) GetAllSessions() ([]models.SessionSummary, error) {
 			s.total_tokens,
 			s.message_count,
 			s.status,
-			s.created_at,
-			MAX(m.timestamp) as last_activity
+			s.created_at
 		FROM sessions s
-		LEFT JOIN messages m ON s.id = m.session_id
-		GROUP BY s.id, s.project_name, s.project_path, s.start_time, s.end_time, 
-				 s.total_input_tokens, s.total_output_tokens, s.total_tokens, 
-				 s.message_count, s.status, s.created_at
 		ORDER BY s.start_time DESC
 	`
 	
@@ -55,13 +51,13 @@ func (s *SessionService) GetAllSessions() ([]models.SessionSummary, error) {
 	
 	for rows.Next() {
 		var session models.SessionSummary
-		var lastActivity sql.NullTime
+		var startTime sql.NullTime
 		
 		err := rows.Scan(
 			&session.ID,
 			&session.ProjectName,
 			&session.ProjectPath,
-			&session.StartTime,
+			&startTime,
 			&session.EndTime,
 			&session.TotalInputTokens,
 			&session.TotalOutputTokens,
@@ -69,31 +65,30 @@ func (s *SessionService) GetAllSessions() ([]models.SessionSummary, error) {
 			&session.MessageCount,
 			&session.Status,
 			&session.CreatedAt,
-			&lastActivity,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan session: %w", err)
 		}
 		
-		if lastActivity.Valid {
-			session.LastActivity = lastActivity.Time
+		// Handle NULL start_time
+		if startTime.Valid {
+			session.StartTime = startTime.Time
+		} else {
+			session.StartTime = session.CreatedAt
 		}
 		
-		session.IsActive = s.isSessionActive(session.Session, lastActivity.Time)
+		// Set default values for performance (avoid additional queries)
+		session.LastActivity = session.StartTime  // Use start_time as fallback
+		session.IsActive = false  // Default to inactive for list view
 		
 		if session.EndTime != nil {
 			duration := session.EndTime.Sub(session.StartTime)
 			session.Duration = &duration
-		} else if lastActivity.Valid {
-			duration := lastActivity.Time.Sub(session.StartTime)
-			session.Duration = &duration
 		}
 		
-		generatedCode, err := s.extractGeneratedCode(session.ID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to extract generated code: %w", err)
-		}
-		session.GeneratedCode = generatedCode
+		// Skip generated code extraction for performance in GetAllSessions
+		// This can be added later on-demand per session
+		session.GeneratedCode = nil
 		
 		sessions = append(sessions, session)
 	}
@@ -126,12 +121,13 @@ func (s *SessionService) GetSessionByID(sessionID string) (*models.SessionSummar
 	
 	var session models.SessionSummary
 	var lastActivity sql.NullTime
+	var startTime sql.NullTime
 	
 	err := s.db.QueryRow(query, sessionID).Scan(
 		&session.ID,
 		&session.ProjectName,
 		&session.ProjectPath,
-		&session.StartTime,
+		&startTime,
 		&session.EndTime,
 		&session.TotalInputTokens,
 		&session.TotalOutputTokens,
@@ -147,6 +143,21 @@ func (s *SessionService) GetSessionByID(sessionID string) (*models.SessionSummar
 	
 	if lastActivity.Valid {
 		session.LastActivity = lastActivity.Time
+	}
+	
+	// Handle NULL start_time
+	if startTime.Valid {
+		session.StartTime = startTime.Time
+	} else {
+		// Use the first message timestamp if start_time is NULL
+		var firstMessageTime sql.NullTime
+		err = s.db.QueryRow("SELECT MIN(timestamp) FROM messages WHERE session_id = ?", sessionID).Scan(&firstMessageTime)
+		if err == nil && firstMessageTime.Valid {
+			session.StartTime = firstMessageTime.Time
+		} else {
+			// Fallback to created_at if no messages found
+			session.StartTime = session.CreatedAt
+		}
 	}
 	
 	session.IsActive = s.isSessionActive(session.Session, lastActivity.Time)

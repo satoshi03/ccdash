@@ -17,15 +17,18 @@ type DiffSyncService struct {
 	db             *sql.DB
 	tokenService   *TokenService
 	sessionService *SessionService
+	windowService  *SessionWindowService
 	stateManager   *FileSyncStateManager
 }
 
 func NewDiffSyncService(db *sql.DB, tokenService *TokenService, sessionService *SessionService) *DiffSyncService {
 	stateManager := NewFileSyncStateManager(db)
+	windowService := NewSessionWindowService(db)
 	return &DiffSyncService{
 		db:             db,
 		tokenService:   tokenService,
 		sessionService: sessionService,
+		windowService:  windowService,
 		stateManager:   stateManager,
 	}
 }
@@ -246,9 +249,24 @@ func (d *DiffSyncService) processFileFromLine(filePath string, startLine int) (i
 			continue
 		}
 
+		// First, try to parse as a basic JSON to check if it has required fields
+		var basicCheck map[string]interface{}
+		if err := json.Unmarshal([]byte(line), &basicCheck); err != nil {
+			fmt.Printf("Error parsing JSON on line %d: %v\n", lineCount, err)
+			continue
+		}
+
+		// Check if this looks like a LogEntry (has sessionId and timestamp)
+		sessionId, hasSessionId := basicCheck["sessionId"]
+		timestamp, hasTimestamp := basicCheck["timestamp"]
+		if !hasSessionId || !hasTimestamp || sessionId == nil || timestamp == nil {
+			// Skip non-LogEntry entries (like summary entries)
+			continue
+		}
+
 		var entry models.LogEntry
 		if err := json.Unmarshal([]byte(line), &entry); err != nil {
-			fmt.Printf("Error unmarshaling line %d: %v\n", lineCount, err)
+			fmt.Printf("Error unmarshaling LogEntry on line %d: %v\n", lineCount, err)
 			continue
 		}
 
@@ -316,8 +334,20 @@ func (d *DiffSyncService) processLogEntry(entry *models.LogEntry, projectName st
 		message.ServiceTier = &entry.Message.Usage.ServiceTier
 	}
 
+	// Get or create appropriate session window for this message
+	window, err := d.windowService.GetOrCreateWindowForMessage(entry.Timestamp)
+	if err != nil {
+		return fmt.Errorf("failed to get/create session window: %w", err)
+	}
+	message.SessionWindowID = &window.ID
+
 	if err := d.insertMessage(message); err != nil {
 		return fmt.Errorf("failed to insert message: %w", err)
+	}
+
+	// Update window statistics after message insertion
+	if err := d.windowService.UpdateWindowStats(window.ID); err != nil {
+		return fmt.Errorf("failed to update window stats: %w", err)
 	}
 
 	if err := d.tokenService.UpdateSessionTokens(entry.SessionID); err != nil {
@@ -381,12 +411,12 @@ func (d *DiffSyncService) insertMessage(message *models.Message) error {
 	// Use INSERT OR REPLACE to handle both insert and update atomically
 	upsertQuery := `
 		INSERT OR REPLACE INTO messages (
-			id, session_id, parent_uuid, is_sidechain, user_type, message_type,
+			id, session_id, session_window_id, parent_uuid, is_sidechain, user_type, message_type,
 			message_role, model, content, input_tokens, cache_creation_input_tokens,
 			cache_read_input_tokens, output_tokens, service_tier, request_id,
 			timestamp, created_at
 		) VALUES (
-			?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
+			?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
 			COALESCE((SELECT created_at FROM messages WHERE id = ?), ?)
 		)
 	`
@@ -395,6 +425,7 @@ func (d *DiffSyncService) insertMessage(message *models.Message) error {
 	_, err := d.db.Exec(upsertQuery,
 		message.ID,
 		message.SessionID,
+		message.SessionWindowID,
 		message.ParentUUID,
 		message.IsSidechain,
 		message.UserType,

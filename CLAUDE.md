@@ -1,12 +1,13 @@
-# Claude Code開発記録
+# Claudeee - Claude Code Usage Monitor
 
 このファイルは、Claude Codeを使用したClaudeeeプロジェクトの開発記録と設定情報を記録するものです。
 
 ## プロジェクト概要
 
 **プロジェクト名**: Claudeee  
-**目的**: Claude Codeの実行状態をモニタリングし、タスクスケジューリングを行うWebアプリケーション  
+**目的**: Claude Codeのログを解析し、セッション管理・トークン使用量監視を行うWebアプリケーション  
 **開発開始日**: 2025-07-11  
+**現在のバージョン**: v1.0.0 (基本機能実装完了)  
 **Claude Codeバージョン**: 4.0+  
 
 ## 開発環境
@@ -60,7 +61,7 @@ git config --global user.email "your.email@example.com"
 #### バックエンド開発
 ```bash
 # 開発サーバー起動
-cd backend && go run cmd/server/main.go
+cd backend/cmd/server && go run main.go
 
 # ビルド
 cd backend && go build -o bin/server cmd/server/main.go
@@ -70,6 +71,18 @@ cd backend && go test ./...
 
 # 依存関係更新
 cd backend && go mod tidy
+
+# データベース状態確認
+cd backend/cmd/database-status && go run main.go
+
+# SessionWindow再計算
+cd backend/cmd/recalculate-windows && go run main.go
+
+# 同期状態リセット
+cd backend/cmd/sync-reset && go run main.go
+
+# データベース完全リセット
+cd backend/cmd/database-reset && go run main.go
 ```
 
 #### フロントエンド開発
@@ -101,15 +114,18 @@ rm -f ~/.claudeee/claudeee.db*
 
 ## 実装済み機能
 
-### v1.0.0 (2025-07-11)
+### v1.0.0 (2025-07-11 - 2025-07-25)
 
 #### バックエンド
 - [x] Go/Ginによる REST API サーバー
 - [x] DuckDB データベース統合
-- [x] JSONL ログファイル解析
+- [x] JSONL ログファイル解析（差分同期対応）
 - [x] トークン使用量計算ロジック
-- [x] セッション管理機能
+- [x] 5時間ウィンドウによるセッション管理
 - [x] CORS設定
+- [x] SessionWindow 計算ロジック（時系列順、重複排除）
+- [x] メッセージとSessionWindowの自動関連付け
+- [x] ファイル同期状態管理
 
 #### フロントエンド  
 - [x] Next.js + TypeScript + Tailwind CSS
@@ -118,6 +134,7 @@ rm -f ~/.claudeee/claudeee.db*
 - [x] API通信フック
 - [x] エラーハンドリング
 - [x] ローディング状態管理
+- [x] SessionWindow時系列表示
 
 #### API エンドポイント
 - [x] `GET /api/v1/health` - ヘルスチェック
@@ -125,6 +142,51 @@ rm -f ~/.claudeee/claudeee.db*
 - [x] `GET /api/claude/sessions/recent` - セッション一覧
 - [x] `GET /api/claude/available-tokens` - 利用可能トークン数
 - [x] `POST /api/sync-logs` - ログ同期
+- [x] `GET /api/claude/session-windows` - SessionWindow一覧（時系列順）
+
+#### コマンドラインツール
+- [x] `backend/cmd/server` - APIサーバー起動
+- [x] `backend/cmd/database-status` - データベース状態確認
+- [x] `backend/cmd/database-reset` - データベース完全リセット
+- [x] `backend/cmd/sync-reset` - ファイル同期状態リセット
+- [x] `backend/cmd/recalculate-windows` - SessionWindow再計算
+- [x] `backend/cmd/fix-session-times` - セッション時刻修正
+- [x] `backend/cmd/migrate-session-windows` - セッションウィンドウマイグレーション
+
+## SessionWindow計算ロジックの改善 (2025-07-25)
+
+### SessionWindow計算アルゴリズム
+
+Claude Codeの5時間制限リセットに基づく適切なSessionWindow計算を実装：
+
+1. **最古のメッセージから開始**: データベース内の最古のメッセージを取得
+2. **5時間ウィンドウ作成**: メッセージ時刻から5時間のウィンドウを作成
+3. **時刻の丸め処理**:
+   - WindowStart: 分単位で切り捨て（例：10:23 → 10:23）
+   - WindowEnd: 時間単位で切り捨て（例：15:23 → 15:00）
+   - ResetTime: WindowEndと同じ（時間単位切り捨て）
+4. **順次ウィンドウ作成**: 次の未割り当てメッセージで新しいウィンドウを作成
+5. **重複排除**: 同じ時間範囲のウィンドウは作成しない
+
+### 実装されたSessionWindow機能
+
+- 時系列順でのSessionWindow表示
+- メッセージの自動SessionWindow割り当て
+- 循環依存問題の解決
+- 差分ログ同期でのSessionWindow計算
+
+### トラブルシューティング用コマンド
+
+```bash
+# SessionWindow再計算
+cd backend/cmd/recalculate-windows && go run main.go
+
+# データベース状態確認
+cd backend/cmd/database-status && go run main.go
+
+# 同期状態リセット
+cd backend/cmd/sync-reset && go run main.go
+```
 
 ## プロジェクト名の改善について (2025-07-12)
 
@@ -161,23 +223,24 @@ curl -X POST http://localhost:8080/api/sync-logs
 
 ## 今後の実装計画
 
-### v1.1.0 (予定)
-- [ ] タスクスケジューリング機能の基本実装
-- [ ] 手動タスク実行機能
-- [ ] タスクキャンセル機能
-- [ ] 優先度設定機能
+### v1.1.0 (検討中)
+- [ ] プロジェクト別の詳細分析機能
+- [ ] トークン使用量の時系列グラフ
+- [ ] セッション継続時間の分析
+- [ ] エクスポート機能（CSV/JSON）
 
-### v1.2.0 (予定)
-- [ ] 自動タスク実行（トークンリセット後）
-- [ ] 使用統計・分析機能
-- [ ] データエクスポート機能
-- [ ] 通知機能
+### v1.2.0 (検討中)
+- [ ] リアルタイムログ監視
+- [ ] Webソケット通信による即座更新
+- [ ] アラート機能（使用量上限など）
+- [ ] 複数プロジェクト管理UI
 
-### v2.0.0 (予定)
-- [ ] 複数プロジェクト管理
-- [ ] ユーザー管理機能
-- [ ] 高度な分析・レポート機能
-- [ ] API v2実装
+### v2.0.0 (将来構想)
+- [ ] 多用户对应
+- [ ] 认证・认可机制
+- [ ] 高度分析和报告功能
+- [ ] API v2实现
+- [ ] 插件系统
 
 ## 技術的な決定事項
 
@@ -241,15 +304,26 @@ curl -X POST http://localhost:8080/api/sync-logs
 
 ## 既知の制約・課題
 
+## 現在の実装状況
+
+### 動作確認済み機能
+- ✅ Claude CodeのJSONLログ解析
+- ✅ SessionWindow自動計算・時系列表示
+- ✅ トークン使用量集計
+- ✅ セッション管理
+- ✅ 差分ログ同期
+- ✅ Web UI による監視
+- ✅ 管理コマンドツール
+
 ### 現在の制約
 - Claude Codeのログファイル形式に依存
 - シングルユーザー前提の実装
-- リアルタイム通信未対応
+- リアルタイム通信未対応（手動同期が必要）
 
 ### 今後対応予定の課題
-- 大量データ処理時のパフォーマンス
-- エラー回復機能の強化
-- 設定管理の改善
+- 大量データ処理時のパフォーマンス最適化
+- リアルタイムログ監視機能
+- 複数プロジェクト同時管理UI
 
 ## 参考資料・リンク
 
@@ -267,9 +341,12 @@ curl -X POST http://localhost:8080/api/sync-logs
 ## 開発メモ
 
 ### 重要な設計決定
-1. **5時間ウィンドウ**: Claude Codeの制限リセット間隔に基づく
-2. **JSONL解析**: Claude Codeの出力形式に準拠
-3. **プロジェクト名変換**: ハイフン区切りからパス形式への変換ロジック
+1. **5時間SessionWindow**: Claude Codeの制限リセット間隔に基づく時系列ウィンドウ管理
+2. **JSONL差分解析**: Claude Codeの出力形式に準拠し、差分同期で効率的処理
+3. **プロジェクト名変換**: cwdフィールドからの正確なプロジェクト名抽出
+4. **時刻丸め処理**: WindowStartは分単位、WindowEnd/ResetTimeは時間単位で切り捨て
+5. **循環依存解決**: SessionWindow計算時の依存関係問題の解決
+6. **DuckDB採用**: 分析処理に適した高性能データベース
 
 ### デバッグ情報
 - データベースファイル: `~/.claudeee/claudeee.db`
@@ -278,23 +355,39 @@ curl -X POST http://localhost:8080/api/sync-logs
 
 ### よく使うデバッグコマンド
 ```bash
-# データベース内容確認
-# DuckDB CLI で確認が可能
+# データベース状態確認
+cd backend/cmd/database-status && go run main.go
 
-# APIテスト
-curl -X GET http://localhost:8080/api/token-usage
+# SessionWindow状態確認
+curl -X GET http://localhost:8080/api/claude/session-windows
+
+# ログ同期実行
 curl -X POST http://localhost:8080/api/sync-logs
+
+# トークン使用量確認
+curl -X GET http://localhost:8080/api/token-usage
 
 # プロセス確認
 ps aux | grep "go run"
 lsof -i :8080
 lsof -i :3000
+
+# データベースリセット（問題がある場合）
+cd backend/cmd/database-reset && go run main.go
+
+# 同期状態リセット
+cd backend/cmd/sync-reset && go run main.go
 ```
 
 ## 更新履歴
 
 - **2025-07-11**: 初回実装完了、基本機能の実装
 - **2025-07-11**: README.md、CLAUDE.md作成
+- **2025-07-12**: プロジェクト名判定ロジック改善
+- **2025-07-25**: SessionWindow計算ロジック修正、時系列表示実装
+- **2025-07-25**: ログ同期問題修正、循環依存解決
+- **2025-07-25**: コマンドライン管理ツール整備（backend/cmd/配下）
+- **2025-07-25**: 不要ファイル削除、プロジェクト構成整理
 
 ---
 

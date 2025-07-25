@@ -21,8 +21,9 @@ func main() {
 
 	tokenService := services.NewTokenService(db)
 	sessionService := services.NewSessionService(db)
+	sessionWindowService := services.NewSessionWindowService(db)
 	
-	handler := handlers.NewHandler(tokenService, sessionService)
+	handler := handlers.NewHandler(tokenService, sessionService, sessionWindowService)
 
 	r := gin.Default()
 	
@@ -58,6 +59,7 @@ func main() {
 		api.GET("/claude/available-tokens", handler.GetAvailableTokens)
 		api.GET("/costs/current-month", handler.GetCurrentMonthCosts)
 		api.GET("/tasks", handler.GetTasks)
+		api.GET("/session-windows", handler.GetSessionWindows)
 		api.POST("/sync-logs", handler.SyncLogs)
 	}
 

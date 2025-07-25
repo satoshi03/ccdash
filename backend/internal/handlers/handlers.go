@@ -10,14 +10,16 @@ import (
 )
 
 type Handler struct {
-	tokenService   *services.TokenService
-	sessionService *services.SessionService
+	tokenService        *services.TokenService
+	sessionService      *services.SessionService
+	sessionWindowService *services.SessionWindowService
 }
 
-func NewHandler(tokenService *services.TokenService, sessionService *services.SessionService) *Handler {
+func NewHandler(tokenService *services.TokenService, sessionService *services.SessionService, sessionWindowService *services.SessionWindowService) *Handler {
 	return &Handler{
-		tokenService:   tokenService,
-		sessionService: sessionService,
+		tokenService:        tokenService,
+		sessionService:      sessionService,
+		sessionWindowService: sessionWindowService,
 	}
 }
 
@@ -253,6 +255,32 @@ func (h *Handler) GetTasks(c *gin.Context) {
 		"tasks": []interface{}{},
 		"count": 0,
 		"note": "Task scheduling not implemented yet",
+	})
+}
+
+func (h *Handler) GetSessionWindows(c *gin.Context) {
+	limitStr := c.DefaultQuery("limit", "50")
+	
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit <= 0 {
+		limit = 50
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	
+	windows, err := h.sessionWindowService.GetRecentWindows(limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to get session windows",
+			"details": err.Error(),
+		})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"windows": windows,
+		"count": len(windows),
 	})
 }
 

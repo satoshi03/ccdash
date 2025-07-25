@@ -24,107 +24,57 @@ const (
 )
 
 func (s *TokenService) GetCurrentTokenUsage() (*models.TokenUsage, error) {
+	// SessionWindowServiceを使用して現在のアクティブウィンドウを取得
+	windowService := NewSessionWindowService(s.db)
+	
+	currentWindow, err := windowService.GetCurrentActiveWindow()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get current active window: %w", err)
+	}
+	
+	// アクティブウィンドウがない場合は空の使用量を返す
+	if currentWindow == nil {
+		now := time.Now().UTC()
+		return &models.TokenUsage{
+			TotalTokens:    0,
+			InputTokens:    0,
+			OutputTokens:   0,
+			UsageLimit:     s.getUsageLimit(),
+			UsageRate:      0,
+			WindowStart:    now,
+			WindowEnd:      now.Add(WINDOW_DURATION),
+			ActiveSessions: 0,
+		}, nil
+	}
+	
+	// 現在時刻がウィンドウ終了時刻を過ぎている場合は、ウィンドウを非アクティブにして新しい空ウィンドウを返す
 	now := time.Now().UTC()
-	
-	// アクティブなセッションの開始時刻を取得
-	activeSessionQuery := `
-		SELECT s.start_time
-		FROM sessions s
-		WHERE s.start_time >= ?
-		ORDER BY s.start_time DESC
-		LIMIT 1
-	`
-	
-	// 過去24時間からアクティブセッションを探す
-	past24Hours := now.Add(-24 * time.Hour)
-	var sessionStartTime sql.NullTime
-	err := s.db.QueryRow(activeSessionQuery, past24Hours).Scan(&sessionStartTime)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get current window start: %w", err)
+	if now.After(currentWindow.WindowEnd) {
+		return &models.TokenUsage{
+			TotalTokens:    0,
+			InputTokens:    0,
+			OutputTokens:   0,
+			UsageLimit:     s.getUsageLimit(),
+			UsageRate:      0,
+			WindowStart:    now,
+			WindowEnd:      now.Add(WINDOW_DURATION),
+			ActiveSessions: 0,
+		}, nil
 	}
 	
-	var windowStart, windowEnd time.Time
-	
-	if sessionStartTime.Valid {
-		// セッション開始から5時間後がリセット時間
-		sessionResetTime := s.roundToNextHour(sessionStartTime.Time.Add(WINDOW_DURATION))
-		
-		// 現在時刻がリセット時間を過ぎているかチェック
-		if now.After(sessionResetTime) {
-			// リセット後の最初のメッセージを探す
-			postResetQuery := `
-				SELECT MIN(timestamp) 
-				FROM messages 
-				WHERE timestamp >= ?
-			`
-			var postResetStart sql.NullTime
-			err = s.db.QueryRow(postResetQuery, sessionResetTime).Scan(&postResetStart)
-			if err != nil {
-				return nil, fmt.Errorf("failed to get post-reset messages: %w", err)
-			}
-			
-			if postResetStart.Valid {
-				// リセット時刻からウィンドウを開始（実際のメッセージ時刻ではなく）
-				windowStart = sessionResetTime
-				windowEnd = s.roundToNextHour(windowStart.Add(WINDOW_DURATION))
-			} else {
-				// リセット後にメッセージがない場合は空のウィンドウ（トークン数0）
-				return &models.TokenUsage{
-					TotalTokens:    0,
-					InputTokens:    0,
-					OutputTokens:   0,
-					UsageLimit:     s.getUsageLimit(),
-					UsageRate:      0,
-					WindowStart:    sessionResetTime,
-					WindowEnd:      s.roundToNextHour(now.Add(WINDOW_DURATION)),
-					ActiveSessions: 0,
-				}, nil
-			}
-		} else {
-			// まだリセットされていない - セッション開始からの計算
-			windowStart = sessionStartTime.Time
-			windowEnd = sessionResetTime
-		}
-	} else {
-		// メッセージがない場合
-		windowStart = now
-		windowEnd = s.roundToNextHour(now.Add(WINDOW_DURATION))
-	}
-	
-	query := `
-		SELECT 
-			COALESCE(SUM(input_tokens), 0) as total_input_tokens,
-			COALESCE(SUM(output_tokens), 0) as total_output_tokens,
-			COALESCE(SUM(input_tokens + output_tokens), 0) as total_tokens,
-			COUNT(DISTINCT session_id) as active_sessions
-		FROM messages 
-		WHERE timestamp >= ? AND timestamp <= ?
-	`
-	
-	var totalInputTokens, totalOutputTokens, totalTokens, activeSessions int
-	
-	err = s.db.QueryRow(query, windowStart, windowEnd).Scan(
-		&totalInputTokens,
-		&totalOutputTokens, 
-		&totalTokens,
-		&activeSessions,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get token usage: %w", err)
-	}
-	
+	// 現在のウィンドウの統計情報を使用
 	usageLimit := s.getUsageLimit()
-	usageRate := float64(totalTokens) / float64(usageLimit)
+	usageRate := float64(currentWindow.TotalTokens) / float64(usageLimit)
 	
 	return &models.TokenUsage{
-		TotalTokens:    totalTokens,
-		InputTokens:    totalInputTokens,
-		OutputTokens:   totalOutputTokens,
+		TotalTokens:    currentWindow.TotalTokens,
+		InputTokens:    currentWindow.TotalInputTokens,
+		OutputTokens:   currentWindow.TotalOutputTokens,
 		UsageLimit:     usageLimit,
 		UsageRate:      usageRate,
-		WindowStart:    windowStart,
-		WindowEnd:      windowEnd,
-		ActiveSessions: activeSessions,
+		WindowStart:    currentWindow.WindowStart,
+		WindowEnd:      currentWindow.WindowEnd,
+		ActiveSessions: currentWindow.SessionCount,
 	}, nil
 }
 
@@ -154,7 +104,7 @@ func (s *TokenService) GetTokenUsageBySession(sessionID string) (*models.TokenUs
 	`
 	
 	var totalInputTokens, totalOutputTokens, totalTokens int
-	var startTime, endTime time.Time
+	var startTime, endTime sql.NullTime
 	
 	err := s.db.QueryRow(query, sessionID).Scan(
 		&totalInputTokens,
@@ -170,14 +120,27 @@ func (s *TokenService) GetTokenUsageBySession(sessionID string) (*models.TokenUs
 	usageLimit := s.getUsageLimit()
 	usageRate := float64(totalTokens) / float64(usageLimit)
 	
+	// Handle NULL timestamps
+	var windowStart, windowEnd time.Time
+	if startTime.Valid {
+		windowStart = startTime.Time
+	} else {
+		windowStart = time.Now()
+	}
+	if endTime.Valid {
+		windowEnd = endTime.Time
+	} else {
+		windowEnd = time.Now()
+	}
+	
 	return &models.TokenUsage{
 		TotalTokens:    totalTokens,
 		InputTokens:    totalInputTokens,
 		OutputTokens:   totalOutputTokens,
 		UsageLimit:     usageLimit,
 		UsageRate:      usageRate,
-		WindowStart:    startTime,
-		WindowEnd:      endTime,
+		WindowStart:    windowStart,
+		WindowEnd:      windowEnd,
 		ActiveSessions: 1,
 	}, nil
 }

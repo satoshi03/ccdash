@@ -21,6 +21,7 @@ type Session struct {
 type Message struct {
 	ID                        string    `json:"id" db:"id"`
 	SessionID                 string    `json:"session_id" db:"session_id"`
+	SessionWindowID           *string   `json:"session_window_id" db:"session_window_id"`
 	ParentUUID                *string   `json:"parent_uuid" db:"parent_uuid"`
 	IsSidechain              bool      `json:"is_sidechain" db:"is_sidechain"`
 	UserType                 *string   `json:"user_type" db:"user_type"`
