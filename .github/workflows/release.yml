@@ -114,61 +114,45 @@ jobs:
             exit 1
           fi
           
+          # Verify standalone build was successful
+          if [ ! -d ".next/standalone" ]; then
+            echo "ERROR: .next/standalone directory not found after build"
+            exit 1
+          fi
+          
           echo "Build successful, .next directory created"
           ls -la .next/
+          echo "Standalone directory contents:"
+          ls -la .next/standalone/
 
       - name: Create minimal runtime environment for frontend
         run: |
           cd frontend
           
-          # Create minimal package.json for runtime
-          cat > package-runtime.json << 'EOF'
-          {
-            "name": "claudeee-frontend",
-            "version": "1.0.0",
-            "private": true,
-            "scripts": {
-              "start": "next start"
-            },
-            "dependencies": {
-              "next": "15.2.4",
-              "react": "^19",
-              "react-dom": "^19"
-            }
-          }
-          EOF
+          # For standalone builds, we'll use the standalone directory as our frontend-dist
+          # Copy the standalone build to a distribution folder
+          mkdir -p standalone-dist
+          cp -r .next/standalone/* standalone-dist/
           
-          # Install only runtime dependencies (production only)
-          npm ci --omit=dev --legacy-peer-deps
+          # The standalone build already has everything needed
+          echo "Standalone distribution prepared:"
+          ls -la standalone-dist/
           
-          # Create a minimal node_modules for runtime
-          mkdir -p runtime-deps
+          # Verify the standalone build has the server.js
+          if [ ! -f "standalone-dist/server.js" ]; then
+            echo "ERROR: server.js not found in standalone build"
+            exit 1
+          fi
           
-          # Copy essential runtime dependencies
-          for pkg in next react react-dom; do
-            if [ -d "node_modules/$pkg" ]; then
-              echo "Copying $pkg..."
-              cp -r "node_modules/$pkg" runtime-deps/
-            fi
-          done
-          
-          # Copy any other critical dependencies that Next.js needs at runtime
-          for pkg in styled-jsx scheduler; do
-            if [ -d "node_modules/$pkg" ]; then
-              echo "Copying runtime dependency $pkg..."
-              cp -r "node_modules/$pkg" runtime-deps/
-            fi
-          done
-          
-          echo "Runtime dependencies prepared:"
-          ls -la runtime-deps/
+          echo "Standalone build verification complete"
 
       - name: Upload frontend build
         uses: actions/upload-artifact@v4
         with:
           name: frontend-build
-          path: frontend/
-          include-hidden-files: true
+          path: |
+            frontend/standalone-dist/
+            frontend/next.config.js
 
   create-release:
     name: Create Release Package
@@ -224,49 +208,40 @@ jobs:
           cp bin/claudeee.js dist/bin/
           
           # Setup frontend distribution in bin/frontend-dist/
-          if [ -d "frontend" ]; then
-            echo "Setting up frontend distribution..."
+          if [ -d "frontend/standalone-dist" ]; then
+            echo "Setting up frontend distribution from standalone build..."
             
             # Ensure frontend-dist directory exists
             mkdir -p dist/bin/frontend-dist
             
-            # Copy .next build output if it exists
-            if [ -d "frontend/.next" ]; then
-              cp -r frontend/.next dist/bin/frontend-dist/
-              echo "Copied .next build output"
-            else
-              echo "ERROR: No .next directory found in frontend"
-              find frontend -name "*.next" -o -name ".next" | head -5
-              exit 1
-            fi
-            
-            # Copy runtime package.json
-            if [ -f "frontend/package-runtime.json" ]; then
-              cp frontend/package-runtime.json dist/bin/frontend-dist/package.json
-            else
-              echo "ERROR: No package-runtime.json found"
-              exit 1
-            fi
+            # Copy the entire standalone build to frontend-dist
+            cp -r frontend/standalone-dist/* dist/bin/frontend-dist/
+            echo "Copied standalone build output"
             
             # Copy next.config.js if it exists
             if [ -f "frontend/next.config.js" ]; then
               cp frontend/next.config.js dist/bin/frontend-dist/
             fi
             
-            # Setup minimal node_modules for runtime
-            if [ -d "frontend/runtime-deps" ]; then
-              mkdir -p dist/bin/frontend-dist/node_modules
-              cp -r frontend/runtime-deps/* dist/bin/frontend-dist/node_modules/
-              echo "Runtime dependencies copied to frontend-dist/node_modules"
-              ls -la dist/bin/frontend-dist/node_modules/
-            else
-              echo "WARNING: No runtime-deps found, frontend may not work"
+            # Verify the key files exist
+            if [ ! -f "dist/bin/frontend-dist/server.js" ]; then
+              echo "ERROR: server.js not found in frontend-dist"
+              exit 1
+            fi
+            
+            if [ ! -d "dist/bin/frontend-dist/.next" ]; then
+              echo "ERROR: .next directory not found in frontend-dist"
+              exit 1
             fi
             
             echo "Frontend distribution created:"
             find dist/bin/frontend-dist -maxdepth 2 -type f | head -10
+            echo "Frontend-dist .next contents:"
+            ls -la dist/bin/frontend-dist/.next/ | head -5
           else
-            echo "ERROR: No frontend directory found"
+            echo "ERROR: No frontend/standalone-dist directory found"
+            echo "Available directories:"
+            find frontend -type d -maxdepth 2 | head -10
             exit 1
           fi
           
