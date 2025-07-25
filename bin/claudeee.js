@@ -40,7 +40,7 @@ const log = {
 // Get the package root directory
 const packageRoot = path.dirname(__dirname);
 const backendPath = path.join(packageRoot, 'backend');
-const frontendPath = path.join(packageRoot, 'frontend');
+const frontendPath = path.join(packageRoot, 'bin', 'frontend-dist');
 
 // Check if we're running from an npm package installation
 function isNpmPackage() {
@@ -205,42 +205,23 @@ function startBackend(port = 8080, frontendPort = 3000) {
 
 // Start frontend server with custom port
 function startFrontend(port = 3000, backendPort = 8080) {
-  // Skip frontend for npm packages if no build exists
-  if (isNpmPackage()) {
-    const standalonePath = path.join(frontendPath, '.next', 'standalone', 'server.js');
-    if (!fs.existsSync(standalonePath)) {
-      log.warning('Frontend not available in this npm package installation');
-      log.info(`API server is running on http://localhost:${backendPort}`);
-      return null; // Return null instead of a process
-    }
+  // For npm packages, check if frontend-dist exists
+  if (!fs.existsSync(frontendPath)) {
+    log.warning('Frontend not available in this installation');
+    log.info(`API server is running on http://localhost:${backendPort}`);
+    return null;
   }
-  
-  log.info(`Starting frontend server on http://localhost:${port}`);
   
   // Check if standalone build exists
   const standalonePath = path.join(frontendPath, '.next', 'standalone', 'server.js');
-  const standaloneDir = path.join(frontendPath, '.next', 'standalone');
+  const nextDir = path.join(frontendPath, '.next');
   
-  let frontendProcess;
-  
-  if (fs.existsSync(standalonePath)) {
-    // Use standalone build
-    log.info('Using standalone Next.js build');
-    frontendProcess = spawn('node', ['server.js'], {
-      cwd: standaloneDir,
-      stdio: 'inherit',
-      detached: false,
-      env: {
-        ...process.env,
-        PORT: port.toString(),
-        NEXT_PUBLIC_API_URL: `http://localhost:${backendPort}`,
-        HOSTNAME: '0.0.0.0'
-      }
-    });
-  } else if (!isNpmPackage()) {
-    // Only use npm start for development environments
-    log.info('Using npm start (standalone build not found)');
-    frontendProcess = spawn('npm', ['run', 'start'], {
+  // For npm packages (bin/frontend-dist structure), try Next.js start directly
+  if (isNpmPackage() && fs.existsSync(nextDir)) {
+    log.info(`Starting frontend server on http://localhost:${port}`);
+    log.info('Using pre-built Next.js frontend');
+    
+    const frontendProcess = spawn('npm', ['start'], {
       cwd: frontendPath,
       stdio: 'inherit',
       detached: false,
@@ -250,12 +231,49 @@ function startFrontend(port = 3000, backendPort = 8080) {
         NEXT_PUBLIC_API_URL: `http://localhost:${backendPort}`
       }
     });
-  } else {
-    log.warning('Frontend dependencies not available in npm package');
-    return null;
+    
+    return frontendProcess;
   }
   
-  return frontendProcess;
+  // For development environments (original frontend/ structure)
+  if (!isNpmPackage()) {
+    log.info(`Starting frontend server on http://localhost:${port}`);
+    
+    if (fs.existsSync(standalonePath)) {
+      // Use standalone build
+      log.info('Using standalone Next.js build');
+      const standaloneDir = path.join(frontendPath, '.next', 'standalone');
+      const frontendProcess = spawn('node', ['server.js'], {
+        cwd: standaloneDir,
+        stdio: 'inherit',
+        detached: false,
+        env: {
+          ...process.env,
+          PORT: port.toString(),
+          NEXT_PUBLIC_API_URL: `http://localhost:${backendPort}`,
+          HOSTNAME: '0.0.0.0'
+        }
+      });
+      return frontendProcess;
+    } else {
+      // Fallback to npm start for development
+      log.info('Using npm start (development mode)');
+      const frontendProcess = spawn('npm', ['run', 'start'], {
+        cwd: frontendPath,
+        stdio: 'inherit',
+        detached: false,
+        env: {
+          ...process.env,
+          PORT: port.toString(),
+          NEXT_PUBLIC_API_URL: `http://localhost:${backendPort}`
+        }
+      });
+      return frontendProcess;
+    }
+  }
+  
+  log.warning('Frontend not available');
+  return null;
 }
 
 // Main CLI function

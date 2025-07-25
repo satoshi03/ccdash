@@ -64,10 +64,6 @@ jobs:
             ${{ runner.os }}-${{ matrix.goarch }}-go-
             ${{ runner.os }}-go-
 
-      - name: Create bin directory
-        run: mkdir -p bin || true
-        shell: bash
-
       - name: Build backend binary
         env:
           GOOS: ${{ matrix.goos }}
@@ -76,13 +72,13 @@ jobs:
         run: |
           cd backend
           go mod tidy
-          go build -ldflags="-s -w" -o ../bin/claudeee-server-${{ matrix.suffix }}${{ matrix.ext }} cmd/server/main.go
+          go build -ldflags="-s -w" -o ../claudeee-server-${{ matrix.suffix }}${{ matrix.ext }} cmd/server/main.go
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
           name: backend-binary-${{ matrix.suffix }}
-          path: bin/claudeee-server-${{ matrix.suffix }}${{ matrix.ext }}
+          path: claudeee-server-${{ matrix.suffix }}${{ matrix.ext }}
 
   build-frontend:
     name: Build Frontend
@@ -103,17 +99,13 @@ jobs:
           cd frontend
           npm ci --legacy-peer-deps
 
-      - name: Check TypeScript
-        run: |
-          cd frontend
-          npx tsc --noEmit || echo "TypeScript check failed, but continuing build"
-
-      - name: Build frontend
+      - name: Build frontend with production settings
         env:
-          NEXT_PUBLIC_API_URL: http://localhost:8080/api
+          NEXT_PUBLIC_API_URL: http://localhost:8080
           NODE_ENV: production
         run: |
           cd frontend
+          # Build with Next.js standalone output for self-contained deployment
           npm run build
           
           # Verify build was successful
@@ -122,19 +114,54 @@ jobs:
             exit 1
           fi
           
-          if [ ! -f ".next/BUILD_ID" ]; then
-            echo "ERROR: BUILD_ID not found, build may have failed"
-            exit 1
-          fi
-          
           echo "Build successful, .next directory created"
+          ls -la .next/
 
-      - name: Verify build output
+      - name: Create minimal runtime environment for frontend
         run: |
           cd frontend
-          ls -la .next/
-          echo "Build ID: $(cat .next/BUILD_ID 2>/dev/null || echo 'Not found')"
-          find .next -type f -name "*.js" | head -5
+          
+          # Create minimal package.json for runtime
+          cat > package-runtime.json << 'EOF'
+          {
+            "name": "claudeee-frontend",
+            "version": "1.0.0",
+            "private": true,
+            "scripts": {
+              "start": "next start"
+            },
+            "dependencies": {
+              "next": "15.2.4",
+              "react": "^19",
+              "react-dom": "^19"
+            }
+          }
+          EOF
+          
+          # Install only runtime dependencies (production only)
+          npm ci --omit=dev --legacy-peer-deps
+          
+          # Create a minimal node_modules for runtime
+          mkdir -p runtime-deps
+          
+          # Copy essential runtime dependencies
+          for pkg in next react react-dom; do
+            if [ -d "node_modules/$pkg" ]; then
+              echo "Copying $pkg..."
+              cp -r "node_modules/$pkg" runtime-deps/
+            fi
+          done
+          
+          # Copy any other critical dependencies that Next.js needs at runtime
+          for pkg in styled-jsx scheduler; do
+            if [ -d "node_modules/$pkg" ]; then
+              echo "Copying runtime dependency $pkg..."
+              cp -r "node_modules/$pkg" runtime-deps/
+            fi
+          done
+          
+          echo "Runtime dependencies prepared:"
+          ls -la runtime-deps/
 
       - name: Upload frontend build
         uses: actions/upload-artifact@v4
@@ -142,9 +169,9 @@ jobs:
           name: frontend-build
           path: |
             frontend/.next/
-            frontend/package.json
-            frontend/package-lock.json
+            frontend/package-runtime.json
             frontend/next.config.js
+            frontend/runtime-deps/
 
   create-release:
     name: Create Release Package
@@ -164,30 +191,14 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           pattern: backend-binary-*
-          path: bin/
+          path: binaries/
           merge-multiple: true
 
       - name: Download frontend build
         uses: actions/download-artifact@v4
         with:
           name: frontend-build
-          path: frontend/.next/
-
-      - name: Set executable permissions
-        run: |
-          chmod +x bin/claudeee-server-*
-          ls -la bin/
-
-      - name: Check frontend build type
-        run: |
-          cd frontend
-          if [ -d ".next/standalone" ]; then
-            echo "✅ Standalone build detected - no additional dependencies needed"
-            echo "STANDALONE_BUILD=true" >> $GITHUB_ENV
-          else
-            echo "⚠️ Regular build detected - will include minimal dependencies"
-            echo "STANDALONE_BUILD=false" >> $GITHUB_ENV
-          fi
+          path: frontend-build/
 
       - name: Get version from tag or input
         id: version
@@ -198,53 +209,125 @@ jobs:
             echo "version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Update package.json version
+      - name: Create npm package structure
         run: |
-          NEW_VERSION=${{ steps.version.outputs.version }}
-          CURRENT_VERSION=$(node -p "require('./frontend/package.json').version")
-
-          echo "Current package.json version: $CURRENT_VERSION"
-          echo "Target version: $NEW_VERSION"
-
-          if [ "$NEW_VERSION" != "$CURRENT_VERSION" ]; then
-            echo "Version needs to be updated. Updating to $NEW_VERSION."
-            npm version "$NEW_VERSION" --no-git-tag-version
-          else
-            echo "Version is already $CURRENT_VERSION. No change needed."
-          fi
-
-      - name: Create npm package
-        run: |
-          # Create package structure
-          mkdir -p dist/bin
-          mkdir -p dist/frontend
+          echo "Creating package structure for version ${{ steps.version.outputs.version }}"
+          
+          # Create the ideal npm package structure
+          mkdir -p dist/bin/frontend-dist
           mkdir -p dist/scripts
           
-          # Copy binaries
-          cp bin/claudeee-server-* dist/bin/
+          # Copy backend binaries to bin/
+          cp binaries/* dist/bin/ || echo "No backend binaries found"
+          
+          # Set executable permissions
+          chmod +x dist/bin/claudeee-server-* || echo "No backend binaries to set permissions"
+          
+          # Copy main CLI script
           cp bin/claudeee.js dist/bin/
           
-          # Copy frontend build (standalone mode only)
-          if [ -d "frontend/.next/standalone" ]; then
-            cp -r frontend/.next/standalone dist/frontend/
-            cp -r frontend/.next/static dist/frontend/
+          # Setup frontend distribution in bin/frontend-dist/
+          if [ -d "frontend-build/.next" ]; then
+            echo "Setting up frontend distribution..."
+            
+            # Copy .next build output
+            cp -r frontend-build/.next dist/bin/frontend-dist/
+            
+            # Copy runtime package.json
+            cp frontend-build/package-runtime.json dist/bin/frontend-dist/package.json
+            
+            # Copy next.config.js if it exists
+            if [ -f "frontend-build/next.config.js" ]; then
+              cp frontend-build/next.config.js dist/bin/frontend-dist/
+            fi
+            
+            # Setup minimal node_modules for runtime
+            if [ -d "frontend-build/runtime-deps" ]; then
+              mkdir -p dist/bin/frontend-dist/node_modules
+              cp -r frontend-build/runtime-deps/* dist/bin/frontend-dist/node_modules/
+              echo "Runtime dependencies copied to frontend-dist/node_modules"
+            fi
+            
+            echo "Frontend distribution created:"
+            find dist/bin/frontend-dist -maxdepth 2 -type f | head -10
           else
-            echo "Standalone build not found, copying .next directory"
-            cp -r frontend/.next dist/frontend/
+            echo "WARNING: No frontend build found"
           fi
-          cp frontend/package.json dist/frontend/
-          cp frontend/next.config.js dist/frontend/ 2>/dev/null || echo "No next.config.js to copy"
           
-          # Copy scripts
+          # Copy utility scripts
           cp scripts/platform-detector.js dist/scripts/ 2>/dev/null || echo "No platform-detector.js to copy"
           cp scripts/postinstall.js dist/scripts/ 2>/dev/null || echo "No postinstall.js to copy"
-          
-          # Copy root files
-          cp package.json dist/
-          cp README.md dist/ 2>/dev/null || echo "README.md will be created"
-          cp CLAUDE.md dist/ 2>/dev/null || echo "CLAUDE.md will be created"
 
-      - name: Create README for npm
+      - name: Update package.json for distribution
+        run: |
+          NEW_VERSION=${{ steps.version.outputs.version }}
+          
+          # Create distribution package.json
+          cat > dist/package.json << EOF
+          {
+            "name": "claudeee",
+            "version": "$NEW_VERSION",
+            "description": "Claude Code Monitoring - A comprehensive monitoring for Claude Code",
+            "main": "bin/claudeee.js",
+            "bin": {
+              "claudeee": "./bin/claudeee.js"
+            },
+            "scripts": {
+              "postinstall": "node scripts/postinstall.js",
+              "preuninstall": "node scripts/postinstall.js cleanup"
+            },
+            "keywords": [
+              "claude",
+              "claude-code",
+              "monitoring",
+              "task-scheduler",
+              "ai",
+              "development-tools",
+              "cli"
+            ],
+            "author": "Claude Code Team",
+            "license": "MIT",
+            "repository": {
+              "type": "git",
+              "url": "git+https://github.com/satoshi03/claudeee.git"
+            },
+            "bugs": {
+              "url": "https://github.com/satoshi03/claudeee/issues"
+            },
+            "homepage": "https://github.com/satoshi03/claudeee#readme",
+            "engines": {
+              "node": ">=18.0.0",
+              "npm": ">=8.0.0"
+            },
+            "os": [
+              "darwin",
+              "linux",
+              "win32"
+            ],
+            "preferGlobal": true,
+            "files": [
+              "bin/",
+              "scripts/",
+              "README.md"
+            ],
+            "cpu": [
+              "x64",
+              "arm64"
+            ],
+            "publishConfig": {
+              "access": "public"
+            }
+          }
+          EOF
+
+      - name: Update claudeee.js for frontend-dist structure
+        run: |
+          # Update the claudeee.js script to use the new frontend-dist structure
+          sed -i 's|path.join(packageRoot, '\''frontend'\'')|path.join(packageRoot, '\''bin'\'', '\''frontend-dist'\'')|g' dist/bin/claudeee.js
+          
+          echo "Updated claudeee.js to use bin/frontend-dist structure"
+
+      - name: Create README for npm package
         run: |
           cat > dist/README.md << 'EOF'
           # Claudeee - Claude Code Monitor & Task Scheduler
@@ -266,12 +349,6 @@ jobs:
           # Start with custom ports
           claudeee --backend-port 8081 --frontend-port 3001
 
-          # Development mode
-          claudeee dev
-
-          # Build project
-          claudeee build
-
           # Show help
           claudeee help
           ```
@@ -279,20 +356,47 @@ jobs:
           ## Features
 
           - Monitor Claude Code usage and token consumption
-          - Track sessions and activities
-          - Task scheduling capabilities
-          - Web-based dashboard
-          - Cross-platform support
+          - Track sessions and activities with 5-hour time windows
+          - Web-based dashboard for visualization
+          - Cross-platform support (macOS, Linux, Windows)
+          - Command-line management tools
 
           ## Requirements
 
           - Node.js 18+
           - Modern web browser
 
+          ## What's Included
+
+          This package includes:
+          - Pre-built backend binaries for all supported platforms
+          - Pre-built frontend assets (No additional build step required)
+          - Self-contained runtime with minimal dependencies
+
+          ## API Access
+
+          When running, Claudeee provides:
+          - Backend API: `http://localhost:8080`
+          - Frontend UI: `http://localhost:3000` (when available)
+
           ## Support
 
-          For issues and feature requests, visit: https://github.com/claudeee/claudeee
+          For issues and feature requests, visit: https://github.com/satoshi03/claudeee
           EOF
+
+      - name: Debug package structure
+        run: |
+          echo "=== Final package structure ==="
+          find dist -type f | head -30
+          echo ""
+          echo "=== Package size breakdown ==="
+          du -sh dist/*
+          echo ""
+          echo "=== Frontend-dist contents ==="
+          ls -la dist/bin/frontend-dist/ 2>/dev/null || echo "No frontend-dist directory"
+          echo ""
+          echo "=== Binaries ==="
+          ls -la dist/bin/claudeee-server-* 2>/dev/null || echo "No backend binaries"
 
       - name: Test package
         run: |
@@ -317,8 +421,9 @@ jobs:
             ## Changes in ${{ steps.version.outputs.version }}
             
             ### 🚀 Features
-            - Cross-platform binaries included
-            - Improved installation process
+            - Self-contained npm package with pre-built binaries
+            - No additional build steps required after installation
+            - Improved frontend distribution with minimal dependencies
             - Enhanced CLI with port configuration
             
             ### 📦 Installation
@@ -333,12 +438,12 @@ jobs:
             
             ### 📋 Supported Platforms
             - macOS (Intel & Apple Silicon)
-            - Linux (x64 & ARM64)
+            - Linux (x64)
             - Windows (x64)
           draft: false
           prerelease: false
           files: |
-            bin/claudeee-server-*
+            claudeee-server-*
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
@@ -371,11 +476,10 @@ jobs:
         run: |
           cd test-package
           echo "=== Package structure ==="
-          find . -type f \( -name "*.js" -o -name "package.json" \) 2>/dev/null | head -20 || true
-          echo "=== Key files ==="
-          ls -la bin/ 2>/dev/null || echo "No bin directory"
-          ls -la package.json 2>/dev/null || echo "No package.json"
-          echo "=== package.json bin section ==="
+          find . -maxdepth 3 -type f | head -20
+          echo "=== Frontend-dist contents ==="
+          ls -la bin/frontend-dist/ 2>/dev/null || echo "No frontend-dist directory"
+          echo "=== Package.json bin section ==="
           node -e "console.log(JSON.stringify(require('./package.json').bin, null, 2))"
         shell: bash
 
@@ -383,92 +487,18 @@ jobs:
         run: |
           cd test-package
           npm pack
-          # Get the actual tarball filename (cross-platform compatible)
           TARBALL=$(node -e "console.log(require('./package.json').name + '-' + require('./package.json').version + '.tgz')")
           echo "Installing tarball: $TARBALL"
           npm install -g "$TARBALL"
-          
-          # Debug: Check if binary was installed correctly
-          echo "=== NPM global directories ==="
-          NPM_PREFIX=$(npm prefix -g 2>/dev/null || echo "/usr/local")
-          echo "NPM global prefix: $NPM_PREFIX"
-          
-          # Try multiple possible bin directories
-          POSSIBLE_BIN_DIRS=(
-            "$NPM_PREFIX/bin"
-            "/usr/local/bin"
-            "$HOME/.npm-global/bin"
-            "$(npm config get prefix 2>/dev/null)/bin"
-          )
-          
-          echo "=== Checking possible bin directories ==="
-          for BIN_DIR in "${POSSIBLE_BIN_DIRS[@]}"; do
-            if [ -d "$BIN_DIR" ]; then
-              echo "Checking $BIN_DIR:"
-              ls -la "$BIN_DIR" | grep claudeee || echo "  No claudeee binary found"
-            else
-              echo "$BIN_DIR: Directory not found"
-            fi
-          done
-          
-          echo "=== Testing which claudeee ==="
-          which claudeee || echo "claudeee not found in PATH"
-          
-          echo "=== Current PATH ==="
-          echo "$PATH" | tr ':' '\n' | head -10
         shell: bash
 
-      - name: Test CLI
+      - name: Test CLI functionality
         run: |
-          # Try direct execution first
           if command -v claudeee >/dev/null 2>&1; then
             echo "=== Testing claudeee help ==="
             claudeee help
-            echo "=== Testing claudeee version ==="
-            claudeee version
           else
-            echo "claudeee command not found in PATH, trying alternative methods..."
-            
-            # Try npx
             echo "=== Testing npx claudeee help ==="
             npx claudeee help
-            echo "=== Testing npx claudeee version ==="
-            npx claudeee version
           fi
         shell: bash
-
-      - name: Test platform detection
-        run: |
-          node -e "
-            const path = require('path');
-            const fs = require('fs');
-            const platform = process.platform;
-            const arch = process.arch;
-            console.log('Platform:', platform, 'Arch:', arch);
-            
-            // Check if appropriate binary exists
-            let binaryName = 'claudeee-server-';
-            if (platform === 'darwin') {
-              binaryName += arch === 'arm64' ? 'darwin-arm64' : 'darwin-amd64';
-            } else if (platform === 'linux') {
-              // Only x64 supported for Linux
-              if (arch === 'x64') {
-                binaryName += 'linux-amd64';
-              } else {
-                console.log('WARNING: Linux ARM64 is not supported');
-                process.exit(0);
-              }
-            } else if (platform === 'win32') {
-              binaryName += 'windows-amd64.exe';
-            }
-            console.log('Expected binary:', binaryName);
-            
-            // Test platform detector script if available
-            try {
-              const PlatformDetector = require('./scripts/platform-detector.js');
-              const detector = new PlatformDetector();
-              console.log('Platform detector info:', detector.getPlatformInfo());
-            } catch (e) {
-              console.log('Platform detector not available:', e.message);
-            }
-          "

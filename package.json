@@ -1,6 +1,6 @@
 {
   "name": "claudeee",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Claude Code Monitoring - A comprehensive monitoring for Claude Code",
   "main": "bin/claudeee.js",
   "bin": {
@@ -51,7 +51,6 @@
   "files": [
     "bin/",
     "scripts/",
-    "frontend/",
     "README.md"
   ],
   "cpu": [
