@@ -1,6 +1,6 @@
 {
   "name": "claudeee",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Claude Code Monitoring - A comprehensive monitoring for Claude Code",
   "main": "bin/claudeee.js",
   "bin": {
@@ -10,7 +10,7 @@
     "start": "node bin/claudeee.js",
     "build": "npm run build:backend && npm run build:frontend",
     "build:backend": "if [ -d \"backend\" ]; then cd backend && go build -o ../bin/claudeee-server cmd/server/main.go; else echo \"Backend directory not found, skipping backend build (likely CI environment)\"; fi",
-    "build:frontend": "cd frontend && npm run build",
+    "build:frontend": "cd frontend && npm install --production=false && npm run build",
     "dev": "npm run dev:backend & npm run dev:frontend",
     "dev:backend": "cd backend && go run cmd/server/main.go",
     "dev:frontend": "cd frontend && npm run dev",
