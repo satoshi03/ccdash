@@ -146,13 +146,19 @@ jobs:
           
           echo "Standalone build verification complete"
 
+      - name: Create frontend artifact
+        run: |
+          # Create a tar archive to preserve directory structure
+          cd frontend
+          tar -czf ../frontend-build.tar.gz standalone-dist/ next.config.js 2>/dev/null || tar -czf ../frontend-build.tar.gz standalone-dist/
+          cd ..
+          ls -la frontend-build.tar.gz
+
       - name: Upload frontend build
         uses: actions/upload-artifact@v4
         with:
           name: frontend-build
-          path: |
-            frontend/standalone-dist/
-            frontend/next.config.js
+          path: frontend-build.tar.gz
 
   create-release:
     name: Create Release Package
@@ -181,6 +187,19 @@ jobs:
           name: frontend-build
           path: ./
 
+      - name: Extract frontend build
+        run: |
+          if [ -f "frontend-build.tar.gz" ]; then
+            echo "Extracting frontend build archive..."
+            tar -xzf frontend-build.tar.gz
+            ls -la
+            echo "Frontend extraction complete"
+          else
+            echo "ERROR: frontend-build.tar.gz not found"
+            ls -la
+            exit 1
+          fi
+
       - name: Get version from tag or input
         id: version
         run: |
@@ -208,19 +227,19 @@ jobs:
           cp bin/claudeee.js dist/bin/
           
           # Setup frontend distribution in bin/frontend-dist/
-          if [ -d "frontend/standalone-dist" ]; then
+          if [ -d "standalone-dist" ]; then
             echo "Setting up frontend distribution from standalone build..."
             
             # Ensure frontend-dist directory exists
             mkdir -p dist/bin/frontend-dist
             
             # Copy the entire standalone build to frontend-dist
-            cp -r frontend/standalone-dist/* dist/bin/frontend-dist/
+            cp -r standalone-dist/* dist/bin/frontend-dist/
             echo "Copied standalone build output"
             
             # Copy next.config.js if it exists
-            if [ -f "frontend/next.config.js" ]; then
-              cp frontend/next.config.js dist/bin/frontend-dist/
+            if [ -f "next.config.js" ]; then
+              cp next.config.js dist/bin/frontend-dist/
             fi
             
             # Verify the key files exist
@@ -239,9 +258,9 @@ jobs:
             echo "Frontend-dist .next contents:"
             ls -la dist/bin/frontend-dist/.next/ | head -5
           else
-            echo "ERROR: No frontend/standalone-dist directory found"
+            echo "ERROR: No standalone-dist directory found after extraction"
             echo "Available directories:"
-            find frontend -type d -maxdepth 2 | head -10
+            find . -type d -maxdepth 2 | head -10
             exit 1
           fi
           
