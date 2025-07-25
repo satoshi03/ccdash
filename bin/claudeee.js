@@ -205,6 +205,16 @@ function startBackend(port = 8080, frontendPort = 3000) {
 
 // Start frontend server with custom port
 function startFrontend(port = 3000, backendPort = 8080) {
+  // Skip frontend for npm packages if no build exists
+  if (isNpmPackage()) {
+    const standalonePath = path.join(frontendPath, '.next', 'standalone', 'server.js');
+    if (!fs.existsSync(standalonePath)) {
+      log.warning('Frontend not available in this npm package installation');
+      log.info(`API server is running on http://localhost:${backendPort}`);
+      return null; // Return null instead of a process
+    }
+  }
+  
   log.info(`Starting frontend server on http://localhost:${port}`);
   
   // Check if standalone build exists
@@ -227,8 +237,8 @@ function startFrontend(port = 3000, backendPort = 8080) {
         HOSTNAME: '0.0.0.0'
       }
     });
-  } else {
-    // Fallback to npm start
+  } else if (!isNpmPackage()) {
+    // Only use npm start for development environments
     log.info('Using npm start (standalone build not found)');
     frontendProcess = spawn('npm', ['run', 'start'], {
       cwd: frontendPath,
@@ -240,6 +250,9 @@ function startFrontend(port = 3000, backendPort = 8080) {
         NEXT_PUBLIC_API_URL: `http://localhost:${backendPort}`
       }
     });
+  } else {
+    log.warning('Frontend dependencies not available in npm package');
+    return null;
   }
   
   return frontendProcess;
@@ -308,7 +321,9 @@ async function main() {
         
         log.success('claudeee is running!');
         log.info(`Backend:  http://localhost:${backendPort}`);
-        log.info(`Frontend: http://localhost:${frontendPort}`);
+        if (frontendProcess) {
+          log.info(`Frontend: http://localhost:${frontendPort}`);
+        }
         log.info('Press Ctrl+C to stop');
         
         break;
