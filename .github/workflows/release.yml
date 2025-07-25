@@ -227,14 +227,29 @@ jobs:
           cp bin/claudeee.js dist/bin/
           
           # Setup frontend distribution in bin/frontend-dist/
-          if [ -d "frontend-build/.next" ]; then
+          if [ -d "frontend-build" ]; then
             echo "Setting up frontend distribution..."
             
-            # Copy .next build output
-            cp -r frontend-build/.next dist/bin/frontend-dist/
+            # Ensure frontend-dist directory exists
+            mkdir -p dist/bin/frontend-dist
+            
+            # Copy .next build output if it exists
+            if [ -d "frontend-build/.next" ]; then
+              cp -r frontend-build/.next dist/bin/frontend-dist/
+              echo "Copied .next build output"
+            else
+              echo "ERROR: No .next directory found in frontend-build"
+              find frontend-build -name "*.next" -o -name ".next" | head -5
+              exit 1
+            fi
             
             # Copy runtime package.json
-            cp frontend-build/package-runtime.json dist/bin/frontend-dist/package.json
+            if [ -f "frontend-build/package-runtime.json" ]; then
+              cp frontend-build/package-runtime.json dist/bin/frontend-dist/package.json
+            else
+              echo "ERROR: No package-runtime.json found"
+              exit 1
+            fi
             
             # Copy next.config.js if it exists
             if [ -f "frontend-build/next.config.js" ]; then
@@ -246,12 +261,16 @@ jobs:
               mkdir -p dist/bin/frontend-dist/node_modules
               cp -r frontend-build/runtime-deps/* dist/bin/frontend-dist/node_modules/
               echo "Runtime dependencies copied to frontend-dist/node_modules"
+              ls -la dist/bin/frontend-dist/node_modules/
+            else
+              echo "WARNING: No runtime-deps found, frontend may not work"
             fi
             
             echo "Frontend distribution created:"
             find dist/bin/frontend-dist -maxdepth 2 -type f | head -10
           else
-            echo "WARNING: No frontend build found"
+            echo "ERROR: No frontend-build directory found"
+            exit 1
           fi
           
           # Copy utility scripts
