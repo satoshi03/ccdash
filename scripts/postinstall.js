@@ -44,20 +44,42 @@ class PostInstallSetup {
    * Check if we're running from an npm package installation
    */
   isNpmPackage() {
-    // Check if we're installed via npm (node_modules exists in parent directories)
+    // Check for npm environment variables first
+    if (process.env.npm_package_name === 'claudeee' || 
+        process.env.npm_config_global === 'true' ||
+        process.env.npm_command === 'install') {
+      return true;
+    }
+    
+    // Check if we're in a node_modules directory (local or global)
+    const packagePath = this.packageRoot;
+    if (packagePath.includes('node_modules')) {
+      return true;
+    }
+    
+    // Check for global npm directory patterns
+    if (packagePath.includes('/lib/node_modules/') || 
+        packagePath.includes('\\node_modules\\') ||
+        packagePath.includes('.npm/')) {
+      return true;
+    }
+    
+    // Check if package was installed via npm by looking for npm-specific files in parent dirs
     let currentDir = this.packageRoot;
     while (currentDir !== path.dirname(currentDir)) {
-      if (path.basename(currentDir) === 'node_modules' || 
-          fs.existsSync(path.join(currentDir, 'node_modules'))) {
+      if (path.basename(currentDir) === 'node_modules') {
+        return true;
+      }
+      if (fs.existsSync(path.join(currentDir, 'package-lock.json')) ||
+          fs.existsSync(path.join(currentDir, 'pnpm-lock.yaml'))) {
         return true;
       }
       currentDir = path.dirname(currentDir);
     }
     
-    // Check if package was installed via npm by looking for npm-specific files
-    return fs.existsSync(path.join(this.packageRoot, '..', '..', 'package-lock.json')) ||
-           fs.existsSync(path.join(this.packageRoot, '..', '..', 'pnpm-lock.yaml')) ||
-           process.env.npm_package_name === 'claudeee';
+    // Check if we don't have development files (indicating we're a packaged install)
+    return !fs.existsSync(path.join(this.packageRoot, '.git')) &&
+           !fs.existsSync(path.join(this.packageRoot, 'go.mod'));
   }
 
   /**
