@@ -56,6 +56,31 @@ git config --global user.email "your.email@example.com"
    - 統合テスト
    - エラーハンドリング確認
 
+### リリース手順
+
+#### バージョンアップとタグ作成
+リリースタグを作成する際は、必ずpackage.jsonのバージョンも同時に更新してください：
+
+```bash
+# 1. package.jsonのバージョンを更新
+# 例: "version": "0.1.5" → "version": "0.1.6"
+
+# 2. 変更をコミット
+git add package.json
+git commit -m "Bump version to 0.1.6"
+
+# 3. メインブランチにプッシュ
+git push origin main
+
+# 4. リリースタグを作成
+git tag -a v0.1.6 -m "v0.1.6 - リリース内容の説明"
+
+# 5. タグをプッシュ
+git push origin v0.1.6
+```
+
+**重要**: package.jsonのバージョンとGitタグのバージョンは必ず一致させること。npm publishで使用されるため、バージョン不整合があるとCI/CDでエラーが発生します。
+
 ### コマンド集
 
 #### バックエンド開発
@@ -388,6 +413,7 @@ cd backend/cmd/sync-reset && go run main.go
 - **2025-07-25**: ログ同期問題修正、循環依存解決
 - **2025-07-25**: コマンドライン管理ツール整備（backend/cmd/配下）
 - **2025-07-25**: 不要ファイル削除、プロジェクト構成整理
+- **2025-07-25**: リリース手順の標準化、バージョン管理ルール追加
 
 ---
 
