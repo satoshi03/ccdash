@@ -169,6 +169,7 @@ jobs:
           name: frontend-build
           path: |
             frontend/.next/
+            frontend/public/
             frontend/package-runtime.json
             frontend/next.config.js
             frontend/runtime-deps/
@@ -211,6 +212,12 @@ jobs:
           echo ""
           echo "=== .next directory contents (if exists) ==="
           ls -la frontend-artifacts/.next/ 2>/dev/null || echo "No .next directory found"
+          echo ""
+          echo "=== .next/static directory contents ==="
+          ls -la frontend-artifacts/.next/static/ 2>/dev/null || echo "No .next/static directory found"
+          echo ""
+          echo "=== Public directory contents ==="
+          ls -la frontend-artifacts/public/ 2>/dev/null || echo "No public directory found"
 
       - name: Get version from tag or input
         id: version
@@ -245,13 +252,27 @@ jobs:
             # Ensure frontend-dist directory exists
             mkdir -p dist/bin/frontend-dist
             
-            # Copy .next build output if it exists
-            if [ -d "frontend-artifacts/.next" ]; then
-              cp -r frontend-artifacts/.next dist/bin/frontend-dist/
-              echo "Copied .next build output"
+            # For standalone builds, copy the standalone directory contents
+            if [ -d "frontend-artifacts/.next/standalone" ]; then
+              echo "Using standalone build structure"
+              cp -r frontend-artifacts/.next/standalone/* dist/bin/frontend-dist/
+              echo "Copied standalone build contents"
+              
+              # Copy static files to the correct location for standalone builds
+              if [ -d "frontend-artifacts/.next/static" ]; then
+                mkdir -p dist/bin/frontend-dist/.next/static
+                cp -r frontend-artifacts/.next/static/* dist/bin/frontend-dist/.next/static/
+                echo "Copied static files to standalone build"
+              fi
+              
+              # Copy public files if they exist
+              if [ -d "frontend-artifacts/public" ]; then
+                cp -r frontend-artifacts/public dist/bin/frontend-dist/
+                echo "Copied public directory"
+              fi
             else
-              echo "ERROR: No .next directory found in frontend-artifacts"
-              find frontend-artifacts -name "*.next" -o -name ".next" | head -5
+              echo "ERROR: No standalone build found"
+              find frontend-artifacts -name "standalone" -type d
               exit 1
             fi
             

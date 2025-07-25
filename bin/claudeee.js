@@ -220,40 +220,55 @@ function startFrontend(port = 3000, backendPort = 8080) {
   
   // For npm packages (bin/frontend-dist structure)
   if (isNpmPackage()) {
-    if (fs.existsSync(nextDir)) {
-      log.info('Using pre-built Next.js frontend from npm package');
-      
-      // Try standalone build first
-      if (fs.existsSync(standalonePath)) {
-        log.info('Using standalone build');
-        const standaloneDir = path.dirname(standalonePath);
-        const frontendProcess = spawn('node', ['server.js'], {
-          cwd: standaloneDir,
-          stdio: 'inherit',
-          detached: false,
-          env: {
-            ...process.env,
-            PORT: port.toString(),
-            NEXT_PUBLIC_API_URL: `http://localhost:${backendPort}`,
-            HOSTNAME: '0.0.0.0'
-          }
-        });
-        return frontendProcess;
-      } else {
-        // Fallback to npm start for npm packages
-        log.info('Using npm start for pre-built frontend');
-        const frontendProcess = spawn('npm', ['start'], {
-          cwd: frontendPath,
-          stdio: 'inherit',
-          detached: false,
-          env: {
-            ...process.env,
-            PORT: port.toString(),
-            NEXT_PUBLIC_API_URL: `http://localhost:${backendPort}`
-          }
-        });
-        return frontendProcess;
-      }
+    const serverJsPath = path.join(frontendPath, 'server.js');
+    
+    // Check if this is a standalone build (has server.js in root)
+    if (fs.existsSync(serverJsPath)) {
+      log.info('Using pre-built standalone Next.js frontend from npm package');
+      const frontendProcess = spawn('node', ['server.js'], {
+        cwd: frontendPath,
+        stdio: 'inherit',
+        detached: false,
+        env: {
+          ...process.env,
+          PORT: port.toString(),
+          NEXT_PUBLIC_API_URL: `http://localhost:${backendPort}`,
+          HOSTNAME: '0.0.0.0'
+        }
+      });
+      return frontendProcess;
+    }
+    // Try nested standalone build
+    else if (fs.existsSync(nextDir) && fs.existsSync(standalonePath)) {
+      log.info('Using nested standalone build');
+      const standaloneDir = path.dirname(standalonePath);
+      const frontendProcess = spawn('node', ['server.js'], {
+        cwd: standaloneDir,
+        stdio: 'inherit',
+        detached: false,
+        env: {
+          ...process.env,
+          PORT: port.toString(),
+          NEXT_PUBLIC_API_URL: `http://localhost:${backendPort}`,
+          HOSTNAME: '0.0.0.0'
+        }
+      });
+      return frontendProcess;
+    }
+    // Fallback to npm start
+    else if (fs.existsSync(nextDir)) {
+      log.info('Using npm start for pre-built frontend');
+      const frontendProcess = spawn('npm', ['start'], {
+        cwd: frontendPath,
+        stdio: 'inherit',
+        detached: false,
+        env: {
+          ...process.env,
+          PORT: port.toString(),
+          NEXT_PUBLIC_API_URL: `http://localhost:${backendPort}`
+        }
+      });
+      return frontendProcess;
     } else {
       log.warning('Frontend build not found in npm package');
       log.info(`API server is running on http://localhost:${backendPort}`);
