@@ -41,6 +41,26 @@ class PostInstallSetup {
   }
 
   /**
+   * Check if we're running from an npm package installation
+   */
+  isNpmPackage() {
+    // Check if we're installed via npm (node_modules exists in parent directories)
+    let currentDir = this.packageRoot;
+    while (currentDir !== path.dirname(currentDir)) {
+      if (path.basename(currentDir) === 'node_modules' || 
+          fs.existsSync(path.join(currentDir, 'node_modules'))) {
+        return true;
+      }
+      currentDir = path.dirname(currentDir);
+    }
+    
+    // Check if package was installed via npm by looking for npm-specific files
+    return fs.existsSync(path.join(this.packageRoot, '..', '..', 'package-lock.json')) ||
+           fs.existsSync(path.join(this.packageRoot, '..', '..', 'pnpm-lock.yaml')) ||
+           process.env.npm_package_name === 'claudeee';
+  }
+
+  /**
    * Create symbolic link or copy binary
    * @param {string} sourcePath - Source binary path
    * @param {string} targetPath - Target path for the generic binary
@@ -120,9 +140,14 @@ class PostInstallSetup {
    * Install frontend dependencies
    */
   async installFrontendDependencies() {
-    const { spawn } = require('child_process');
     const frontendPath = path.join(this.packageRoot, 'frontend');
     const nodeModulesPath = path.join(frontendPath, 'node_modules');
+    
+    // Skip frontend dependency installation for npm packages
+    if (this.isNpmPackage()) {
+      this.log('Running from npm package, skipping frontend dependency installation');
+      return;
+    }
     
     if (fs.existsSync(nodeModulesPath)) {
       this.log('Frontend dependencies already installed');
@@ -134,8 +159,15 @@ class PostInstallSetup {
       return;
     }
     
+    // Only install dependencies in development environment
+    if (process.env.NODE_ENV === 'production' || this.isCI()) {
+      this.log('Production/CI environment detected, skipping frontend dependency installation');
+      return;
+    }
+    
     this.log('Installing frontend dependencies...');
     
+    const { spawn } = require('child_process');
     return new Promise((resolve) => {
       const installProcess = spawn('npm', ['install'], {
         cwd: frontendPath,
@@ -162,9 +194,14 @@ class PostInstallSetup {
    * Build frontend if needed
    */
   async buildFrontend() {
-    const { spawn } = require('child_process');
     const frontendPath = path.join(this.packageRoot, 'frontend');
     const standalonePath = path.join(frontendPath, '.next', 'standalone', 'server.js');
+    
+    // Skip frontend build for npm packages - frontend should be pre-built
+    if (this.isNpmPackage()) {
+      this.log('Running from npm package, skipping frontend build');
+      return;
+    }
     
     if (fs.existsSync(standalonePath)) {
       this.log('Frontend already built, skipping build step');
@@ -176,8 +213,15 @@ class PostInstallSetup {
       return;
     }
     
+    // Only build frontend in development environment
+    if (process.env.NODE_ENV === 'production' || this.isCI()) {
+      this.log('Production/CI environment detected, skipping frontend build');
+      return;
+    }
+    
     this.log('Building frontend...');
     
+    const { spawn } = require('child_process');
     return new Promise((resolve) => {
       const buildProcess = spawn('npm', ['run', 'build'], {
         cwd: frontendPath,
