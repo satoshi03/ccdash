@@ -210,7 +210,7 @@ jobs:
           find frontend-artifacts -name ".next" -type d
           echo ""
           echo "=== .next directory contents (if exists) ==="
-          ls -la frontend-artifacts/frontend/.next/ 2>/dev/null || echo "No .next directory found"
+          ls -la frontend-artifacts/.next/ 2>/dev/null || echo "No .next directory found"
 
       - name: Get version from tag or input
         id: version
@@ -246,8 +246,8 @@ jobs:
             mkdir -p dist/bin/frontend-dist
             
             # Copy .next build output if it exists
-            if [ -d "frontend-artifacts/frontend/.next" ]; then
-              cp -r frontend-artifacts/frontend/.next dist/bin/frontend-dist/
+            if [ -d "frontend-artifacts/.next" ]; then
+              cp -r frontend-artifacts/.next dist/bin/frontend-dist/
               echo "Copied .next build output"
             else
               echo "ERROR: No .next directory found in frontend-artifacts"
@@ -256,22 +256,22 @@ jobs:
             fi
             
             # Copy runtime package.json
-            if [ -f "frontend-artifacts/frontend/package-runtime.json" ]; then
-              cp frontend-artifacts/frontend/package-runtime.json dist/bin/frontend-dist/package.json
+            if [ -f "frontend-artifacts/package-runtime.json" ]; then
+              cp frontend-artifacts/package-runtime.json dist/bin/frontend-dist/package.json
             else
               echo "ERROR: No package-runtime.json found"
               exit 1
             fi
             
             # Copy next.config.js if it exists
-            if [ -f "frontend-artifacts/frontend/next.config.js" ]; then
-              cp frontend-artifacts/frontend/next.config.js dist/bin/frontend-dist/
+            if [ -f "frontend-artifacts/next.config.js" ]; then
+              cp frontend-artifacts/next.config.js dist/bin/frontend-dist/
             fi
             
             # Setup minimal node_modules for runtime
-            if [ -d "frontend-artifacts/frontend/runtime-deps" ]; then
+            if [ -d "frontend-artifacts/runtime-deps" ]; then
               mkdir -p dist/bin/frontend-dist/node_modules
-              cp -r frontend-artifacts/frontend/runtime-deps/* dist/bin/frontend-dist/node_modules/
+              cp -r frontend-artifacts/runtime-deps/* dist/bin/frontend-dist/node_modules/
               echo "Runtime dependencies copied to frontend-dist/node_modules"
               ls -la dist/bin/frontend-dist/node_modules/
             else
