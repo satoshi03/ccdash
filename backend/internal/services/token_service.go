@@ -49,6 +49,7 @@ func (s *TokenService) GetCurrentTokenUsage() (*models.TokenUsage, error) {
 			WindowEnd:      now.Add(WINDOW_DURATION),
 			ActiveSessions: 0,
 			TotalCost:      0.0,
+			TotalMessages:  0,
 		}, nil
 	}
 	
@@ -65,6 +66,7 @@ func (s *TokenService) GetCurrentTokenUsage() (*models.TokenUsage, error) {
 			WindowEnd:      now.Add(WINDOW_DURATION),
 			ActiveSessions: 0,
 			TotalCost:      0.0,
+			TotalMessages:  0,
 		}, nil
 	}
 	
@@ -90,6 +92,7 @@ func (s *TokenService) GetCurrentTokenUsage() (*models.TokenUsage, error) {
 		WindowEnd:      currentWindow.WindowEnd,
 		ActiveSessions: currentWindow.SessionCount,
 		TotalCost:      totalCost,
+		TotalMessages:  currentWindow.MessageCount,
 	}, nil
 }
 

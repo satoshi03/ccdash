@@ -50,6 +50,7 @@ type TokenUsage struct {
 	WindowEnd        time.Time `json:"window_end"`
 	ActiveSessions   int     `json:"active_sessions"`
 	TotalCost        float64 `json:"total_cost"`
+	TotalMessages    int     `json:"total_messages"`
 }
 
 type SessionSummary struct {
