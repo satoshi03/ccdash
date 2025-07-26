@@ -122,6 +122,7 @@ export default function Dashboard() {
             plan={displayPlan}
             resetTime={resetTime}
             availableTokens={availableTokenCount}
+            totalCost={tokenUsage.total_cost}
           />
         ) : null}
 

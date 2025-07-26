@@ -9,11 +9,15 @@ import (
 )
 
 type TokenService struct {
-	db *sql.DB
+	db               *sql.DB
+	pricingCalculator *PricingCalculator
 }
 
 func NewTokenService(db *sql.DB) *TokenService {
-	return &TokenService{db: db}
+	return &TokenService{
+		db:               db,
+		pricingCalculator: NewPricingCalculator(),
+	}
 }
 
 const (
@@ -44,6 +48,7 @@ func (s *TokenService) GetCurrentTokenUsage() (*models.TokenUsage, error) {
 			WindowStart:    now,
 			WindowEnd:      now.Add(WINDOW_DURATION),
 			ActiveSessions: 0,
+			TotalCost:      0.0,
 		}, nil
 	}
 	
@@ -59,12 +64,21 @@ func (s *TokenService) GetCurrentTokenUsage() (*models.TokenUsage, error) {
 			WindowStart:    now,
 			WindowEnd:      now.Add(WINDOW_DURATION),
 			ActiveSessions: 0,
+			TotalCost:      0.0,
 		}, nil
 	}
 	
 	// 現在のウィンドウの統計情報を使用
 	usageLimit := s.getUsageLimit()
 	usageRate := float64(currentWindow.TotalTokens) / float64(usageLimit)
+	
+	// ウィンドウ内のメッセージのコストを計算
+	totalCost, err := s.calculateWindowCost(currentWindow.ID)
+	if err != nil {
+		// エラーが発生した場合はログに記録してコストを0にする
+		fmt.Printf("Warning: failed to calculate window cost: %v\n", err)
+		totalCost = 0.0
+	}
 	
 	return &models.TokenUsage{
 		TotalTokens:    currentWindow.TotalTokens,
@@ -75,6 +89,7 @@ func (s *TokenService) GetCurrentTokenUsage() (*models.TokenUsage, error) {
 		WindowStart:    currentWindow.WindowStart,
 		WindowEnd:      currentWindow.WindowEnd,
 		ActiveSessions: currentWindow.SessionCount,
+		TotalCost:      totalCost,
 	}, nil
 }
 
@@ -237,4 +252,106 @@ func (s *TokenService) UpdateSessionTokens(sessionID string) error {
 	}
 	
 	return nil
+}
+
+// calculateWindowCost calculates the total cost for messages in a session window
+func (s *TokenService) calculateWindowCost(windowID string) (float64, error) {
+	query := `
+		SELECT 
+			model,
+			COALESCE(SUM(input_tokens), 0) as total_input_tokens,
+			COALESCE(SUM(output_tokens), 0) as total_output_tokens,
+			COALESCE(SUM(cache_creation_input_tokens), 0) as total_cache_creation_tokens,
+			COALESCE(SUM(cache_read_input_tokens), 0) as total_cache_read_tokens
+		FROM messages 
+		WHERE session_window_id = ? 
+		AND message_role = 'assistant'
+		AND model IS NOT NULL
+		GROUP BY model
+	`
+	
+	rows, err := s.db.Query(query, windowID)
+	if err != nil {
+		return 0.0, fmt.Errorf("failed to query messages for cost calculation: %w", err)
+	}
+	defer rows.Close()
+	
+	var totalCost float64
+	
+	for rows.Next() {
+		var model string
+		var inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens int
+		
+		err := rows.Scan(&model, &inputTokens, &outputTokens, &cacheCreationTokens, &cacheReadTokens)
+		if err != nil {
+			return 0.0, fmt.Errorf("failed to scan message data for cost calculation: %w", err)
+		}
+		
+		cost := s.pricingCalculator.CalculateCost(
+			model,
+			inputTokens,
+			outputTokens,
+			cacheCreationTokens,
+			cacheReadTokens,
+		)
+		
+		totalCost += cost
+	}
+	
+	if err := rows.Err(); err != nil {
+		return 0.0, fmt.Errorf("error iterating over messages for cost calculation: %w", err)
+	}
+	
+	return totalCost, nil
+}
+
+// CalculateSessionCost calculates the total cost for a specific session
+func (s *TokenService) CalculateSessionCost(sessionID string) (float64, error) {
+	query := `
+		SELECT 
+			model,
+			COALESCE(SUM(input_tokens), 0) as total_input_tokens,
+			COALESCE(SUM(output_tokens), 0) as total_output_tokens,
+			COALESCE(SUM(cache_creation_input_tokens), 0) as total_cache_creation_tokens,
+			COALESCE(SUM(cache_read_input_tokens), 0) as total_cache_read_tokens
+		FROM messages 
+		WHERE session_id = ? 
+		AND message_role = 'assistant'
+		AND model IS NOT NULL
+		GROUP BY model
+	`
+	
+	rows, err := s.db.Query(query, sessionID)
+	if err != nil {
+		return 0.0, fmt.Errorf("failed to query messages for session cost calculation: %w", err)
+	}
+	defer rows.Close()
+	
+	var totalCost float64
+	
+	for rows.Next() {
+		var model string
+		var inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens int
+		
+		err := rows.Scan(&model, &inputTokens, &outputTokens, &cacheCreationTokens, &cacheReadTokens)
+		if err != nil {
+			return 0.0, fmt.Errorf("failed to scan message data for session cost calculation: %w", err)
+		}
+		
+		cost := s.pricingCalculator.CalculateCost(
+			model,
+			inputTokens,
+			outputTokens,
+			cacheCreationTokens,
+			cacheReadTokens,
+		)
+		
+		totalCost += cost
+	}
+	
+	if err := rows.Err(); err != nil {
+		return 0.0, fmt.Errorf("error iterating over messages for session cost calculation: %w", err)
+	}
+	
+	return totalCost, nil
 }
