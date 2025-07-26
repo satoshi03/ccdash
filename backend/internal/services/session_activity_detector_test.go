@@ -170,8 +170,8 @@ func TestAnalyzeMessagePattern(t *testing.T) {
 	}
 
 	// Verify pattern analysis
-	if pattern.MessageCount != 5 {
-		t.Errorf("Expected message count 5, got %d", pattern.MessageCount)
+	if pattern.MessageCount != 2 {
+		t.Errorf("Expected message count 2 (assistant messages only), got %d", pattern.MessageCount)
 	}
 
 	if pattern.LastMessageType == nil || *pattern.LastMessageType != "text" {

@@ -356,7 +356,7 @@ func TestUpdateSessionTokens(t *testing.T) {
 	expectedInputTokens := 0   // User messages are not counted
 	expectedOutputTokens := 500 // 200 + 300 from assistant messages
 	expectedTotalTokens := 500
-	expectedMessageCount := 4   // All messages are counted
+	expectedMessageCount := 2   // Only assistant messages are counted
 
 	if totalInputTokens != expectedInputTokens {
 		t.Errorf("Expected total input tokens %d, got %d", expectedInputTokens, totalInputTokens)
