@@ -218,6 +218,12 @@ jobs:
           echo ""
           echo "=== Public directory contents ==="
           ls -la frontend-artifacts/public/ 2>/dev/null || echo "No public directory found"
+          echo ""
+          echo "=== Standalone directory contents ==="
+          ls -la frontend-artifacts/.next/standalone/ 2>/dev/null || echo "No standalone directory found"
+          echo ""
+          echo "=== Standalone .next contents ==="
+          ls -la frontend-artifacts/.next/standalone/.next/ 2>/dev/null || echo "No .next in standalone"
 
       - name: Get version from tag or input
         id: version
@@ -258,12 +264,11 @@ jobs:
               cp -r frontend-artifacts/.next/standalone/* dist/bin/frontend-dist/
               echo "Copied standalone build contents"
               
-              # Copy static files to the correct location for standalone builds
-              if [ -d "frontend-artifacts/.next/static" ]; then
-                mkdir -p dist/bin/frontend-dist/.next/static
-                cp -r frontend-artifacts/.next/static/* dist/bin/frontend-dist/.next/static/
-                echo "Copied static files to standalone build"
-              fi
+              # The standalone build already includes its own .next directory,
+              # but we need to ensure all build files are present
+              echo "Verifying standalone build structure:"
+              ls -la dist/bin/frontend-dist/
+              ls -la dist/bin/frontend-dist/.next/ 2>/dev/null || echo "No .next in standalone"
               
               # Copy public files if they exist
               if [ -d "frontend-artifacts/public" ]; then
