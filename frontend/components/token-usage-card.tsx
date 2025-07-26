@@ -46,7 +46,7 @@ export function TokenUsageCard({ currentUsage, usageLimit, plan, resetTime, avai
           {totalCost !== undefined && totalCost > 0 && (
             <div className="flex items-center justify-between">
               <div className="text-lg font-semibold text-green-600">${totalCost.toFixed(4)}</div>
-              <div className="text-sm text-muted-foreground">USD (current window)</div>
+              <div className="text-sm text-muted-foreground">USD</div>
             </div>
           )}
           
