@@ -273,7 +273,10 @@ func (s *SessionActivityDetector) analyzeMessagePattern(sessionID string) (*Sess
 			continue
 		}
 
-		pattern.MessageCount++
+		// Only count assistant messages for consistency with token calculation
+		if msgRole.Valid && msgRole.String == "assistant" {
+			pattern.MessageCount++
+		}
 
 		// Set last message info
 		if pattern.LastMessageType == nil && msgType.Valid {

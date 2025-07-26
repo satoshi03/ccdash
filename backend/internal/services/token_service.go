@@ -238,7 +238,7 @@ func (s *TokenService) UpdateSessionTokens(sessionID string) error {
 			message_count = (
 				SELECT COUNT(*) 
 				FROM messages 
-				WHERE session_id = ?
+				WHERE session_id = ? AND message_role = 'assistant'
 			),
 			end_time = (
 				SELECT MAX(timestamp) FROM messages WHERE session_id = ?

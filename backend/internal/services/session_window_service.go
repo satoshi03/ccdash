@@ -326,7 +326,8 @@ func (s *SessionWindowService) UpdateWindowStats(windowID string) error {
 			message_count = (
 				SELECT COUNT(*) 
 				FROM messages 
-				WHERE timestamp >= ? AND timestamp < ?
+				WHERE timestamp >= ? AND timestamp < ? 
+				AND message_role = 'assistant'
 			),
 			session_count = (
 				SELECT COUNT(DISTINCT session_id) 
