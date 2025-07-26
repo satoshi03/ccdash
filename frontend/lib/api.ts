@@ -12,6 +12,7 @@ export interface TokenUsage {
   window_end: string
   active_sessions: number
   total_cost: number
+  total_messages: number
 }
 
 export interface Session {

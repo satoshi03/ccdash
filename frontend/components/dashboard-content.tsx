@@ -123,6 +123,7 @@ export default function Dashboard() {
             resetTime={resetTime}
             availableTokens={availableTokenCount}
             totalCost={tokenUsage.total_cost}
+            totalMessages={tokenUsage.total_messages}
           />
         ) : null}
 
