@@ -10,9 +10,10 @@ interface TokenUsageCardProps {
   plan: string
   resetTime: Date
   availableTokens?: number
+  totalCost?: number
 }
 
-export function TokenUsageCard({ currentUsage, usageLimit, plan, resetTime, availableTokens }: TokenUsageCardProps) {
+export function TokenUsageCard({ currentUsage, usageLimit, plan, resetTime, availableTokens, totalCost }: TokenUsageCardProps) {
   const { t, formatFullDate } = useI18n()
   const usagePercentage = (currentUsage / usageLimit) * 100
   const isNearLimit = usagePercentage > 80
@@ -41,6 +42,13 @@ export function TokenUsageCard({ currentUsage, usageLimit, plan, resetTime, avai
             <div className="text-2xl font-bold">{currentUsage.toLocaleString()}</div>
             <div className="text-sm text-muted-foreground">/ {usageLimit.toLocaleString()} {t('tokenUsage.tokens')}</div>
           </div>
+          
+          {totalCost !== undefined && totalCost > 0 && (
+            <div className="flex items-center justify-between">
+              <div className="text-lg font-semibold text-green-600">${totalCost.toFixed(4)}</div>
+              <div className="text-sm text-muted-foreground">USD (current window)</div>
+            </div>
+          )}
           
           <div className="flex items-center justify-between text-sm text-muted-foreground">
             <span>{t('tokenUsage.available')}: {availableCount.toLocaleString()}{t('tokenUsage.tokens')}</span>

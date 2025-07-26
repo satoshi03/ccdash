@@ -11,6 +11,7 @@ export interface TokenUsage {
   window_start: string
   window_end: string
   active_sessions: number
+  total_cost: number
 }
 
 export interface Session {

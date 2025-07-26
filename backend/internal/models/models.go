@@ -16,6 +16,7 @@ type Session struct {
 	MessageCount     int       `json:"message_count" db:"message_count"`
 	Status           string    `json:"status" db:"status"`
 	CreatedAt        time.Time `json:"created_at" db:"created_at"`
+	TotalCost        float64   `json:"total_cost" db:"total_cost"`
 }
 
 type Message struct {
@@ -48,6 +49,7 @@ type TokenUsage struct {
 	WindowStart      time.Time `json:"window_start"`
 	WindowEnd        time.Time `json:"window_end"`
 	ActiveSessions   int     `json:"active_sessions"`
+	TotalCost        float64 `json:"total_cost"`
 }
 
 type SessionSummary struct {
