@@ -261,13 +261,20 @@ jobs:
             # For standalone builds, copy the standalone directory contents
             if [ -d "frontend-artifacts/.next/standalone" ]; then
               echo "Using standalone build structure"
-              cp -r frontend-artifacts/.next/standalone/* dist/bin/frontend-dist/
-              echo "Copied standalone build contents"
               
-              # The standalone build already includes its own .next directory,
-              # but we need to ensure all build files are present
+              # Copy all files from standalone directory including hidden files
+              cd frontend-artifacts/.next/standalone
+              cp -r * ../../../dist/bin/frontend-dist/ 2>/dev/null || true
+              cp -r .* ../../../dist/bin/frontend-dist/ 2>/dev/null || true
+              cd - >/dev/null
+              
+              echo "Copied standalone build contents including hidden files"
+              
+              # Verify the build structure
               echo "Verifying standalone build structure:"
               ls -la dist/bin/frontend-dist/
+              echo ""
+              echo "Checking for .next directory:"
               ls -la dist/bin/frontend-dist/.next/ 2>/dev/null || echo "No .next in standalone"
               
               # Copy public files if they exist
