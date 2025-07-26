@@ -270,12 +270,24 @@ jobs:
               
               echo "Copied standalone build contents including hidden files"
               
+              # Copy static files from main .next directory
+              if [ -d "frontend-artifacts/.next/static" ]; then
+                mkdir -p dist/bin/frontend-dist/.next/static
+                cp -r frontend-artifacts/.next/static/* dist/bin/frontend-dist/.next/static/
+                echo "Copied static files from main .next directory"
+              else
+                echo "WARNING: No static files found in main .next directory"
+              fi
+              
               # Verify the build structure
               echo "Verifying standalone build structure:"
               ls -la dist/bin/frontend-dist/
               echo ""
               echo "Checking for .next directory:"
               ls -la dist/bin/frontend-dist/.next/ 2>/dev/null || echo "No .next in standalone"
+              echo ""
+              echo "Checking for static files:"
+              ls -la dist/bin/frontend-dist/.next/static/ 2>/dev/null || echo "No static files"
               
               # Copy public files if they exist
               if [ -d "frontend-artifacts/public" ]; then
