@@ -35,6 +35,7 @@ func (s *SessionService) GetAllSessions() ([]models.SessionSummary, error) {
 			s.total_output_tokens,
 			s.total_tokens,
 			s.message_count,
+			s.total_cost,
 			s.status,
 			s.created_at
 		FROM sessions s
@@ -63,6 +64,7 @@ func (s *SessionService) GetAllSessions() ([]models.SessionSummary, error) {
 			&session.TotalOutputTokens,
 			&session.TotalTokens,
 			&session.MessageCount,
+			&session.TotalCost,
 			&session.Status,
 			&session.CreatedAt,
 		)
@@ -108,6 +110,7 @@ func (s *SessionService) GetSessionByID(sessionID string) (*models.SessionSummar
 			s.total_output_tokens,
 			s.total_tokens,
 			s.message_count,
+			s.total_cost,
 			s.status,
 			s.created_at,
 			MAX(m.timestamp) as last_activity
@@ -116,7 +119,7 @@ func (s *SessionService) GetSessionByID(sessionID string) (*models.SessionSummar
 		WHERE s.id = ?
 		GROUP BY s.id, s.project_name, s.project_path, s.start_time, s.end_time, 
 				 s.total_input_tokens, s.total_output_tokens, s.total_tokens, 
-				 s.message_count, s.status, s.created_at
+				 s.message_count, s.total_cost, s.status, s.created_at
 	`
 	
 	var session models.SessionSummary
@@ -133,6 +136,7 @@ func (s *SessionService) GetSessionByID(sessionID string) (*models.SessionSummar
 		&session.TotalOutputTokens,
 		&session.TotalTokens,
 		&session.MessageCount,
+		&session.TotalCost,
 		&session.Status,
 		&session.CreatedAt,
 		&lastActivity,

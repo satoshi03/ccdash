@@ -384,7 +384,10 @@ function SessionDetailContent() {
                   <span className="text-muted-foreground">{t('session.total')}</span>
                   <p className="text-2xl font-bold">{session.total_tokens.toLocaleString()}</p>
                 </div>
-                <div />
+                <div>
+                  <span className="text-muted-foreground">{t('session.cost')}</span>
+                  <p className="text-2xl font-bold">${(session.total_cost || 0).toFixed(4)}</p>
+                </div>
                 <div>
                   <span className="text-muted-foreground">{t('session.input')} {t('tokenUsage.tokens')}</span>
                   <p className="font-medium">{session.total_input_tokens.toLocaleString()}</p>
@@ -392,6 +395,10 @@ function SessionDetailContent() {
                 <div>
                   <span className="text-muted-foreground">{t('session.output')} {t('tokenUsage.tokens')}</span>
                   <p className="font-medium">{session.total_output_tokens.toLocaleString()}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">{t('session.messages')}</span>
+                  <p className="font-medium">{session.message_count}</p>
                 </div>
               </div>
             </CardContent>

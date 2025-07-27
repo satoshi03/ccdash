@@ -9,6 +9,11 @@ export const metadata: Metadata = {
   keywords: ['Claude Code', 'AI Development', 'Token Monitoring', 'Task Scheduler', 'Development Tools'],
   generator: 'React + Next.js + TailwindCSS + TypeScript + Go',
   authors: [{ name: 'Claudeee Team' }],
+  icons: {
+    icon: '/favicon.ico',
+    shortcut: '/favicon.ico',
+    apple: '/favicon.ico',
+  },
 }
 
 export const viewport = {
