@@ -1,0 +1,115 @@
+
+> claudeee@0.3.10 dev
+> next dev
+
+   ▲ Next.js 15.2.4
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.3.3:3000
+   - Environments: .env.local, .env
+
+ ✓ Starting...
+ ✓ Ready in 1235ms
+ ○ Compiling / ...
+ ✓ Compiled / in 1820ms (1069 modules)
+ GET / 200 in 2249ms
+ ✓ Compiled in 574ms (497 modules)
+ ✓ Compiled /sessions/[id] in 436ms (1092 modules)
+ GET /sessions/af5361c0-b11d-425c-9d48-00db63722694 200 in 802ms
+ GET /sessions/5db46987-d364-4352-ae11-36c24f39da54 200 in 802ms
+ GET /sessions/a08b9812-ce50-4318-9567-d9bf550453dc 200 in 803ms
+ GET /sessions/dfa65cbe-8013-4b23-b241-2436869f5df4 200 in 803ms
+ GET /sessions/d83f8478-78fe-45a9-a41b-1cb0c68171b7 200 in 805ms
+ GET /sessions/276cd8d6-811c-4b81-a5f0-f514f38794d2 200 in 9ms
+ GET /sessions/efb135f9-ef19-4fb1-8d6a-de12a6d55473 200 in 8ms
+ GET /sessions/79205654-9703-496d-9369-d96f9c946462 200 in 8ms
+ GET /sessions/d83f8478-78fe-45a9-a41b-1cb0c68171b7 200 in 35ms
+ GET /sessions/af5361c0-b11d-425c-9d48-00db63722694 200 in 35ms
+ GET /sessions/5db46987-d364-4352-ae11-36c24f39da54 200 in 35ms
+ GET /sessions/a08b9812-ce50-4318-9567-d9bf550453dc 200 in 36ms
+ GET /sessions/dfa65cbe-8013-4b23-b241-2436869f5df4 200 in 36ms
+ GET /sessions/79205654-9703-496d-9369-d96f9c946462 200 in 5ms
+ GET /sessions/276cd8d6-811c-4b81-a5f0-f514f38794d2 200 in 5ms
+ GET /sessions/efb135f9-ef19-4fb1-8d6a-de12a6d55473 200 in 6ms
+ GET / 200 in 123ms
+ ✓ Compiled /_not-found in 296ms (1096 modules)
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 416ms
+ ✓ Compiled in 305ms (1086 modules)
+ GET / 200 in 59ms
+ ✓ Compiled in 390ms (1086 modules)
+ GET / 200 in 40ms
+ ✓ Compiled in 229ms (1086 modules)
+ GET / 200 in 34ms
+ ✓ Compiled /sessions/[id] in 133ms (592 modules)
+ GET /sessions/d83f8478-78fe-45a9-a41b-1cb0c68171b7 200 in 186ms
+ ✓ Compiled in 332ms (1106 modules)
+ GET /sessions/d83f8478-78fe-45a9-a41b-1cb0c68171b7 200 in 41ms
+ ✓ Compiled in 155ms (1106 modules)
+ GET /sessions/d83f8478-78fe-45a9-a41b-1cb0c68171b7 200 in 23ms
+ GET / 200 in 9ms
+ ✓ Compiled in 235ms (1106 modules)
+ GET / 200 in 37ms
+ GET /sessions/af5361c0-b11d-425c-9d48-00db63722694 200 in 12ms
+ ✓ Compiled in 169ms (1106 modules)
+ GET /sessions/af5361c0-b11d-425c-9d48-00db63722694 200 in 36ms
+ GET /sessions/af5361c0-b11d-425c-9d48-00db63722694?page=99 200 in 7ms
+ ✓ Compiled in 418ms (1106 modules)
+ GET /sessions/af5361c0-b11d-425c-9d48-00db63722694?page=99 200 in 43ms
+ GET / 200 in 10ms
+ GET /sessions/d83f8478-78fe-45a9-a41b-1cb0c68171b7 200 in 10ms
+ GET / 200 in 118ms
+ GET / 200 in 8ms
+ GET / 200 in 43ms
+ ✓ Compiled /_not-found in 434ms (1096 modules)
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 563ms
+ ✓ Compiled in 374ms (1106 modules)
+ GET / 200 in 43ms
+ GET / 200 in 115ms
+ ✓ Compiled /_not-found in 342ms (1110 modules)
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 458ms
+ GET /sessions/d83f8478-78fe-45a9-a41b-1cb0c68171b7 200 in 16ms
+ GET / 200 in 10ms
+ GET / 200 in 64ms
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 44ms
+ ✓ Compiled in 327ms (1106 modules)
+ GET / 200 in 40ms
+ GET / 200 in 106ms
+ ✓ Compiled /_not-found in 111ms (1096 modules)
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 257ms
+ GET /sessions/d83f8478-78fe-45a9-a41b-1cb0c68171b7 200 in 15ms
+ GET / 200 in 14ms
+ GET / 200 in 7ms
+ GET / 200 in 51ms
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 38ms
+ ✓ Compiled in 425ms (1109 modules)
+ GET / 200 in 38ms
+ ✓ Compiled in 152ms (1106 modules)
+ GET / 200 in 50ms
+ GET / 200 in 101ms
+ ✓ Compiled /_not-found in 144ms (1096 modules)
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 236ms
+ ✓ Compiled in 155ms (1110 modules)
+ GET / 200 in 25ms
+ ✓ Compiled in 153ms (1110 modules)
+ GET / 200 in 38ms
+ GET /sessions/ee5b9b5a-bec2-4614-9499-ebc16490c459 200 in 18ms
+ GET /sessions/ee5b9b5a-bec2-4614-9499-ebc16490c459 200 in 106ms
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 70ms
+ GET / 200 in 7ms
+ GET /sessions/ee5b9b5a-bec2-4614-9499-ebc16490c459 200 in 12ms
+ GET /sessions/ee5b9b5a-bec2-4614-9499-ebc16490c459 200 in 39ms
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 39ms
+ GET /sessions/ee5b9b5a-bec2-4614-9499-ebc16490c459 200 in 42ms
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 38ms
+ GET / 200 in 9ms
+ GET / 200 in 48ms
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 59ms
+ ✓ Compiled in 183ms (514 modules)
+ ✓ Compiled in 326ms (1106 modules)
+ GET / 200 in 134ms
+ GET / 200 in 54ms
+ ✓ Compiled /_not-found in 254ms (1096 modules)
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 377ms
+ GET / 200 in 67ms
+ GET /.well-known/appspecific/com.chrome.devtools.json 404 in 42ms
+ GET / 200 in 43ms
+ GET /sessions/ee5b9b5a-bec2-4614-9499-ebc16490c459 200 in 17ms

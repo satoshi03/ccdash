@@ -27,6 +27,7 @@ export interface Session {
   message_count: number
   status: string
   created_at: string
+  total_cost?: number
   duration?: number
   is_active: boolean
   last_activity: string

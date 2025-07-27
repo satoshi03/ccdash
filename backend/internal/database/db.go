@@ -52,6 +52,7 @@ func createTables(db *sql.DB) error {
 			total_output_tokens INTEGER DEFAULT 0,
 			total_tokens INTEGER DEFAULT 0,
 			message_count INTEGER DEFAULT 0,
+			total_cost DOUBLE DEFAULT 0.0,
 			status VARCHAR DEFAULT 'active',
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)`,
@@ -95,6 +96,9 @@ func createTables(db *sql.DB) error {
 		
 		// Add session_window_id column to existing messages table if it doesn't exist
 		`ALTER TABLE messages ADD COLUMN IF NOT EXISTS session_window_id TEXT`,
+		
+		// Add total_cost column to existing sessions table if it doesn't exist
+		`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS total_cost DOUBLE DEFAULT 0.0`,
 		
 		`CREATE INDEX IF NOT EXISTS idx_sessions_project_name ON sessions (project_name)`,
 		`CREATE INDEX IF NOT EXISTS idx_sessions_start_time ON sessions (start_time)`,
