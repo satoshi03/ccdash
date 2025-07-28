@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"claudeee-backend/internal/config"
 	"claudeee-backend/internal/models"
 )
 
@@ -106,12 +107,12 @@ func (d *DiffSyncService) SyncAllLogs() (*models.SyncStats, error) {
 
 // discoverJSONLFiles discovers all JSONL files in Claude projects directory
 func (d *DiffSyncService) discoverJSONLFiles() ([]models.FileInfo, error) {
-	homeDir, err := os.UserHomeDir()
+	cfg, err := config.GetConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get home directory: %w", err)
+		return nil, fmt.Errorf("failed to get config: %w", err)
 	}
 
-	claudeDir := filepath.Join(homeDir, ".claude", "projects")
+	claudeDir := cfg.ClaudeProjectsDir
 	if _, err := os.Stat(claudeDir); os.IsNotExist(err) {
 		return nil, fmt.Errorf("claude projects directory not found: %s", claudeDir)
 	}

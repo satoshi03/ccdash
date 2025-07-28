@@ -349,3 +349,10 @@ func (h *Handler) GetBurnRateHistory(c *gin.Context) {
 	})
 }
 
+// GetInitializationStatus returns the current initialization status
+func (h *Handler) GetInitializationStatus(c *gin.Context) {
+	initService := services.GetGlobalInitializationService()
+	state := initService.GetState()
+	c.JSON(http.StatusOK, state)
+}
+

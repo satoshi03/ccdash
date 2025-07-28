@@ -85,6 +85,19 @@ export interface BurnRatePoint {
   tokens_per_hour: number
 }
 
+export interface InitializationStatus {
+  status: 'initializing' | 'completed' | 'failed'
+  message: string
+  progress?: {
+    processed_files: number
+    total_files: number
+    new_lines: number
+  }
+  start_time: string
+  end_time?: string
+  error?: string
+}
+
 export interface ApiResponse<T> {
   data?: T
   error?: string
@@ -176,6 +189,10 @@ class ApiClient {
     return this.request(`/predictions/burn-rate-history?hours=${hours}`)
   }
 
+  async getInitializationStatus(): Promise<InitializationStatus> {
+    return this.request<InitializationStatus>('/initialization-status')
+  }
+
 }
 
 export const apiClient = new ApiClient(API_BASE_URL)
@@ -202,5 +219,8 @@ export const api = {
     getP90: () => apiClient.getP90Predictions(),
     getP90ByProject: (projectName: string) => apiClient.getP90PredictionsByProject(projectName),
     getBurnRateHistory: (hours?: number) => apiClient.getBurnRateHistory(hours),
+  },
+  initialization: {
+    getStatus: () => apiClient.getInitializationStatus(),
   },
 }

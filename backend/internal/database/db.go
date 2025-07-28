@@ -3,26 +3,27 @@ package database
 import (
 	"database/sql"
 	"fmt"
-	"os"
-	"path/filepath"
 	
+	"claudeee-backend/internal/config"
 	"claudeee-backend/internal/services"
 	_ "github.com/marcboeker/go-duckdb"
 )
 
 func Initialize() (*sql.DB, error) {
-	homeDir, err := os.UserHomeDir()
+	cfg, err := config.GetConfig()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get home directory: %w", err)
+		return nil, fmt.Errorf("failed to get config: %w", err)
 	}
 	
-	dbPath := filepath.Join(homeDir, ".claudeee", "claudeee.db")
-	
-	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
+	return InitializeWithConfig(cfg)
+}
+
+func InitializeWithConfig(cfg *config.Config) (*sql.DB, error) {
+	if err := cfg.EnsureDatabaseDir(); err != nil {
 		return nil, fmt.Errorf("failed to create database directory: %w", err)
 	}
 	
-	db, err := sql.Open("duckdb", dbPath)
+	db, err := sql.Open("duckdb", cfg.DatabasePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
