@@ -4,6 +4,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -13,6 +14,12 @@ import (
 )
 
 func main() {
+	// Check if database exists and perform initial sync if needed
+	isNewDatabase, err := checkAndInitializeDatabase()
+	if err != nil {
+		log.Fatal("Failed to check/initialize database:", err)
+	}
+
 	db, err := database.Initialize()
 	if err != nil {
 		log.Fatal("Failed to initialize database:", err)
@@ -23,6 +30,28 @@ func main() {
 	sessionService := services.NewSessionService(db)
 	sessionWindowService := services.NewSessionWindowService(db)
 	p90PredictionService := services.NewP90PredictionService(db)
+	
+	// Perform initial log sync if this is a new database (in background)
+	if isNewDatabase {
+		initService := services.GetGlobalInitializationService()
+		initService.StartInitialization()
+		
+		log.Println("New database detected, starting initial log sync in background...")
+		
+		// Run initialization in a separate goroutine so server can start immediately
+		go func() {
+			diffSyncService := services.NewDiffSyncService(db, tokenService, sessionService)
+			stats, err := diffSyncService.SyncAllLogs()
+			if err != nil {
+				log.Printf("Warning: Initial log sync failed: %v", err)
+				initService.FailInitialization(err)
+			} else {
+				log.Printf("Initial sync completed: %d files processed, %d new lines", 
+					stats.ProcessedFiles, stats.NewLines)
+				initService.CompleteInitialization(stats.ProcessedFiles, stats.NewLines)
+			}
+		}()
+	}
 	
 	handler := handlers.NewHandler(tokenService, sessionService, sessionWindowService, p90PredictionService)
 
@@ -52,6 +81,7 @@ func main() {
 			})
 		})
 		
+		api.GET("/initialization-status", handler.GetInitializationStatus)
 		api.GET("/token-usage", handler.GetTokenUsage)
 		api.GET("/sessions", handler.GetSessions)
 		api.GET("/sessions/:id", handler.GetSessionDetails)
@@ -76,4 +106,30 @@ func main() {
 	if err := r.Run(":" + port); err != nil {
 		log.Fatal("Failed to start server:", err)
 	}
+}
+
+// checkAndInitializeDatabase checks if the database exists and returns true if it's a new database
+func checkAndInitializeDatabase() (bool, error) {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return false, err
+	}
+
+	dbPath := filepath.Join(homeDir, ".claudeee", "claudeee.db")
+	
+	// Create directory if it doesn't exist
+	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
+		return false, err
+	}
+
+	// Check if database file exists
+	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
+		log.Println("Database file does not exist, will create and perform initial sync")
+		return true, nil
+	} else if err != nil {
+		return false, err
+	}
+
+	log.Println("Existing database found")
+	return false, nil
 }
