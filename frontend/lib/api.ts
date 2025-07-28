@@ -70,6 +70,21 @@ export interface SessionDetail {
   token_usage: TokenUsage
 }
 
+export interface P90Prediction {
+  token_limit: number
+  message_limit: number
+  cost_limit: number
+  confidence: number
+  time_to_limit_minutes: number
+  burn_rate_per_hour: number
+  predicted_at: string
+}
+
+export interface BurnRatePoint {
+  timestamp: string
+  tokens_per_hour: number
+}
+
 export interface ApiResponse<T> {
   data?: T
   error?: string
@@ -149,6 +164,18 @@ class ApiClient {
     return this.request('/sync-logs', { method: 'POST' })
   }
 
+  async getP90Predictions(): Promise<P90Prediction> {
+    return this.request<P90Prediction>('/predictions/p90')
+  }
+
+  async getP90PredictionsByProject(projectName: string): Promise<P90Prediction> {
+    return this.request<P90Prediction>(`/predictions/p90/project/${encodeURIComponent(projectName)}`)
+  }
+
+  async getBurnRateHistory(hours: number = 24): Promise<{ burn_rate_history: BurnRatePoint[], hours: number }> {
+    return this.request(`/predictions/burn-rate-history?hours=${hours}`)
+  }
+
 }
 
 export const apiClient = new ApiClient(API_BASE_URL)
@@ -170,5 +197,10 @@ export const api = {
   },
   sync: {
     logs: () => apiClient.syncLogs(),
+  },
+  predictions: {
+    getP90: () => apiClient.getP90Predictions(),
+    getP90ByProject: (projectName: string) => apiClient.getP90PredictionsByProject(projectName),
+    getBurnRateHistory: (hours?: number) => apiClient.getBurnRateHistory(hours),
   },
 }

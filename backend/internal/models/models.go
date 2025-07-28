@@ -91,3 +91,8 @@ type Usage struct {
 	OutputTokens             int    `json:"output_tokens"`
 	ServiceTier              string `json:"service_tier"`
 }
+
+type BurnRatePoint struct {
+	Timestamp     time.Time `json:"timestamp"`
+	TokensPerHour int       `json:"tokens_per_hour"`
+}

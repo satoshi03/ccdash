@@ -43,3 +43,5 @@ logs
 .DS_Store
 .idea
 .next
+
+backend/bin

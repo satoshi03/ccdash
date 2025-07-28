@@ -22,6 +22,7 @@ type SessionWindow struct {
 	TotalTokens         int       `json:"total_tokens"`
 	MessageCount        int       `json:"message_count"`
 	SessionCount        int       `json:"session_count"`
+	TotalCost           float64   `json:"total_cost"`
 	IsActive            bool      `json:"is_active"`
 	CreatedAt           time.Time `json:"created_at"`
 	UpdatedAt           time.Time `json:"updated_at"`
@@ -37,7 +38,7 @@ func (s *SessionWindowService) GetCurrentActiveWindow() (*SessionWindow, error) 
 		SELECT 
 			id, window_start, window_end, reset_time,
 			total_input_tokens, total_output_tokens, total_tokens,
-			message_count, session_count, is_active,
+			message_count, session_count, COALESCE(total_cost, 0) as total_cost, is_active,
 			created_at, updated_at
 		FROM session_windows 
 		WHERE is_active = true
@@ -56,6 +57,7 @@ func (s *SessionWindowService) GetCurrentActiveWindow() (*SessionWindow, error) 
 		&window.TotalTokens,
 		&window.MessageCount,
 		&window.SessionCount,
+		&window.TotalCost,
 		&window.IsActive,
 		&window.CreatedAt,
 		&window.UpdatedAt,
@@ -77,7 +79,7 @@ func (s *SessionWindowService) findWindowForTime(messageTime time.Time) (*Sessio
 		SELECT 
 			id, window_start, window_end, reset_time,
 			total_input_tokens, total_output_tokens, total_tokens,
-			message_count, session_count, is_active,
+			message_count, session_count, COALESCE(total_cost, 0) as total_cost, is_active,
 			created_at, updated_at
 		FROM session_windows 
 		WHERE ? >= window_start AND ? < window_end
@@ -96,6 +98,7 @@ func (s *SessionWindowService) findWindowForTime(messageTime time.Time) (*Sessio
 		&window.TotalTokens,
 		&window.MessageCount,
 		&window.SessionCount,
+		&window.TotalCost,
 		&window.IsActive,
 		&window.CreatedAt,
 		&window.UpdatedAt,
@@ -304,6 +307,13 @@ func (s *SessionWindowService) UpdateWindowStats(windowID string) error {
 		return fmt.Errorf("failed to get window time range: %w", err)
 	}
 	
+	// Calculate total_cost for this window
+	totalCost, err := s.calculateWindowCost(windowStart, windowEnd)
+	if err != nil {
+		// Continue without cost calculation if it fails
+		totalCost = 0.0
+	}
+	
 	// Calculate stats directly from messages table using time range (more reliable)
 	query := `
 		UPDATE session_windows 
@@ -334,6 +344,7 @@ func (s *SessionWindowService) UpdateWindowStats(windowID string) error {
 				FROM messages 
 				WHERE timestamp >= ? AND timestamp < ?
 			),
+			total_cost = ?,
 			updated_at = CURRENT_TIMESTAMP
 		WHERE id = ?
 	`
@@ -344,6 +355,7 @@ func (s *SessionWindowService) UpdateWindowStats(windowID string) error {
 		windowStart, windowEnd, // total_tokens
 		windowStart, windowEnd, // message_count
 		windowStart, windowEnd, // session_count
+		totalCost,              // total_cost
 		windowID)
 	
 	if err != nil {
@@ -351,6 +363,59 @@ func (s *SessionWindowService) UpdateWindowStats(windowID string) error {
 	}
 	
 	return nil
+}
+
+// calculateWindowCost calculates the total cost for messages in a time window
+func (s *SessionWindowService) calculateWindowCost(windowStart, windowEnd time.Time) (float64, error) {
+	pricingCalculator := NewPricingCalculator()
+	
+	query := `
+		SELECT 
+			model,
+			COALESCE(SUM(input_tokens), 0) as total_input_tokens,
+			COALESCE(SUM(output_tokens), 0) as total_output_tokens,
+			COALESCE(SUM(cache_creation_input_tokens), 0) as total_cache_creation_tokens,
+			COALESCE(SUM(cache_read_input_tokens), 0) as total_cache_read_tokens
+		FROM messages 
+		WHERE timestamp >= ? AND timestamp < ?
+		AND message_role = 'assistant'
+		AND model IS NOT NULL
+		GROUP BY model
+	`
+	
+	rows, err := s.db.Query(query, windowStart, windowEnd)
+	if err != nil {
+		return 0.0, fmt.Errorf("failed to query messages for cost calculation: %w", err)
+	}
+	defer rows.Close()
+	
+	var totalCost float64
+	
+	for rows.Next() {
+		var model string
+		var inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens int
+		
+		err := rows.Scan(&model, &inputTokens, &outputTokens, &cacheCreationTokens, &cacheReadTokens)
+		if err != nil {
+			return 0.0, fmt.Errorf("failed to scan message data for cost calculation: %w", err)
+		}
+		
+		cost := pricingCalculator.CalculateCost(
+			model,
+			inputTokens,
+			outputTokens,
+			cacheCreationTokens,
+			cacheReadTokens,
+		)
+		
+		totalCost += cost
+	}
+	
+	if err := rows.Err(); err != nil {
+		return 0.0, fmt.Errorf("error iterating over messages for cost calculation: %w", err)
+	}
+	
+	return totalCost, nil
 }
 
 // AssignMessageToWindow assigns a message to a specific session window
@@ -375,7 +440,7 @@ func (s *SessionWindowService) GetRecentWindows(limit int) ([]*SessionWindow, er
 		SELECT 
 			id, window_start, window_end, reset_time,
 			total_input_tokens, total_output_tokens, total_tokens,
-			message_count, session_count, is_active,
+			message_count, session_count, COALESCE(total_cost, 0) as total_cost, is_active,
 			created_at, updated_at
 		FROM session_windows 
 		ORDER BY window_start DESC
@@ -402,6 +467,7 @@ func (s *SessionWindowService) GetRecentWindows(limit int) ([]*SessionWindow, er
 			&window.TotalTokens,
 			&window.MessageCount,
 			&window.SessionCount,
+			&window.TotalCost,
 			&window.IsActive,
 			&window.CreatedAt,
 			&window.UpdatedAt,
