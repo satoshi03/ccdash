@@ -61,9 +61,6 @@ export function Header({ onSettingsChange }: HeaderProps) {
               {t('header.title')}
             </div>
           </Link>
-          <Badge variant="secondary" className="hidden sm:inline-flex">
-            v{process.env.NEXT_PUBLIC_APP_VERSION || '0.1.0'}
-          </Badge>
         </div>
 
 
