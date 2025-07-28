@@ -11,7 +11,6 @@ interface P90ProgressCardProps {
   currentMessages: number
   currentCost: number
   p90Prediction: P90Prediction | null
-  plan: string
   resetTime: Date
   isLoading?: boolean
   settings: Settings
@@ -22,7 +21,6 @@ export function P90ProgressCard({
   currentMessages, 
   currentCost, 
   p90Prediction, 
-  plan,
   resetTime,
   isLoading = false,
   settings
@@ -43,9 +41,6 @@ export function P90ProgressCard({
             <TrendingUp className="w-4 h-4 text-blue-600" />
             {isUsingFixedLimits ? t('settings.fixedLimits') : t('p90Prediction.title')}
           </CardTitle>
-          <Badge variant="outline" className="bg-white">
-            {plan}
-          </Badge>
         </CardHeader>
         <CardContent>
           <div className="animate-pulse space-y-4">
@@ -119,9 +114,6 @@ export function P90ProgressCard({
               {(p90Prediction.confidence * 100).toFixed(0)}% {t('p90Prediction.confidence')}
             </Badge>
           )}
-          <Badge variant="outline" className="bg-white">
-            {plan}
-          </Badge>
         </div>
       </CardHeader>
       <CardContent>

@@ -1,5 +1,4 @@
 export interface Settings {
-  plan: 'Pro' | 'Max5' | 'Max20'
   timezone: string
   autoRefreshInterval: number // 秒単位
   usageMode: 'p90_prediction' | 'fixed_limits'
@@ -11,7 +10,6 @@ export interface Settings {
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  plan: 'Pro',
   timezone: 'Asia/Tokyo',
   autoRefreshInterval: 60, // 1分間隔
   usageMode: 'p90_prediction',
@@ -22,11 +20,6 @@ export const DEFAULT_SETTINGS: Settings = {
   }
 }
 
-export const PLAN_LIMITS = {
-  Pro: 7000,
-  Max5: 35000,
-  Max20: 140000
-}
 
 // Fixed limits based on Claude-Usage-Monitor plans
 export const FIXED_LIMITS_PRESETS = {

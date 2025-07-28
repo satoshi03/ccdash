@@ -38,11 +38,6 @@ export function SettingsModal({ onSettingsChange }: SettingsModalProps) {
     setSettings(savedSettings)
   }, [])
 
-  const handlePlanChange = (value: string) => {
-    const newSettings = { ...settings, plan: value as Settings['plan'] }
-    setSettings(newSettings)
-    setHasChanges(true)
-  }
 
   const handleTimezoneChange = (value: string) => {
     const newSettings = { ...settings, timezone: value }
@@ -195,22 +190,6 @@ export function SettingsModal({ onSettingsChange }: SettingsModalProps) {
             </div>
           )}
 
-          {/* Plan Selection */}
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="plan" className="text-right">
-              {t('settings.plan')}
-            </Label>
-            <Select value={settings.plan} onValueChange={handlePlanChange}>
-              <SelectTrigger className="col-span-3">
-                <SelectValue placeholder={t('settings.planPlaceholder')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Pro">Claude Pro (7,000トークン)</SelectItem>
-                <SelectItem value="Max5">Claude Max5 (35,000トークン)</SelectItem>
-                <SelectItem value="Max20">Claude Max20 (140,000トークン)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
 
           {/* Timezone Selection */}
           <div className="grid grid-cols-4 items-center gap-4">

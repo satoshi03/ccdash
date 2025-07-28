@@ -55,36 +55,6 @@ export function useSessions() {
   return { data, loading, error, refetch: fetchData }
 }
 
-export function useAvailableTokens(plan: string = 'pro') {
-  const [data, setData] = useState<{
-    available_tokens: number
-    plan: string
-    usage_limit: number
-    used_tokens: number
-  } | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
-  const fetchData = async () => {
-    try {
-      setLoading(true)
-      setError(null)
-      const result = await api.tokenUsage.getAvailable(plan.toLowerCase())
-      setData(result)
-    } catch (err) {
-      console.error('Error fetching available tokens:', err)
-      setError(err instanceof Error ? err.message : 'Unknown error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchData()
-  }, [plan])
-
-  return { data, loading, error, refetch: fetchData }
-}
 
 export function useSyncLogs() {
   const [loading, setLoading] = useState(false)

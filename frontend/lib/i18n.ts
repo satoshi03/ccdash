@@ -123,9 +123,7 @@ export const translations: Record<Language, Translations> = {
     },
     settings: {
       title: '設定',
-      description: 'プラン、タイムゾーン、自動更新間隔を設定してください。',
-      plan: 'プラン',
-      planPlaceholder: 'プランを選択',
+      description: 'タイムゾーン、自動更新間隔、使用量表示モードを設定してください。',
       timezone: 'タイムゾーン',
       timezonePlaceholder: 'タイムゾーンを選択',
       refreshInterval: '自動更新間隔',
@@ -288,9 +286,7 @@ export const translations: Record<Language, Translations> = {
     },
     settings: {
       title: 'Settings',
-      description: 'Configure plan, timezone, and auto-refresh interval.',
-      plan: 'Plan',
-      planPlaceholder: 'Select plan',
+      description: 'Configure timezone, auto-refresh interval, and usage display mode.',
       timezone: 'Timezone',
       timezonePlaceholder: 'Select timezone',
       refreshInterval: 'Auto Refresh Interval',
