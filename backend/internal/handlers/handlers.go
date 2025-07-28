@@ -13,13 +13,15 @@ type Handler struct {
 	tokenService        *services.TokenService
 	sessionService      *services.SessionService
 	sessionWindowService *services.SessionWindowService
+	p90PredictionService *services.P90PredictionService
 }
 
-func NewHandler(tokenService *services.TokenService, sessionService *services.SessionService, sessionWindowService *services.SessionWindowService) *Handler {
+func NewHandler(tokenService *services.TokenService, sessionService *services.SessionService, sessionWindowService *services.SessionWindowService, p90PredictionService *services.P90PredictionService) *Handler {
 	return &Handler{
 		tokenService:        tokenService,
 		sessionService:      sessionService,
 		sessionWindowService: sessionWindowService,
+		p90PredictionService: p90PredictionService,
 	}
 }
 
@@ -281,6 +283,69 @@ func (h *Handler) GetSessionWindows(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"windows": windows,
 		"count": len(windows),
+	})
+}
+
+// GetP90Predictions returns p90 limit predictions for tokens, messages, and costs
+func (h *Handler) GetP90Predictions(c *gin.Context) {
+	prediction, err := h.p90PredictionService.CalculateP90Limits()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to calculate p90 predictions",
+			"details": err.Error(),
+		})
+		return
+	}
+	
+	c.JSON(http.StatusOK, prediction)
+}
+
+// GetP90PredictionsByProject returns p90 predictions for a specific project
+func (h *Handler) GetP90PredictionsByProject(c *gin.Context) {
+	projectName := c.Param("project")
+	if projectName == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Project name is required",
+		})
+		return
+	}
+	
+	prediction, err := h.p90PredictionService.GetP90LimitsByProject(projectName)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to calculate p90 predictions for project",
+			"details": err.Error(),
+		})
+		return
+	}
+	
+	c.JSON(http.StatusOK, prediction)
+}
+
+// GetBurnRateHistory returns historical burn rate data
+func (h *Handler) GetBurnRateHistory(c *gin.Context) {
+	hoursStr := c.DefaultQuery("hours", "24")
+	
+	hours, err := strconv.Atoi(hoursStr)
+	if err != nil || hours <= 0 {
+		hours = 24
+	}
+	if hours > 168 { // Max 1 week
+		hours = 168
+	}
+	
+	history, err := h.p90PredictionService.GetBurnRateHistory(hours)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to get burn rate history",
+			"details": err.Error(),
+		})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"burn_rate_history": history,
+		"hours": hours,
 	})
 }
 

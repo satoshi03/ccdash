@@ -22,8 +22,9 @@ func main() {
 	tokenService := services.NewTokenService(db)
 	sessionService := services.NewSessionService(db)
 	sessionWindowService := services.NewSessionWindowService(db)
+	p90PredictionService := services.NewP90PredictionService(db)
 	
-	handler := handlers.NewHandler(tokenService, sessionService, sessionWindowService)
+	handler := handlers.NewHandler(tokenService, sessionService, sessionWindowService, p90PredictionService)
 
 	r := gin.Default()
 	
@@ -60,6 +61,9 @@ func main() {
 		api.GET("/costs/current-month", handler.GetCurrentMonthCosts)
 		api.GET("/tasks", handler.GetTasks)
 		api.GET("/session-windows", handler.GetSessionWindows)
+		api.GET("/predictions/p90", handler.GetP90Predictions)
+		api.GET("/predictions/p90/project/:project", handler.GetP90PredictionsByProject)
+		api.GET("/predictions/burn-rate-history", handler.GetBurnRateHistory)
 		api.POST("/sync-logs", handler.SyncLogs)
 	}
 

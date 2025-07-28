@@ -386,7 +386,7 @@ function SessionDetailContent() {
                 </div>
                 <div>
                   <span className="text-muted-foreground">{t('session.cost')}</span>
-                  <p className="text-2xl font-bold">${(session.total_cost || 0).toFixed(4)}</p>
+                  <p className="text-2xl font-bold">${('total_cost' in session ? (session as Record<string, unknown>).total_cost as number || 0 : 0).toFixed(4)}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">{t('session.input')} {t('tokenUsage.tokens')}</span>
