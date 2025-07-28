@@ -1,26 +1,33 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/http"
-	"os"
-	"path/filepath"
+	"runtime"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"claudeee-backend/internal/config"
 	"claudeee-backend/internal/database"
 	"claudeee-backend/internal/handlers"
 	"claudeee-backend/internal/services"
 )
 
 func main() {
-	// Check if database exists and perform initial sync if needed
-	isNewDatabase, err := checkAndInitializeDatabase()
+	// Load configuration
+	cfg, err := config.GetConfig()
 	if err != nil {
-		log.Fatal("Failed to check/initialize database:", err)
+		log.Fatal("Failed to load configuration:", err)
 	}
 
-	db, err := database.Initialize()
+	// Check if database exists and perform initial sync if needed
+	isNewDatabase := !cfg.DatabaseExists()
+	if isNewDatabase {
+		log.Println("New database detected")
+	}
+
+	db, err := database.InitializeWithConfig(cfg)
 	if err != nil {
 		log.Fatal("Failed to initialize database:", err)
 	}
@@ -36,10 +43,24 @@ func main() {
 		initService := services.GetGlobalInitializationService()
 		initService.StartInitialization()
 		
-		log.Println("New database detected, starting initial log sync in background...")
+		log.Println("Starting initial log sync in background...")
 		
-		// Run initialization in a separate goroutine so server can start immediately
+		// Run initialization in a separate goroutine with panic recovery
 		go func() {
+			defer func() {
+				if r := recover(); r != nil {
+					// Capture the stack trace
+					buf := make([]byte, 1024*64)
+					buf = buf[:runtime.Stack(buf, false)]
+					
+					log.Printf("PANIC in initialization goroutine: %v\nStack trace:\n%s", r, buf)
+					
+					// Report panic as initialization failure
+					panicErr := fmt.Errorf("initialization panic: %v", r)
+					initService.FailInitialization(panicErr)
+				}
+			}()
+			
 			diffSyncService := services.NewDiffSyncService(db, tokenService, sessionService)
 			stats, err := diffSyncService.SyncAllLogs()
 			if err != nil {
@@ -57,15 +78,10 @@ func main() {
 
 	r := gin.Default()
 	
-	frontendURL := os.Getenv("FRONTEND_URL")
-	if frontendURL == "" {
-		frontendURL = "http://localhost:3000"
-	}
-	
-	config := cors.DefaultConfig()
-	config.AllowOrigins = []string{frontendURL}
-	config.AllowCredentials = true
-	r.Use(cors.New(config))
+	corsConfig := cors.DefaultConfig()
+	corsConfig.AllowOrigins = []string{cfg.FrontendURL}
+	corsConfig.AllowCredentials = true
+	r.Use(cors.New(corsConfig))
 	
 	r.Use(func(c *gin.Context) {
 		c.Set("db", db)
@@ -97,39 +113,12 @@ func main() {
 		api.POST("/sync-logs", handler.SyncLogs)
 	}
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
-	}
+	log.Printf("Server starting on :%s", cfg.ServerPort)
+	log.Printf("Database path: %s", cfg.DatabasePath)
+	log.Printf("Claude projects directory: %s", cfg.ClaudeProjectsDir)
+	log.Printf("Frontend URL: %s", cfg.FrontendURL)
 	
-	log.Printf("Server starting on :%s", port)
-	if err := r.Run(":" + port); err != nil {
+	if err := r.Run(":" + cfg.ServerPort); err != nil {
 		log.Fatal("Failed to start server:", err)
 	}
-}
-
-// checkAndInitializeDatabase checks if the database exists and returns true if it's a new database
-func checkAndInitializeDatabase() (bool, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return false, err
-	}
-
-	dbPath := filepath.Join(homeDir, ".claudeee", "claudeee.db")
-	
-	// Create directory if it doesn't exist
-	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
-		return false, err
-	}
-
-	// Check if database file exists
-	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
-		log.Println("Database file does not exist, will create and perform initial sync")
-		return true, nil
-	} else if err != nil {
-		return false, err
-	}
-
-	log.Println("Existing database found")
-	return false, nil
 }
