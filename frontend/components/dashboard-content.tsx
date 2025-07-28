@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { P90ProgressCard } from "@/components/p90-progress-card"
 import { SessionList } from "@/components/session-list"
 import { ProjectOverview } from "@/components/project-overview"
+import { Header } from "@/components/header"
 import { useTokenUsage, useSessions, useSyncLogs, useAvailableTokens, useP90Predictions } from "@/hooks/use-api"
 import { useI18n } from "@/hooks/use-i18n"
 import { Settings, getSettings, PLAN_LIMITS } from "@/lib/settings"
@@ -16,7 +17,11 @@ export default function Dashboard() {
   const { data: p90Predictions, loading: p90Loading, refetch: refetchP90 } = useP90Predictions()
   const { sync: syncLogs } = useSyncLogs()
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [settings] = useState<Settings>(() => getSettings())
+  const [settings, setSettings] = useState<Settings>(() => getSettings())
+  
+  const handleSettingsChange = (newSettings: Settings) => {
+    setSettings(newSettings)
+  }
   const { data: availableTokens, refetch: refetchAvailable } = useAvailableTokens(settings.plan)
   const { t } = useI18n()
 
@@ -105,7 +110,9 @@ export default function Dashboard() {
   const displayPlan = `Claude ${settings.plan}`
 
   return (
-    <div className="container mx-auto max-w-7xl p-6 space-y-6">
+    <div className="min-h-screen bg-background">
+      <Header onSettingsChange={handleSettingsChange} />
+      <div className="container mx-auto max-w-7xl p-6 space-y-6">
 
         {/* Token Usage Overview */}
         {tokenLoading ? (
@@ -123,6 +130,7 @@ export default function Dashboard() {
             plan={displayPlan}
             resetTime={resetTime}
             isLoading={p90Loading}
+            settings={settings}
           />
         ) : null}
 
@@ -159,5 +167,6 @@ export default function Dashboard() {
 
         </Tabs>
       </div>
+    </div>
   )
 }

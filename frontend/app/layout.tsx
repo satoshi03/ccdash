@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import './globals.css'
-import { Header } from '@/components/header'
 
 export const metadata: Metadata = {
   title: 'Claudeee - Claude Code Monitor & Task Scheduler',
@@ -31,18 +30,6 @@ export default function RootLayout({
     <html lang="en">
       <body className="min-h-screen bg-background font-sans antialiased">
         <div className="relative flex min-h-screen flex-col">
-          <Suspense fallback={
-            <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-              <div className="container mx-auto max-w-7xl flex h-16 items-center px-6">
-                <div className="flex items-center space-x-2">
-                  <div className="h-8 w-8 rounded-lg bg-gray-200 animate-pulse"></div>
-                  <div className="h-5 w-24 rounded bg-gray-200 animate-pulse"></div>
-                </div>
-              </div>
-            </header>
-          }>
-            <Header />
-          </Suspense>
           <main className="flex-1">
             <Suspense fallback={
               <div className="container mx-auto max-w-7xl p-6">
