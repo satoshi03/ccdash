@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -51,7 +52,7 @@ func (d *DiffSyncService) SyncAllLogs() (*models.SyncStats, error) {
 
 	// Clean up old states for deleted files
 	if err := d.stateManager.CleanupOldStates(); err != nil {
-		fmt.Printf("Warning: failed to cleanup old states: %v\n", err)
+		log.Printf("Warning: failed to cleanup old states: %v", err)
 	}
 
 	// Discover all JSONL files
@@ -61,28 +62,20 @@ func (d *DiffSyncService) SyncAllLogs() (*models.SyncStats, error) {
 	}
 
 	stats.TotalFiles = len(files)
-	fmt.Printf("Found %d JSONL files to check\n", len(files))
+	log.Printf("Found %d JSONL files to process", len(files))
 
 	// Process each file
 	for _, file := range files {
-		fmt.Printf("Checking file: %s (size: %d, mod: %v)\n", file.Path, file.Size, file.ModTime)
 		needsSync, lastState, err := d.stateManager.NeedsProcessing(file.Path)
 		if err != nil {
-			fmt.Printf("Error checking file %s: %v\n", file.Path, err)
+			log.Printf("Error checking file %s: %v", file.Path, err)
 			continue
 		}
 
-		if lastState != nil {
-			fmt.Printf("  Previous state: size=%d, mod=%v, status=%s\n", lastState.FileSize, lastState.LastModified, lastState.SyncStatus)
-		} else {
-			fmt.Printf("  No previous state found\n")
-		}
-
 		if needsSync {
-			fmt.Printf("Processing file: %s\n", file.Path)
 			newLines, err := d.syncFile(file, lastState)
 			if err != nil {
-				fmt.Printf("Error syncing file %s: %v\n", file.Path, err)
+				log.Printf("Error syncing file %s: %v", file.Path, err)
 				// Update state with error
 				errorMsg := err.Error()
 				errorState := &models.FileProcessingState{
@@ -98,7 +91,6 @@ func (d *DiffSyncService) SyncAllLogs() (*models.SyncStats, error) {
 			stats.ProcessedFiles++
 			stats.NewLines += newLines
 		} else {
-			fmt.Printf("Skipping unchanged file: %s\n", file.Path)
 			stats.SkippedFiles++
 		}
 	}
@@ -106,7 +98,7 @@ func (d *DiffSyncService) SyncAllLogs() (*models.SyncStats, error) {
 	stats.EndTime = time.Now()
 	stats.ProcessingTime = stats.EndTime.Sub(stats.StartTime)
 
-	fmt.Printf("Sync completed: %d files processed, %d skipped, %d new lines, took %v\n",
+	log.Printf("Sync completed: %d files processed, %d skipped, %d new lines, took %v",
 		stats.ProcessedFiles, stats.SkippedFiles, stats.NewLines, stats.ProcessingTime)
 
 	return stats, nil
@@ -120,7 +112,6 @@ func (d *DiffSyncService) discoverJSONLFiles() ([]models.FileInfo, error) {
 	}
 
 	claudeDir := filepath.Join(homeDir, ".claude", "projects")
-	fmt.Printf("Looking for JSONL files in: %s\n", claudeDir)
 	if _, err := os.Stat(claudeDir); os.IsNotExist(err) {
 		return nil, fmt.Errorf("claude projects directory not found: %s", claudeDir)
 	}
@@ -132,10 +123,7 @@ func (d *DiffSyncService) discoverJSONLFiles() ([]models.FileInfo, error) {
 		return nil, fmt.Errorf("failed to read claude projects directory: %w", err)
 	}
 
-	fmt.Printf("Found %d entries in claude projects directory\n", len(entries))
-
 	for _, entry := range entries {
-		fmt.Printf("Processing entry: %s (isDir: %v)\n", entry.Name(), entry.IsDir())
 		if !entry.IsDir() {
 			continue
 		}
@@ -143,20 +131,16 @@ func (d *DiffSyncService) discoverJSONLFiles() ([]models.FileInfo, error) {
 		projectPath := filepath.Join(claudeDir, entry.Name())
 		jsonlFiles, err := filepath.Glob(filepath.Join(projectPath, "*.jsonl"))
 		if err != nil {
-			fmt.Printf("Warning: failed to glob files in %s: %v\n", projectPath, err)
+			log.Printf("Warning: failed to glob files in %s: %v", projectPath, err)
 			continue
 		}
-
-		fmt.Printf("Found %d JSONL files in %s\n", len(jsonlFiles), projectPath)
 
 		for _, jsonlFile := range jsonlFiles {
 			fileInfo, err := os.Stat(jsonlFile)
 			if err != nil {
-				fmt.Printf("Warning: failed to stat file %s: %v\n", jsonlFile, err)
+				log.Printf("Warning: failed to stat file %s: %v", jsonlFile, err)
 				continue
 			}
-
-			fmt.Printf("Adding file: %s (size: %d)\n", jsonlFile, fileInfo.Size())
 			files = append(files, models.FileInfo{
 				Path:    jsonlFile,
 				ModTime: fileInfo.ModTime(),
@@ -252,7 +236,6 @@ func (d *DiffSyncService) processFileFromLine(filePath string, startLine int) (i
 		// First, try to parse as a basic JSON to check if it has required fields
 		var basicCheck map[string]interface{}
 		if err := json.Unmarshal([]byte(line), &basicCheck); err != nil {
-			fmt.Printf("Error parsing JSON on line %d: %v\n", lineCount, err)
 			continue
 		}
 
@@ -266,14 +249,13 @@ func (d *DiffSyncService) processFileFromLine(filePath string, startLine int) (i
 
 		var entry models.LogEntry
 		if err := json.Unmarshal([]byte(line), &entry); err != nil {
-			fmt.Printf("Error unmarshaling LogEntry on line %d: %v\n", lineCount, err)
 			continue
 		}
 
 		// Extract project name from file path
 		projectName := d.extractProjectNameFromPath(filePath)
 		if err := d.processLogEntry(&entry, projectName); err != nil {
-			fmt.Printf("Error processing log entry %d: %v\n", lineCount, err)
+			log.Printf("Error processing log entry at line %d: %v", lineCount, err)
 			continue
 		}
 		processedCount++

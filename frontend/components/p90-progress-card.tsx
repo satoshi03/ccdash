@@ -128,7 +128,7 @@ export function P90ProgressCard({
               </span>
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground">
-                  {currentTokens.toLocaleString()} / {tokenLimit.toLocaleString()}
+                  {(currentTokens / 1000).toFixed(1)}K / {(tokenLimit / 1000).toFixed(1)}K
                 </span>
                 {isTokenNearLimit && <AlertTriangle className="w-3 h-3 text-orange-600" />}
               </div>
@@ -181,7 +181,7 @@ export function P90ProgressCard({
                 <span className="font-medium">{t('session.cost')}</span>
                 <div className="flex items-center gap-2">
                   <span className="text-muted-foreground">
-                    ${currentCost.toFixed(4)} / ${costLimit.toFixed(4)}
+                    ${currentCost.toFixed(1)} / ${costLimit.toFixed(1)}
                   </span>
                   {isCostNearLimit && <AlertTriangle className="w-3 h-3 text-orange-600" />}
                 </div>
@@ -209,7 +209,7 @@ export function P90ProgressCard({
                 <div>
                   <div className="text-muted-foreground">{t('p90Prediction.burnRate')}</div>
                   <div className="font-semibold">
-                    {p90Prediction.burn_rate_per_hour.toFixed(0)} {t('p90Prediction.tokensPerHour')}
+                    {(p90Prediction.burn_rate_per_hour / 1000).toFixed(1)}K {t('p90Prediction.tokensPerHour')}
                   </div>
                 </div>
                 {p90Prediction.time_to_limit_minutes > 0 && (
