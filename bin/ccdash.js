@@ -40,9 +40,18 @@ const log = {
 // Get the package root directory
 const packageRoot = path.dirname(__dirname);
 const backendPath = path.join(packageRoot, 'backend');
-const frontendPath = path.join(packageRoot, 'bin', 'frontend-dist');
 
-// Check if we're running from an npm package installation
+// Set frontend path based on environment
+let frontendPath;
+if (isNpmPackage()) {
+  // For npm packages, frontend is in bin/frontend-dist
+  frontendPath = path.join(packageRoot, 'bin', 'frontend-dist');
+} else {
+  // For development, frontend is in frontend/
+  frontendPath = path.join(packageRoot, 'frontend');
+}
+
+// Early function declaration needed for path setup
 function isNpmPackage() {
   // Check for npm environment variables
   if (process.env.npm_package_name === 'ccdash' ||
@@ -60,6 +69,7 @@ function isNpmPackage() {
          !fs.existsSync(path.join(packageRoot, 'go.mod')) &&
          !fs.existsSync(path.join(packageRoot, 'backend'));
 }
+
 
 // Check if Go is installed
 function checkGoInstallation() {
@@ -163,6 +173,8 @@ function parseArgs() {
   let command = 'start';
   let backendPort = 8080;
   let frontendPort = 3000;
+  let backendUrl = null;
+  let frontendUrl = null;
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -173,16 +185,41 @@ function parseArgs() {
     } else if (arg === '--frontend-port' || arg === '-fp') {
       frontendPort = parseInt(args[i + 1]) || 3000;
       i++;
+    } else if (arg === '--backend-url' || arg === '-bu') {
+      backendUrl = args[i + 1];
+      i++;
+    } else if (arg === '--frontend-url' || arg === '-fu') {
+      frontendUrl = args[i + 1];
+      i++;
     } else if (!arg.startsWith('-')) {
       command = arg;
     }
   }
 
-  return { command, backendPort, frontendPort };
+  // Extract port from URL if provided
+  if (backendUrl) {
+    try {
+      const url = new URL(backendUrl);
+      backendPort = parseInt(url.port) || (url.protocol === 'https:' ? 443 : 80);
+    } catch (error) {
+      log.warning(`Invalid backend URL: ${backendUrl}. Using default port ${backendPort}`);
+    }
+  }
+
+  if (frontendUrl) {
+    try {
+      const url = new URL(frontendUrl);
+      frontendPort = parseInt(url.port) || (url.protocol === 'https:' ? 443 : 80);
+    } catch (error) {
+      log.warning(`Invalid frontend URL: ${frontendUrl}. Using default port ${frontendPort}`);
+    }
+  }
+
+  return { command, backendPort, frontendPort, backendUrl, frontendUrl };
 }
 
-// Start backend server with custom port
-function startBackend(port = 8080, frontendPort = 3000) {
+// Start backend server with custom port or URL
+function startBackend(port = 8080, frontendPort = 3000, frontendUrl = null) {
   const serverPath = path.join(packageRoot, 'bin', 'ccdash-server');
 
   if (!fs.existsSync(serverPath)) {
@@ -190,6 +227,8 @@ function startBackend(port = 8080, frontendPort = 3000) {
     process.exit(1);
   }
 
+  const frontendTargetUrl = frontendUrl || `http://localhost:${frontendPort}`;
+  
   log.info(`Starting backend server on http://localhost:${port}`);
   const backendProcess = spawn(serverPath, [], {
     stdio: 'inherit',
@@ -197,26 +236,40 @@ function startBackend(port = 8080, frontendPort = 3000) {
     env: {
       ...process.env,
       PORT: port.toString(),
-      FRONTEND_URL: `http://localhost:${frontendPort}`
+      FRONTEND_URL: frontendTargetUrl
     }
   });
 
   return backendProcess;
 }
 
-// Start frontend server with custom port
-function startFrontend(port = 3000, backendPort = 8080) {
-  log.info(`Starting frontend server on http://localhost:${port}`);
+// Start frontend server with custom port or URL
+function startFrontend(port = 3000, backendPort = 8080, backendUrl = null, frontendUrl = null) {
+  // Extract hostname from frontend URL for binding
+  let hostname = 'localhost';
+  if (frontendUrl) {
+    try {
+      const url = new URL(frontendUrl);
+      hostname = url.hostname;
+    } catch (error) {
+      log.warning(`Invalid frontend URL: ${frontendUrl}. Using localhost`);
+    }
+  }
+  
+  const displayUrl = frontendUrl || `http://${hostname}:${port}`;
+  log.info(`Starting frontend server on ${displayUrl}`);
 
   // Check if frontend directory exists
   if (!fs.existsSync(frontendPath)) {
     log.warning('Frontend not available in this installation');
-    log.info(`API server is running on http://localhost:${backendPort}`);
+    const backendTargetUrl = backendUrl || `http://localhost:${backendPort}`;
+    log.info(`API server is running on ${backendTargetUrl}`);
     return null;
   }
 
   const nextDir = path.join(frontendPath, '.next');
   const standalonePath = path.join(frontendPath, '.next', 'standalone', 'server.js');
+  const apiUrl = backendUrl || `http://localhost:${backendPort}`;
 
   // For npm packages (bin/frontend-dist structure)
   if (isNpmPackage()) {
@@ -232,8 +285,8 @@ function startFrontend(port = 3000, backendPort = 8080) {
         env: {
           ...process.env,
           PORT: port.toString(),
-          NEXT_PUBLIC_API_URL: `http://localhost:${backendPort}`,
-          HOSTNAME: '0.0.0.0'
+          NEXT_PUBLIC_API_URL: `${apiUrl}/api`,
+          HOSTNAME: hostname === 'localhost' ? '0.0.0.0' : hostname
         }
       });
       return frontendProcess;
@@ -249,8 +302,8 @@ function startFrontend(port = 3000, backendPort = 8080) {
         env: {
           ...process.env,
           PORT: port.toString(),
-          NEXT_PUBLIC_API_URL: `http://localhost:${backendPort}`,
-          HOSTNAME: '0.0.0.0'
+          NEXT_PUBLIC_API_URL: `${apiUrl}/api`,
+          HOSTNAME: hostname === 'localhost' ? '0.0.0.0' : hostname
         }
       });
       return frontendProcess;
@@ -265,13 +318,13 @@ function startFrontend(port = 3000, backendPort = 8080) {
         env: {
           ...process.env,
           PORT: port.toString(),
-          NEXT_PUBLIC_API_URL: `http://localhost:${backendPort}`
+          NEXT_PUBLIC_API_URL: `${apiUrl}/api`
         }
       });
       return frontendProcess;
     } else {
       log.warning('Frontend build not found in npm package');
-      log.info(`API server is running on http://localhost:${backendPort}`);
+      log.info(`API server is running on ${apiUrl}`);
       return null;
     }
   }
@@ -289,8 +342,8 @@ function startFrontend(port = 3000, backendPort = 8080) {
         env: {
           ...process.env,
           PORT: port.toString(),
-          NEXT_PUBLIC_API_URL: `http://localhost:${backendPort}`,
-          HOSTNAME: '0.0.0.0'
+          NEXT_PUBLIC_API_URL: `${apiUrl}/api`,
+          HOSTNAME: hostname === 'localhost' ? '0.0.0.0' : hostname
         }
       });
       return frontendProcess;
@@ -304,7 +357,8 @@ function startFrontend(port = 3000, backendPort = 8080) {
         env: {
           ...process.env,
           PORT: port.toString(),
-          NEXT_PUBLIC_API_URL: `http://localhost:${backendPort}`
+          HOSTNAME: hostname === 'localhost' ? '0.0.0.0' : hostname,
+          NEXT_PUBLIC_API_URL: `${apiUrl}/api`
         }
       });
       return frontendProcess;
@@ -314,7 +368,7 @@ function startFrontend(port = 3000, backendPort = 8080) {
 
 // Main CLI function
 async function main() {
-  const { command, backendPort, frontendPort } = parseArgs();
+  const { command, backendPort, frontendPort, backendUrl, frontendUrl } = parseArgs();
 
   log.logo();
 
@@ -355,8 +409,8 @@ async function main() {
         }
 
         // Start both services
-        const backendProcess = startBackend(backendPort, frontendPort);
-        const frontendProcess = startFrontend(frontendPort, backendPort);
+        const backendProcess = startBackend(backendPort, frontendPort, frontendUrl);
+        const frontendProcess = startFrontend(frontendPort, backendPort, backendUrl, frontendUrl);
 
         // Handle process cleanup
         const cleanup = () => {
@@ -374,9 +428,11 @@ async function main() {
         process.on('SIGTERM', cleanup);
 
         log.success('ccdash is running!');
-        log.info(`Backend:  http://localhost:${backendPort}`);
+        const backendDisplayUrl = backendUrl || `http://localhost:${backendPort}`;
+        const frontendDisplayUrl = frontendUrl || `http://localhost:${frontendPort}`;
+        log.info(`Backend:  ${backendDisplayUrl}`);
         if (frontendProcess) {
-          log.info(`Frontend: http://localhost:${frontendPort}`);
+          log.info(`Frontend: ${frontendDisplayUrl}`);
         }
         log.info('Press Ctrl+C to stop');
 
@@ -407,26 +463,50 @@ async function main() {
         }
 
         log.info('Starting ccdash in development mode...');
-        log.info(`Backend:  http://localhost:${backendPort}`);
-        log.info(`Frontend: http://localhost:${frontendPort}`);
+        const devBackendUrl = backendUrl || `http://localhost:${backendPort}`;
+        const devFrontendUrl = frontendUrl || `http://localhost:${frontendPort}`;
+        const frontendTargetUrl = frontendUrl || `http://localhost:${frontendPort}`;
+        const apiUrl = backendUrl || `http://localhost:${backendPort}`;
+        
+        // Add debugging info
+        log.info(`Backend will bind to all interfaces on port ${backendPort}`);
+        log.info(`Frontend will connect to: ${apiUrl}`);
+        
+        log.info(`Backend:  ${devBackendUrl}`);
+        log.info(`Frontend: ${devFrontendUrl}`);
 
+        log.info(`Setting backend FRONTEND_URL to: ${frontendTargetUrl}`);
         const devBackend = spawn('go', ['run', 'cmd/server/main.go'], {
           cwd: backendPath,
           stdio: 'inherit',
           env: {
             ...process.env,
             PORT: backendPort.toString(),
-            FRONTEND_URL: `http://localhost:${frontendPort}`
+            FRONTEND_URL: frontendTargetUrl
           }
         });
 
+        // Extract hostname from frontend URL for binding
+        let hostname = 'localhost';
+        if (frontendUrl) {
+          try {
+            const url = new URL(frontendUrl);
+            hostname = url.hostname;
+          } catch (error) {
+            log.warning(`Invalid frontend URL: ${frontendUrl}. Using localhost`);
+          }
+        }
+
+        log.info(`Setting frontend NEXT_PUBLIC_API_URL to: ${apiUrl}/api`);
+        log.info(`Frontend will bind to: ${hostname}:${frontendPort}`);
         const devFrontend = spawn('npm', ['run', 'dev'], {
           cwd: frontendPath,
           stdio: 'inherit',
           env: {
             ...process.env,
             PORT: frontendPort.toString(),
-            NEXT_PUBLIC_API_URL: `http://localhost:${backendPort}`
+            HOSTNAME: hostname,
+            NEXT_PUBLIC_API_URL: `${apiUrl}/api`
           }
         });
 
@@ -459,17 +539,22 @@ Commands:
   help          Show this help message
 
 Options:
-  --backend-port, -bp   Backend server port (default: 8080)
-  --frontend-port, -fp  Frontend server port (default: 3000)
+  --backend-port, -bp    Backend server port (default: 8080)
+  --frontend-port, -fp   Frontend server port (default: 3000)
+  --backend-url, -bu     Backend server URL (overrides backend-port)
+  --frontend-url, -fu    Frontend server URL (overrides frontend-port)
 
 Examples:
-  npx ccdash                           # Start with default ports
-  npx ccdash --backend-port 8081       # Start with custom backend port
-  npx ccdash -bp 8081 -fp 3001         # Start with custom ports
-  npx ccdash dev --backend-port 8081   # Development mode with custom backend port
-  npx ccdash build                     # Build the application
+  npx ccdash                                              # Start with default ports
+  npx ccdash --backend-port 8081                          # Start with custom backend port
+  npx ccdash -bp 8081 -fp 3001                            # Start with custom ports
+  npx ccdash --backend-url http://api.example.com         # Use custom backend URL
+  npx ccdash --frontend-url https://app.example.com       # Use custom frontend URL
+  npx ccdash -bu http://localhost:8081 -fu http://localhost:3001  # Custom URLs
+  npx ccdash dev --backend-port 8081                      # Development mode with custom backend port
+  npx ccdash build                                        # Build the application
 
-For more information, visit: https://github.com/ccdash/ccdash
+For more information, visit: https://github.com/satoshi03/ccdash
         `);
         break;
 
