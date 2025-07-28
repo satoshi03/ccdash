@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Settings, getSettings, saveSettings, TIMEZONE_OPTIONS, REFRESH_INTERVAL_OPTIONS, FIXED_LIMITS_PRESETS } from "@/lib/settings"
 import { useI18n } from "@/hooks/use-i18n"
 
@@ -109,36 +108,33 @@ export function SettingsModal({ onSettingsChange }: SettingsModalProps) {
           {t('common.settings')}
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{t('settings.title')}</DialogTitle>
           <DialogDescription>
             {t('settings.description')}
           </DialogDescription>
         </DialogHeader>
-        <div className="grid gap-6 py-4">
+        <div className="grid gap-4 py-4">
           {/* Usage Mode Selection */}
-          <div className="space-y-3">
-            <Label className="text-sm font-medium">{t('settings.usageMode')}</Label>
-            <RadioGroup value={settings.usageMode} onValueChange={handleUsageModeChange}>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="p90_prediction" id="p90_prediction" />
-                <Label htmlFor="p90_prediction" className="cursor-pointer">
-                  {t('settings.p90Prediction')}
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="fixed_limits" id="fixed_limits" />
-                <Label htmlFor="fixed_limits" className="cursor-pointer">
-                  {t('settings.fixedLimits')}
-                </Label>
-              </div>
-            </RadioGroup>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="usage-mode" className="text-right">
+              {t('settings.usageMode')}
+            </Label>
+            <Select value={settings.usageMode} onValueChange={handleUsageModeChange}>
+              <SelectTrigger className="col-span-3">
+                <SelectValue placeholder={t('settings.usageModePlaceholder')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="p90_prediction">{t('settings.p90Prediction')}</SelectItem>
+                <SelectItem value="fixed_limits">{t('settings.fixedLimits')}</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Fixed Limits Configuration */}
           {settings.usageMode === 'fixed_limits' && (
-            <div className="space-y-4 p-4 border rounded-lg bg-gray-50">
+            <div className="space-y-3 p-3 border rounded-lg bg-gray-50">
               <div className="flex justify-between items-center">
                 <Label className="text-sm font-medium">{t('settings.fixedLimitsConfig')}</Label>
                 <Select onValueChange={(value) => applyPreset(value as keyof typeof FIXED_LIMITS_PRESETS)}>
@@ -154,7 +150,7 @@ export function SettingsModal({ onSettingsChange }: SettingsModalProps) {
                 </Select>
               </div>
               
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-3 gap-3">
                 <div className="space-y-2">
                   <Label htmlFor="token-limit" className="text-xs">
                     {t('settings.tokenLimit')}
