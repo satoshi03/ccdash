@@ -17,7 +17,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination"
 import { ArrowLeft, Clock, MessageSquare, Code2, User, Bot, Copy, Check } from "lucide-react"
-import { api, PaginatedMessages } from "@/lib/api"
+import { api, PaginatedMessages, SessionDetail } from "@/lib/api"
 import { Header } from "@/components/header"
 import { useI18n } from "@/hooks/use-i18n"
 
@@ -41,36 +41,6 @@ type Message = {
   created_at: string
 };
 
-interface SessionDetail {
-  session: {
-    id: string
-    project_name: string
-    project_path: string
-    start_time: string
-    end_time: string | null
-    total_input_tokens: number
-    total_output_tokens: number
-    total_tokens: number
-    message_count: number
-    status: string
-    created_at: string
-    duration?: number
-    is_active: boolean
-    last_activity: string
-    generated_code: string[]
-  }
-  messages: Array<Message> | PaginatedMessages
-  token_usage: {
-    total_tokens: number
-    input_tokens: number
-    output_tokens: number
-    usage_limit: number
-    usage_rate: number
-    window_start: string
-    window_end: string
-    active_sessions: number
-  }
-}
 
 function SessionDetailContent() {
   const { t, formatFullDate } = useI18n()
@@ -388,7 +358,7 @@ function SessionDetailContent() {
                 </div>
                 <div>
                   <span className="text-muted-foreground">{t('session.cost')}</span>
-                  <p className="text-2xl font-bold">${('total_cost' in session ? (session as Record<string, unknown>).total_cost as number || 0 : 0).toFixed(4)}</p>
+                  <p className="text-2xl font-bold">${session.total_cost.toFixed(4)}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">{t('session.input')} {t('tokenUsage.tokens')}</span>
