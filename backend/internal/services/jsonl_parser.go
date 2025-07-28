@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 	
-	"claudeee-backend/internal/models"
+	"ccdash-backend/internal/models"
 )
 
 type JSONLParser struct {

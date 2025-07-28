@@ -6,12 +6,13 @@ import (
 	"net/http"
 	"runtime"
 
+	"ccdash-backend/internal/config"
+	"ccdash-backend/internal/database"
+	"ccdash-backend/internal/handlers"
+	"ccdash-backend/internal/services"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
-	"claudeee-backend/internal/config"
-	"claudeee-backend/internal/database"
-	"claudeee-backend/internal/handlers"
-	"claudeee-backend/internal/services"
 )
 
 func main() {
@@ -37,14 +38,14 @@ func main() {
 	sessionService := services.NewSessionService(db)
 	sessionWindowService := services.NewSessionWindowService(db)
 	p90PredictionService := services.NewP90PredictionService(db)
-	
+
 	// Perform initial log sync if this is a new database (in background)
 	if isNewDatabase {
 		initService := services.GetGlobalInitializationService()
 		initService.StartInitialization()
-		
+
 		log.Println("Starting initial log sync in background...")
-		
+
 		// Run initialization in a separate goroutine with panic recovery
 		go func() {
 			defer func() {
@@ -52,37 +53,37 @@ func main() {
 					// Capture the stack trace
 					buf := make([]byte, 1024*64)
 					buf = buf[:runtime.Stack(buf, false)]
-					
+
 					log.Printf("PANIC in initialization goroutine: %v\nStack trace:\n%s", r, buf)
-					
+
 					// Report panic as initialization failure
 					panicErr := fmt.Errorf("initialization panic: %v", r)
 					initService.FailInitialization(panicErr)
 				}
 			}()
-			
+
 			diffSyncService := services.NewDiffSyncService(db, tokenService, sessionService)
 			stats, err := diffSyncService.SyncAllLogs()
 			if err != nil {
 				log.Printf("Warning: Initial log sync failed: %v", err)
 				initService.FailInitialization(err)
 			} else {
-				log.Printf("Initial sync completed: %d files processed, %d new lines", 
+				log.Printf("Initial sync completed: %d files processed, %d new lines",
 					stats.ProcessedFiles, stats.NewLines)
 				initService.CompleteInitialization(stats.ProcessedFiles, stats.NewLines)
 			}
 		}()
 	}
-	
+
 	handler := handlers.NewHandler(tokenService, sessionService, sessionWindowService, p90PredictionService)
 
 	r := gin.Default()
-	
+
 	corsConfig := cors.DefaultConfig()
 	corsConfig.AllowOrigins = []string{cfg.FrontendURL}
 	corsConfig.AllowCredentials = true
 	r.Use(cors.New(corsConfig))
-	
+
 	r.Use(func(c *gin.Context) {
 		c.Set("db", db)
 		c.Next()
@@ -92,11 +93,11 @@ func main() {
 	{
 		api.GET("/health", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{
-				"status": "healthy",
-				"message": "Claudeee API is running",
+				"status":  "healthy",
+				"message": "CCDash API is running",
 			})
 		})
-		
+
 		api.GET("/initialization-status", handler.GetInitializationStatus)
 		api.GET("/token-usage", handler.GetTokenUsage)
 		api.GET("/sessions", handler.GetSessions)
@@ -117,7 +118,7 @@ func main() {
 	log.Printf("Database path: %s", cfg.DatabasePath)
 	log.Printf("Claude projects directory: %s", cfg.ClaudeProjectsDir)
 	log.Printf("Frontend URL: %s", cfg.FrontendURL)
-	
+
 	if err := r.Run(":" + cfg.ServerPort); err != nil {
 		log.Fatal("Failed to start server:", err)
 	}

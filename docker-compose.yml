@@ -3,41 +3,41 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: claudeee-backend
+    container_name: ccdash-backend
     ports:
       - "8080:8080"
     volumes:
       # Claude Code logs directory
       - ~/.claude:/root/.claude:ro
       # Database persistence
-      - claudeee-db:/root/.claudeee
+      - ccdash-db:/root/.ccdash
     environment:
       - GIN_MODE=release
       - PORT=8080
     networks:
-      - claudeee-network
+      - ccdash-network
     restart: unless-stopped
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: claudeee-frontend
+    container_name: ccdash-frontend
     ports:
       - "3000:3000"
     environment:
       - NODE_ENV=production
       - NEXT_PUBLIC_API_URL=http://localhost:8080/api
     networks:
-      - claudeee-network
+      - ccdash-network
     depends_on:
       - backend
     restart: unless-stopped
 
 networks:
-  claudeee-network:
+  ccdash-network:
     driver: bridge
 
 volumes:
-  claudeee-db:
+  ccdash-db:
     driver: local

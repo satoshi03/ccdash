@@ -1,4 +1,4 @@
-# Claudeee Project Makefile
+# CCDash Project Makefile
 # Development and build automation for backend (Go) and frontend (Next.js)
 
 .PHONY: all build run dev test clean help install deps backend-build backend-run backend-dev backend-test frontend-build frontend-run frontend-dev frontend-test frontend-install

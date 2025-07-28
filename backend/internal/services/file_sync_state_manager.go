@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"claudeee-backend/internal/models"
+	"ccdash-backend/internal/models"
 )
 
 type FileSyncStateManager struct {

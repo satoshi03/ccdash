@@ -7,7 +7,7 @@ import (
 	"sort"
 	"time"
 	
-	"claudeee-backend/internal/models"
+	"ccdash-backend/internal/models"
 )
 
 type P90PredictionService struct {

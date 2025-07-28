@@ -3,11 +3,11 @@ import { Suspense } from 'react'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Claudeee - Claude Code Monitor & Task Scheduler',
-  description: 'Monitor Claude Code usage, manage sessions, and schedule tasks efficiently. Track token consumption, session activities, and optimize your AI development workflow.',
-  keywords: ['Claude Code', 'AI Development', 'Token Monitoring', 'Task Scheduler', 'Development Tools'],
+  title: 'CCDash - Claude Code Dashboard',
+  description: 'Monitor Claude Code usage, manage sessions, and track development activities. Comprehensive dashboard for token consumption, session management, and AI development workflow optimization.',
+  keywords: ['Claude Code', 'AI Development', 'Dashboard', 'Monitoring', 'Development Tools'],
   generator: 'React + Next.js + TailwindCSS + TypeScript + Go',
-  authors: [{ name: 'Claudeee Team' }],
+  authors: [{ name: 'CCDash Team' }],
   icons: {
     icon: '/favicon.ico',
     shortcut: '/favicon.ico',

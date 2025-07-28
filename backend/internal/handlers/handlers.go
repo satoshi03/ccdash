@@ -6,7 +6,7 @@ import (
 	"strconv"
 	
 	"github.com/gin-gonic/gin"
-	"claudeee-backend/internal/services"
+	"ccdash-backend/internal/services"
 )
 
 type Handler struct {

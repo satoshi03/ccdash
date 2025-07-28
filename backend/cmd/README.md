@@ -1,6 +1,6 @@
-# Claudeee Backend Commands
+# CCDash Backend Commands
 
-このディレクトリには、Claudeeバックエンドの管理とメンテナンス用のコマンドラインツールが含まれています。
+このディレクトリには、CCDashバックエンドの管理とメンテナンス用のコマンドラインツールが含まれています。
 
 ## 利用可能なコマンド
 

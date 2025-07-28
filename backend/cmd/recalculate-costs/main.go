@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log"
 
-	"claudeee-backend/internal/database"
-	"claudeee-backend/internal/services"
+	"ccdash-backend/internal/database"
+	"ccdash-backend/internal/services"
 )
 
 func main() {

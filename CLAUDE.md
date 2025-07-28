@@ -1,10 +1,10 @@
-# Claudeee - Claude Code Usage Monitor
+# CCDash - Claude Code Dashboard
 
-このファイルは、Claude Codeを使用したClaudeeeプロジェクトの開発記録と設定情報を記録するものです。
+このファイルは、Claude Codeを使用したCCDashプロジェクトの開発記録と設定情報を記録するものです。
 
 ## プロジェクト概要
 
-**プロジェクト名**: Claudeee  
+**プロジェクト名**: CCDash  
 **目的**: Claude Codeのログを解析し、セッション管理・トークン使用量監視を行うWebアプリケーション  
 **開発開始日**: 2025-07-11  
 **現在のバージョン**: v1.0.0 (基本機能実装完了)  
@@ -131,10 +131,10 @@ cd frontend && npm update
 #### データベース
 ```bash
 # データベースファイルの場所
-ls ~/.claudeee/
+ls ~/.ccdash/
 
 # データベースリセット
-rm -f ~/.claudeee/claudeee.db*
+rm -f ~/.ccdash/ccdash.db*
 ```
 
 ## 実装済み機能
@@ -229,10 +229,10 @@ cd backend/cmd/sync-reset && go run main.go
 
 ```bash
 # 1. データベースバックアップ
-cp ~/.claudeee/claudeee.db ~/.claudeee/claudeee.db.backup
+cp ~/.ccdash/ccdash.db ~/.ccdash/ccdash.db.backup
 
 # 2. 既存データベース削除
-rm ~/.claudeee/claudeee.db*
+rm ~/.ccdash/ccdash.db*
 
 # 3. アプリケーション再起動（新ロジックでデータ再生成）
 make dev
@@ -374,7 +374,7 @@ curl -X POST http://localhost:8080/api/sync-logs
 6. **DuckDB採用**: 分析処理に適した高性能データベース
 
 ### デバッグ情報
-- データベースファイル: `~/.claudeee/claudeee.db`
+- データベースファイル: `~/.ccdash/ccdash.db`
 - ログファイル: `~/.claude/projects/{project-name}/`
 - 設定ファイル: `frontend/.env.local`
 

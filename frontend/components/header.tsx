@@ -56,7 +56,7 @@ export function Header({ onSettingsChange }: HeaderProps) {
             <div className="flex h-8 w-8 items-center justify-center bg-transparent">
               <Image 
                 src="/favicon.ico" 
-                alt="Claudeee" 
+                alt="CCDash" 
                 width={32} 
                 height={32}
                 className="h-8 w-8"
@@ -73,7 +73,7 @@ export function Header({ onSettingsChange }: HeaderProps) {
         <div className="flex flex-1 items-center justify-end space-x-2">
           <div className="hidden items-center space-x-2 sm:flex">
             <Button variant="ghost" size="sm" asChild>
-              <Link href="https://github.com/satoshi03/claudeee" target="_blank" rel="noopener noreferrer">
+              <Link href="https://github.com/satoshi03/ccdash" target="_blank" rel="noopener noreferrer">
                 <Github className="h-4 w-4" />
                 <span className="sr-only">GitHub</span>
               </Link>
@@ -99,7 +99,7 @@ export function Header({ onSettingsChange }: HeaderProps) {
                 <SheetTitle className="flex items-center space-x-2">
                   <Image 
                     src="/favicon.ico" 
-                    alt="Claudeee" 
+                    alt="CCDash" 
                     width={20} 
                     height={20}
                     className="h-5 w-5"
@@ -113,7 +113,7 @@ export function Header({ onSettingsChange }: HeaderProps) {
               <div className="my-4 h-px bg-border" />
               <div className="flex flex-col space-y-3">
                 <Button variant="ghost" size="sm" asChild className="justify-start">
-                  <Link href="https://github.com/satoshi03/claudeee" target="_blank" rel="noopener noreferrer">
+                  <Link href="https://github.com/satoshi03/ccdash" target="_blank" rel="noopener noreferrer">
                     <Github className="h-4 w-4 mr-2" />
                     GitHub
                   </Link>

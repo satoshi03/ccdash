@@ -1,4 +1,4 @@
-# Docker環境でのClaudeee実行方法
+# Docker環境でのCCDash実行方法
 
 ## 前提条件
 
@@ -40,21 +40,21 @@ docker-compose down -v
 
 ```bash
 cd backend
-docker build -t claudeee-backend .
+docker build -t ccdash-backend .
 docker run -p 8080:8080 \
   -v ~/.claude:/root/.claude:ro \
-  -v claudeee-db:/root/.claudeee \
-  claudeee-backend
+  -v ccdash-db:/root/.ccdash \
+  ccdash-backend
 ```
 
 ### フロントエンドのみ起動
 
 ```bash
 cd frontend
-docker build -t claudeee-frontend .
+docker build -t ccdash-frontend .
 docker run -p 3000:3000 \
   -e NEXT_PUBLIC_API_URL=http://localhost:8080/api \
-  claudeee-frontend
+  ccdash-frontend
 ```
 
 ## 設定
@@ -72,7 +72,7 @@ docker run -p 3000:3000 \
 ### ボリュームマウント
 
 - `~/.claude`: Claude Codeのログディレクトリ（読み取り専用）
-- `claudeee-db`: データベース永続化ボリューム
+- `ccdash-db`: データベース永続化ボリューム
 
 ## トラブルシューティング
 
@@ -95,7 +95,7 @@ docker-compose logs -f
 ```bash
 # データベースボリュームを削除
 docker-compose down -v
-docker volume rm claudeee_claudeee-db
+docker volume rm ccdash_ccdash-db
 
 # 再起動
 docker-compose up -d
@@ -108,7 +108,7 @@ docker-compose up -d
 ls -la ~/.claude/projects/
 
 # コンテナ内でのマウント状況を確認
-docker exec -it claudeee-backend ls -la /root/.claude/projects/
+docker exec -it ccdash-backend ls -la /root/.claude/projects/
 ```
 
 ## 開発環境での利用

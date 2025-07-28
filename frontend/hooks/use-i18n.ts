@@ -31,7 +31,7 @@ export function useI18n() {
     
     // LocalStorageに保存
     if (typeof window !== 'undefined') {
-      localStorage.setItem('claudeee-language', newLanguage)
+      localStorage.setItem('ccdash-language', newLanguage)
     }
     
     // URLパラメータを更新

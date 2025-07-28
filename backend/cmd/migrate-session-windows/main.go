@@ -18,7 +18,7 @@ func roundToNextHour(t time.Time) time.Time {
 
 func main() {
 	// データベース接続
-	db, err := sql.Open("duckdb", "/Users/satoshi/.claudeee/claudeee.db")
+	db, err := sql.Open("duckdb", "/Users/satoshi/.ccdash/ccdash.db")
 	if err != nil {
 		log.Fatal("Failed to connect to database:", err)
 	}

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"claudeee-backend/internal/models"
+	"ccdash-backend/internal/models"
 )
 
 // SessionActivityDetector provides advanced session state detection

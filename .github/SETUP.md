@@ -1,6 +1,6 @@
 # GitHub Actions Setup Guide
 
-このガイドでは、Claudeeeプロジェクトのリリース自動化のためのGitHub Actions設定方法を説明します。
+このガイドでは、CCDashプロジェクトのリリース自動化のためのGitHub Actions設定方法を説明します。
 
 ## 必要なSecrets設定
 
@@ -85,16 +85,16 @@ git push origin v1.0.0
 
 ```bash
 # npm経由でインストール
-npm install -g claudeee@latest
+npm install -g ccdash@latest
 
 # バージョン確認
-claudeee version
+ccdash version
 
 # ヘルプ表示
-claudeee help
+ccdash help
 
 # 動作テスト
-claudeee --backend-port 8081 --frontend-port 3001
+ccdash --backend-port 8081 --frontend-port 3001
 ```
 
 ## 設定ファイルの場所

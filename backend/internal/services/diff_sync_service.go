@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"claudeee-backend/internal/config"
-	"claudeee-backend/internal/models"
+	"ccdash-backend/internal/config"
+	"ccdash-backend/internal/models"
 )
 
 type DiffSyncService struct {
