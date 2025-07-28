@@ -68,7 +68,7 @@ export function getSettings(): Settings {
   }
 
   try {
-    const stored = localStorage.getItem('claudeee-settings')
+    const stored = localStorage.getItem('ccdash-settings')
     if (stored) {
       return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) }
     }
@@ -85,7 +85,7 @@ export function saveSettings(settings: Settings): void {
   }
 
   try {
-    localStorage.setItem('claudeee-settings', JSON.stringify(settings))
+    localStorage.setItem('ccdash-settings', JSON.stringify(settings))
   } catch (error) {
     console.error('Failed to save settings:', error)
   }

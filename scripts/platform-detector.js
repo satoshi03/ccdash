@@ -61,7 +61,7 @@ class PlatformDetector {
    * @returns {string} Full binary name
    */
   getBinaryName() {
-    return `claudeee-server-${this.getBinarySuffix()}`;
+    return `ccdash-server-${this.getBinarySuffix()}`;
   }
 
   /**
@@ -122,7 +122,7 @@ class PlatformDetector {
     }
 
     return fs.readdirSync(binDir)
-      .filter(file => file.startsWith('claudeee-server-'))
+      .filter(file => file.startsWith('ccdash-server-'))
       .map(file => {
         const fullPath = path.join(binDir, file);
         const stats = fs.statSync(fullPath);

@@ -22,7 +22,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	dbPath := filepath.Join(homeDir, ".claudeee", "claudeee.db")
+	dbPath := filepath.Join(homeDir, ".ccdash", "ccdash.db")
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 		fmt.Println("Database does not exist.")
 		fmt.Printf("Expected location: %s\n", dbPath)

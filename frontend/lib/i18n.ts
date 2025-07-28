@@ -19,8 +19,8 @@ export const translations: Record<Language, Translations> = {
       sessions: 'セッション',
     },
     header: {
-      title: 'Claudeee',
-      subtitle: 'Claude Code モニタリング',
+      title: 'CCDash',
+      subtitle: 'Claude Code ダッシュボード',
       nav: {
         dashboard: 'ダッシュボード',
         dashboardDesc: 'トークン使用量とプロジェクト概要',
@@ -50,7 +50,7 @@ export const translations: Record<Language, Translations> = {
       minutes: '分',
     },
     p90Prediction: {
-      title: '使用量予測(P90)',
+      title: '消費量(P90予測)',
       tokenLimit: 'トークンリミット',
       messageLimit: 'メッセージリミット',
       costLimit: 'コストリミット',
@@ -182,8 +182,8 @@ export const translations: Record<Language, Translations> = {
       sessions: 'Sessions',
     },
     header: {
-      title: 'Claudeee',
-      subtitle: 'Claude Code Monitoring & Task Scheduler',
+      title: 'CCDash',
+      subtitle: 'Claude Code Dashboard',
       nav: {
         dashboard: 'Dashboard',
         dashboardDesc: 'Token usage and project overview',
@@ -392,13 +392,13 @@ export function formatFullDateTime(language: Language, date: Date): string {
 // 言語設定の保存/読み込み
 export function saveLanguage(language: Language): void {
   if (typeof window !== 'undefined') {
-    localStorage.setItem('claudeee-language', language)
+    localStorage.setItem('ccdash-language', language)
   }
 }
 
 export function loadLanguage(): Language {
   if (typeof window !== 'undefined') {
-    const saved = localStorage.getItem('claudeee-language') as Language
+    const saved = localStorage.getItem('ccdash-language') as Language
     if (saved && (saved === 'ja' || saved === 'en')) {
       return saved
     }

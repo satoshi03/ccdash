@@ -5,7 +5,7 @@ const fs = require('fs');
 const PlatformDetector = require('./platform-detector');
 
 /**
- * Post-install script for claudeee npm package
+ * Post-install script for ccdash npm package
  * Sets up the appropriate binary for the current platform
  */
 
@@ -14,7 +14,7 @@ class PostInstallSetup {
     this.detector = new PlatformDetector();
     this.packageRoot = path.resolve(__dirname, '..');
     this.binDir = path.join(this.packageRoot, 'bin');
-    this.targetBinary = path.join(this.binDir, 'claudeee-server');
+    this.targetBinary = path.join(this.binDir, 'ccdash-server');
   }
 
   log(message, level = 'info') {
@@ -45,7 +45,7 @@ class PostInstallSetup {
    */
   isNpmPackage() {
     // Check for npm environment variables first
-    if (process.env.npm_package_name === 'claudeee' || 
+    if (process.env.npm_package_name === 'ccdash' || 
         process.env.npm_config_global === 'true' ||
         process.env.npm_command === 'install') {
       return true;
@@ -271,7 +271,7 @@ class PostInstallSetup {
    */
   async setup() {
     try {
-      this.log('Starting claudeee post-install setup...');
+      this.log('Starting ccdash post-install setup...');
       
       // Install frontend dependencies first
       await this.installFrontendDependencies();
@@ -320,9 +320,9 @@ class PostInstallSetup {
       // Update package.json bin field if needed
       this.updatePackageBin();
 
-      this.log('claudeee setup completed successfully!', 'success');
+      this.log('ccdash setup completed successfully!', 'success');
       this.log(`Binary location: ${this.targetBinary}`, 'info');
-      this.log('You can now run: claudeee --help', 'info');
+      this.log('You can now run: ccdash --help', 'info');
 
     } catch (error) {
       this.log(`Setup failed: ${error.message}`, 'error');
@@ -358,10 +358,10 @@ class PostInstallSetup {
       const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
       
       // Ensure bin field points to our setup binary
-      if (packageJson.bin && packageJson.bin.claudeee) {
-        const expectedBinPath = './bin/claudeee-server';
-        if (packageJson.bin.claudeee !== expectedBinPath) {
-          packageJson.bin.claudeee = expectedBinPath;
+      if (packageJson.bin && packageJson.bin.ccdash) {
+        const expectedBinPath = './bin/ccdash-server';
+        if (packageJson.bin.ccdash !== expectedBinPath) {
+          packageJson.bin.ccdash = expectedBinPath;
           fs.writeFileSync(packageJsonPath, JSON.stringify(packageJson, null, 2));
           this.log('Updated package.json bin field');
         }
@@ -376,7 +376,7 @@ class PostInstallSetup {
    */
   cleanup() {
     try {
-      this.log('Running claudeee cleanup...');
+      this.log('Running ccdash cleanup...');
       
       if (fs.existsSync(this.targetBinary)) {
         fs.unlinkSync(this.targetBinary);
@@ -406,7 +406,7 @@ if (require.main === module) {
       break;
       
     case 'validate':
-      setup.validateBinary(process.argv[3] || path.join(__dirname, '..', 'bin', 'claudeee-server'))
+      setup.validateBinary(process.argv[3] || path.join(__dirname, '..', 'bin', 'ccdash-server'))
         .then(isValid => {
           console.log(isValid ? 'Binary is valid' : 'Binary validation failed');
           process.exit(isValid ? 0 : 1);

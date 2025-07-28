@@ -18,7 +18,7 @@ func GetConfig() (*Config, error) {
 	config := &Config{}
 
 	// Database configuration
-	if dbPath := os.Getenv("CLAUDEEE_DB_PATH"); dbPath != "" {
+	if dbPath := os.Getenv("CCDASH_DB_PATH"); dbPath != "" {
 		config.DatabasePath = dbPath
 		config.DatabaseDir = filepath.Dir(dbPath)
 	} else {
@@ -27,8 +27,8 @@ func GetConfig() (*Config, error) {
 		if err != nil {
 			return nil, err
 		}
-		config.DatabaseDir = filepath.Join(homeDir, ".claudeee")
-		config.DatabasePath = filepath.Join(config.DatabaseDir, "claudeee.db")
+		config.DatabaseDir = filepath.Join(homeDir, ".ccdash")
+		config.DatabasePath = filepath.Join(config.DatabaseDir, "ccdash.db")
 	}
 
 	// Server configuration

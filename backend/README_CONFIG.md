@@ -1,6 +1,6 @@
 # Configuration Guide
 
-This document describes the configuration options available for the Claudeee backend server.
+This document describes the configuration options available for the ccdash backend server.
 
 ## Environment Variables
 
@@ -8,10 +8,10 @@ The following environment variables can be used to configure the application:
 
 ### Database Configuration
 
-- **`CLAUDEEE_DB_PATH`** (optional)
+- **`CCDASH_DB_PATH`** (optional)
   - Full path to the DuckDB database file
-  - Default: `${HOME}/.claudeee/claudeee.db`
-  - Example: `/custom/path/to/claudeee.db`
+  - Default: `${HOME}/.ccdash/ccdash.db`
+  - Example: `/custom/path/to/ccdash.db`
 
 ### Server Configuration
 
@@ -44,7 +44,7 @@ go run cmd/server/main.go
 ### Custom Database Location
 
 ```bash
-export CLAUDEEE_DB_PATH="/data/claudeee/database.db"
+export CCDASH_DB_PATH="/data/ccdash/database.db"
 export PORT="3001"
 go run cmd/server/main.go
 ```
@@ -52,21 +52,21 @@ go run cmd/server/main.go
 ### Production Environment
 
 ```bash
-export CLAUDEEE_DB_PATH="/var/lib/claudeee/claudeee.db"
+export CCDASH_DB_PATH="/var/lib/ccdash/ccdash.db"
 export PORT="8080"
-export FRONTEND_URL="https://claudeee.mydomain.com"
-export CLAUDE_PROJECTS_DIR="/home/user/.claude/projects"
+export FRONTEND_URL="https://ccdash.mydomain.com"
+export CLAUDE_PROJECTS_DIR="/home/user/.ccdash/projects"
 go run cmd/server/main.go
 ```
 
 ### Docker Environment
 
 ```bash
-docker run -e CLAUDEEE_DB_PATH="/app/data/claudeee.db" \
+docker run -e CCDASH_DB_PATH="/app/data/ccdash.db" \
            -e PORT="8080" \
            -e FRONTEND_URL="http://localhost:3000" \
            -v /host/data:/app/data \
-           claudeee-backend
+           ccdash-backend
 ```
 
 ## Directory Structure
@@ -74,10 +74,10 @@ docker run -e CLAUDEEE_DB_PATH="/app/data/claudeee.db" \
 By default, the application creates the following directory structure:
 
 ```
-${HOME}/.claudeee/
-├── claudeee.db          # Main database file
-├── claudeee.db.wal      # DuckDB write-ahead log
-└── claudeee.db.tmp      # Temporary files
+${HOME}/.ccdash/
+├── ccdash.db          # Main database file
+├── ccdash.db.wal      # DuckDB write-ahead log
+└── ccdash.db.tmp      # Temporary files
 ```
 
 ## Security Considerations
@@ -93,8 +93,8 @@ ${HOME}/.claudeee/
 
 ```bash
 # Fix directory permissions
-chmod 755 ~/.claudeee
-chmod 644 ~/.claudeee/claudeee.db*
+chmod 755 ~/.ccdash
+chmod 644 ~/.ccdash/ccdash.db*
 ```
 
 ### Custom Database Location
@@ -102,7 +102,7 @@ chmod 644 ~/.claudeee/claudeee.db*
 ```bash
 # Create custom directory
 mkdir -p /custom/path/to/database
-export CLAUDEEE_DB_PATH="/custom/path/to/database/claudeee.db"
+export CCDASH_DB_PATH="/custom/path/to/database/ccdash.db"
 ```
 
 ### Port Already in Use
@@ -118,7 +118,7 @@ The application validates configuration on startup and will log the following in
 
 ```
 Server starting on :8080
-Database path: /Users/username/.claudeee/claudeee.db
+Database path: /Users/username/.ccdash/ccdash.db
 Claude projects directory: /Users/username/.claude/projects
 Frontend URL: http://localhost:3000
 ```

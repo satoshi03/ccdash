@@ -16,7 +16,7 @@ func main() {
 		return
 	}
 
-	dbPath := filepath.Join(homeDir, ".claudeee", "claudeee.db")
+	dbPath := filepath.Join(homeDir, ".ccdash", "ccdash.db")
 	db, err := sql.Open("duckdb", dbPath)
 	if err != nil {
 		fmt.Printf("Error opening database: %v\n", err)

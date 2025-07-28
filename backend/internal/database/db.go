@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"fmt"
 	
-	"claudeee-backend/internal/config"
-	"claudeee-backend/internal/services"
+	"ccdash-backend/internal/config"
+	"ccdash-backend/internal/services"
 	_ "github.com/marcboeker/go-duckdb"
 )
 

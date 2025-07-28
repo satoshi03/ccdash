@@ -27,7 +27,7 @@ WORKDIR /root/
 COPY --from=builder /app/main .
 
 # Create directory for database
-RUN mkdir -p /root/.claudeee
+RUN mkdir -p /root/.ccdash
 
 # Expose port
 EXPOSE 8080

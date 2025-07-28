@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 
 	_ "github.com/marcboeker/go-duckdb"
-	"claudeee-backend/internal/services"
+	"ccdash-backend/internal/services"
 )
 
 func main() {
@@ -24,7 +24,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	dbPath := filepath.Join(homeDir, ".claudeee", "claudeee.db")
+	dbPath := filepath.Join(homeDir, ".ccdash", "ccdash.db")
 	if _, err := os.Stat(dbPath); os.IsNotExist(err) {
 		fmt.Println("Database does not exist.")
 		return

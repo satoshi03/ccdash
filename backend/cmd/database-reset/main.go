@@ -13,7 +13,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	dbDir := filepath.Join(homeDir, ".claudeee")
+	dbDir := filepath.Join(homeDir, ".ccdash")
 	
 	// Remove all database files
 	err = os.RemoveAll(dbDir)

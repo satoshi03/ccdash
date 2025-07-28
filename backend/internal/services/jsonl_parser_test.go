@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"claudeee-backend/internal/models"
+	"ccdash-backend/internal/models"
 	_ "github.com/marcboeker/go-duckdb"
 )
 

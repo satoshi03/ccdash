@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 	
-	"claudeee-backend/internal/models"
+	"ccdash-backend/internal/models"
 )
 
 type TokenService struct {

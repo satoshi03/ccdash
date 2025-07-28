@@ -72,13 +72,13 @@ jobs:
         run: |
           cd backend
           go mod tidy
-          go build -ldflags="-s -w" -o ../claudeee-server-${{ matrix.suffix }}${{ matrix.ext }} cmd/server/main.go
+          go build -ldflags="-s -w" -o ../ccdash-server-${{ matrix.suffix }}${{ matrix.ext }} cmd/server/main.go
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
           name: backend-binary-${{ matrix.suffix }}
-          path: claudeee-server-${{ matrix.suffix }}${{ matrix.ext }}
+          path: ccdash-server-${{ matrix.suffix }}${{ matrix.ext }}
 
   build-frontend:
     name: Build Frontend
@@ -124,7 +124,7 @@ jobs:
           # Create minimal package.json for runtime
           cat > package-runtime.json << 'EOF'
           {
-            "name": "claudeee-frontend",
+            "name": "ccdash-frontend",
             "version": "1.0.0",
             "private": true,
             "scripts": {
@@ -246,10 +246,10 @@ jobs:
           cp binaries/* dist/bin/ || echo "No backend binaries found"
           
           # Set executable permissions
-          chmod +x dist/bin/claudeee-server-* || echo "No backend binaries to set permissions"
+          chmod +x dist/bin/ccdash-server-* || echo "No backend binaries to set permissions"
           
           # Copy main CLI script
-          cp bin/claudeee.js dist/bin/
+          cp bin/ccdash.js dist/bin/
           
           # Setup frontend distribution in bin/frontend-dist/
           if [ -d "frontend-artifacts" ]; then
@@ -341,12 +341,12 @@ jobs:
           # Create distribution package.json
           cat > dist/package.json << EOF
           {
-            "name": "claudeee",
+            "name": "ccdash",
             "version": "$NEW_VERSION",
-            "description": "Claude Code Monitoring - A comprehensive monitoring for Claude Code",
-            "main": "bin/claudeee.js",
+            "description": "Claude Code Dashboard - A comprehensive monitoring dashboard for Claude Code",
+            "main": "bin/ccdash.js",
             "bin": {
-              "claudeee": "./bin/claudeee.js"
+              "ccdash": "./bin/ccdash.js"
             },
             "scripts": {
               "postinstall": "node scripts/postinstall.js",
@@ -365,12 +365,12 @@ jobs:
             "license": "MIT",
             "repository": {
               "type": "git",
-              "url": "git+https://github.com/satoshi03/claudeee.git"
+              "url": "git+https://github.com/satoshi03/ccdash.git"
             },
             "bugs": {
-              "url": "https://github.com/satoshi03/claudeee/issues"
+              "url": "https://github.com/satoshi03/ccdash/issues"
             },
-            "homepage": "https://github.com/satoshi03/claudeee#readme",
+            "homepage": "https://github.com/satoshi03/ccdash#readme",
             "engines": {
               "node": ">=18.0.0",
               "npm": ">=8.0.0"
@@ -396,37 +396,37 @@ jobs:
           }
           EOF
 
-      - name: Update claudeee.js for frontend-dist structure
+      - name: Update ccdash.js for frontend-dist structure
         run: |
-          # Update the claudeee.js script to use the new frontend-dist structure
-          sed -i 's|path.join(packageRoot, '\''frontend'\'')|path.join(packageRoot, '\''bin'\'', '\''frontend-dist'\'')|g' dist/bin/claudeee.js
+          # Update the ccdash.js script to use the new frontend-dist structure
+          sed -i 's|path.join(packageRoot, '\''frontend'\'')|path.join(packageRoot, '\''bin'\'', '\''frontend-dist'\'')|g' dist/bin/ccdash.js
           
-          echo "Updated claudeee.js to use bin/frontend-dist structure"
+          echo "Updated ccdash.js to use bin/frontend-dist structure"
 
       - name: Create README for npm package
         run: |
           cat > dist/README.md << 'EOF'
-          # Claudeee - Claude Code Monitor & Task Scheduler
+          # CCDash - Claude Code Dashboard
 
-          A comprehensive monitoring and task scheduling tool for Claude Code.
+          A comprehensive monitoring dashboard for Claude Code usage and analytics.
 
           ## Installation
 
           ```bash
-          npm install -g claudeee
+          npm install -g ccdash
           ```
 
           ## Usage
 
           ```bash
           # Start with default ports
-          claudeee
+          ccdash
 
           # Start with custom ports
-          claudeee --backend-port 8081 --frontend-port 3001
+          ccdash --backend-port 8081 --frontend-port 3001
 
           # Show help
-          claudeee help
+          ccdash help
           ```
 
           ## Features
@@ -451,13 +451,13 @@ jobs:
 
           ## API Access
 
-          When running, Claudeee provides:
+          When running, CCDash provides:
           - Backend API: `http://localhost:8080`
           - Frontend UI: `http://localhost:3000` (when available)
 
           ## Support
 
-          For issues and feature requests, visit: https://github.com/satoshi03/claudeee
+          For issues and feature requests, visit: https://github.com/satoshi03/ccdash
           EOF
 
       - name: Debug package structure
@@ -472,7 +472,7 @@ jobs:
           ls -la dist/bin/frontend-dist/ 2>/dev/null || echo "No frontend-dist directory"
           echo ""
           echo "=== Binaries ==="
-          ls -la dist/bin/claudeee-server-* 2>/dev/null || echo "No backend binaries"
+          ls -la dist/bin/ccdash-server-* 2>/dev/null || echo "No backend binaries"
 
       - name: Test package
         run: |
@@ -504,12 +504,12 @@ jobs:
             
             ### 📦 Installation
             ```bash
-            npm install -g claudeee@${{ steps.version.outputs.version }}
+            npm install -g ccdash@${{ steps.version.outputs.version }}
             ```
             
             ### 🔧 Usage
             ```bash
-            claudeee --backend-port 8081 --frontend-port 3001
+            ccdash --backend-port 8081 --frontend-port 3001
             ```
             
             ### 📋 Supported Platforms
@@ -519,7 +519,7 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            claudeee-server-*
+            ccdash-server-*
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
@@ -572,11 +572,11 @@ jobs:
 
       - name: Test CLI functionality
         run: |
-          if command -v claudeee >/dev/null 2>&1; then
-            echo "=== Testing claudeee help ==="
-            claudeee help
+          if command -v ccdash >/dev/null 2>&1; then
+            echo "=== Testing ccdash help ==="
+            ccdash help
           else
-            echo "=== Testing npx claudeee help ==="
-            npx claudeee help
+            echo "=== Testing npx ccdash help ==="
+            npx ccdash help
           fi
         shell: bash
