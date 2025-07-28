@@ -204,7 +204,7 @@ export function P90ProgressCard({
 
           {/* Burn Rate and Time Information - Only shown for P90 predictions */}
           {!isUsingFixedLimits && p90Prediction && (
-            <div className="border-t pt-3 mt-3">
+            <div className="border-t pt-3 mt-3 mb-3 space-y-2">
               <div className={`grid gap-4 text-sm ${p90Prediction.time_to_limit_minutes > 0 ? 'grid-cols-3' : 'grid-cols-2'}`}>
                 <div>
                   <div className="text-muted-foreground">{t('p90Prediction.burnRate')}</div>
@@ -229,14 +229,11 @@ export function P90ProgressCard({
                     {t('p90Prediction.resetIn')}
                   </div>
                   <div className="font-semibold text-blue-600" title={formatFullDate(resetTime)}>
-                    {formatTimeToReset(resetTime)}
-                  </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {t('p90Prediction.at')} {resetTime.toLocaleTimeString([], { 
+                    {formatTimeToReset(resetTime)} ({t('p90Prediction.at')} {resetTime.toLocaleTimeString([], { 
                       hour: '2-digit', 
                       minute: '2-digit',
                       timeZoneName: 'short'
-                    })}
+                    })})
                   </div>
                 </div>
               </div>
