@@ -1,19 +1,48 @@
 export interface Settings {
-  plan: 'Pro' | 'Max5' | 'Max20'
   timezone: string
   autoRefreshInterval: number // 秒単位
+  usageMode: 'p90_prediction' | 'fixed_limits'
+  fixedLimits: {
+    tokenLimit: number
+    messageLimit: number
+    costLimit: number
+  }
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  plan: 'Pro',
   timezone: 'Asia/Tokyo',
-  autoRefreshInterval: 60 // 1分間隔
+  autoRefreshInterval: 60, // 1分間隔
+  usageMode: 'p90_prediction',
+  fixedLimits: {
+    tokenLimit: 19000, // Pro plan default from Claude-Usage-Monitor
+    messageLimit: 250,
+    costLimit: 18.0
+  }
 }
 
-export const PLAN_LIMITS = {
-  Pro: 7000,
-  Max5: 35000,
-  Max20: 140000
+
+// Fixed limits based on Claude-Usage-Monitor plans
+export const FIXED_LIMITS_PRESETS = {
+  Pro: {
+    tokenLimit: 19000,
+    messageLimit: 250,
+    costLimit: 18.0
+  },
+  Max5: {
+    tokenLimit: 88000,
+    messageLimit: 1000,
+    costLimit: 35.0
+  },
+  Max20: {
+    tokenLimit: 220000,
+    messageLimit: 2000,
+    costLimit: 140.0
+  },
+  Custom: {
+    tokenLimit: 44000,
+    messageLimit: 250,
+    costLimit: 50.0
+  }
 }
 
 export const TIMEZONE_OPTIONS = [

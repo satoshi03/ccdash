@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/pagination"
 import { ArrowLeft, Clock, MessageSquare, Code2, User, Bot, Copy, Check } from "lucide-react"
 import { api, PaginatedMessages } from "@/lib/api"
+import { Header } from "@/components/header"
 import { useI18n } from "@/hooks/use-i18n"
 
 type Message = {
@@ -301,6 +302,7 @@ function SessionDetailContent() {
 
   return (
     <div className="min-h-screen bg-background">
+      <Header />
       <div className="container mx-auto max-w-7xl p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">

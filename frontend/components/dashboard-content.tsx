@@ -5,9 +5,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { P90ProgressCard } from "@/components/p90-progress-card"
 import { SessionList } from "@/components/session-list"
 import { ProjectOverview } from "@/components/project-overview"
-import { useTokenUsage, useSessions, useSyncLogs, useAvailableTokens, useP90Predictions } from "@/hooks/use-api"
+import { Header } from "@/components/header"
+import { useTokenUsage, useSessions, useSyncLogs, useP90Predictions } from "@/hooks/use-api"
 import { useI18n } from "@/hooks/use-i18n"
-import { Settings, getSettings, PLAN_LIMITS } from "@/lib/settings"
+import { Settings, getSettings } from "@/lib/settings"
 import { Session } from "@/lib/api"
 
 export default function Dashboard() {
@@ -16,8 +17,11 @@ export default function Dashboard() {
   const { data: p90Predictions, loading: p90Loading, refetch: refetchP90 } = useP90Predictions()
   const { sync: syncLogs } = useSyncLogs()
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [settings] = useState<Settings>(() => getSettings())
-  const { data: availableTokens, refetch: refetchAvailable } = useAvailableTokens(settings.plan)
+  const [settings, setSettings] = useState<Settings>(() => getSettings())
+  
+  const handleSettingsChange = (newSettings: Settings) => {
+    setSettings(newSettings)
+  }
   const { t } = useI18n()
 
   const refreshData = useCallback(async () => {
@@ -29,7 +33,6 @@ export default function Dashboard() {
       await Promise.all([
         refetchTokens(),
         refetchSessions(),
-        refetchAvailable(),
         refetchP90()
       ])
     } catch (error) {
@@ -37,7 +40,7 @@ export default function Dashboard() {
     } finally {
       setIsRefreshing(false)
     }
-  }, [syncLogs, refetchTokens, refetchSessions, refetchAvailable, refetchP90])
+  }, [syncLogs, refetchTokens, refetchSessions, refetchP90])
 
   // 自動更新機能（設定可能な間隔）
   useEffect(() => {
@@ -102,10 +105,11 @@ export default function Dashboard() {
 
   const projects = sessions ? convertSessionsToProjects(sessions) : []
   const resetTime = tokenUsage ? new Date(tokenUsage.window_end) : new Date(Date.now() + 5 * 60 * 60 * 1000)
-  const displayPlan = `Claude ${settings.plan}`
 
   return (
-    <div className="container mx-auto max-w-7xl p-6 space-y-6">
+    <div className="min-h-screen bg-background">
+      <Header onSettingsChange={handleSettingsChange} />
+      <div className="container mx-auto max-w-7xl p-6 space-y-6">
 
         {/* Token Usage Overview */}
         {tokenLoading ? (
@@ -120,9 +124,9 @@ export default function Dashboard() {
             currentMessages={tokenUsage.total_messages}
             currentCost={tokenUsage.total_cost}
             p90Prediction={p90Predictions}
-            plan={displayPlan}
             resetTime={resetTime}
             isLoading={p90Loading}
+            settings={settings}
           />
         ) : null}
 
@@ -159,5 +163,6 @@ export default function Dashboard() {
 
         </Tabs>
       </div>
+    </div>
   )
 }
