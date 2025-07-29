@@ -142,12 +142,27 @@ async function installFrontendDependencies() {
 
 // Build frontend
 async function buildFrontend() {
+  return buildFrontendWithApiUrl(null);
+}
+
+// Build frontend with custom API URL
+async function buildFrontendWithApiUrl(apiUrl) {
   return new Promise((resolve, reject) => {
     log.info('Building frontend...');
 
+    const env = {
+      ...process.env
+    };
+    
+    if (apiUrl) {
+      env.NEXT_PUBLIC_API_URL = apiUrl;
+      log.info(`Setting NEXT_PUBLIC_API_URL to: ${apiUrl}`);
+    }
+
     const buildProcess = spawn('npm', ['run', 'build'], {
       cwd: frontendPath,
-      stdio: 'inherit'
+      stdio: 'inherit',
+      env: env
     });
 
     buildProcess.on('close', (code) => {
@@ -413,10 +428,15 @@ async function main() {
             await installFrontendDependencies();
           }
 
-          // Build frontend if standalone build doesn't exist
+          // Build frontend if standalone build doesn't exist or if custom backend URL is provided
           const standalonePath = path.join(frontendPath, '.next', 'standalone', 'server.js');
-          if (!fs.existsSync(standalonePath)) {
-            await buildFrontend();
+          const needsRebuild = !fs.existsSync(standalonePath) || backendUrl;
+          
+          if (needsRebuild) {
+            if (backendUrl) {
+              log.info(`Custom backend URL provided: ${backendUrl}. Rebuilding frontend...`);
+            }
+            await buildFrontendWithApiUrl(backendUrl ? `${backendUrl}/api` : null);
           }
         } else {
           log.info('Running from npm package, skipping frontend build');
@@ -461,7 +481,7 @@ async function main() {
           if (!checkNodeDependencies()) {
             await installFrontendDependencies();
           }
-          await buildFrontend();
+          await buildFrontendWithApiUrl(backendUrl ? `${backendUrl}/api` : null);
         } else {
           log.info('Running from npm package, skipping frontend build');
         }
