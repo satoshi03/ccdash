@@ -157,6 +157,13 @@ async function buildFrontendWithApiUrl(apiUrl) {
     if (apiUrl) {
       env.NEXT_PUBLIC_API_URL = apiUrl;
       log.info(`Setting NEXT_PUBLIC_API_URL to: ${apiUrl}`);
+      
+      // Clean the build directory to ensure fresh build with new API URL
+      const nextDir = path.join(frontendPath, '.next');
+      if (fs.existsSync(nextDir)) {
+        log.info('Cleaning previous build to ensure fresh build with new API URL...');
+        fs.rmSync(nextDir, { recursive: true, force: true });
+      }
     }
 
     const buildProcess = spawn('npm', ['run', 'build'], {

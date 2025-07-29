@@ -1,5 +1,10 @@
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api'
 
+// Debug logging for API base URL
+if (typeof window !== 'undefined') {
+  console.log('CCDash API Base URL:', API_BASE_URL)
+}
+
 export interface TokenUsage {
   total_tokens: number
   input_tokens: number
@@ -111,6 +116,11 @@ class ApiClient {
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseURL}${endpoint}`
+    
+    // Debug logging for API requests
+    if (typeof window !== 'undefined') {
+      console.log('CCDash API Request:', url)
+    }
     
     const response = await fetch(url, {
       headers: {
