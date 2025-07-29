@@ -181,10 +181,13 @@ func (s *P90PredictionService) getHistoricalMetricsByProject(projectName string,
 			sw.message_count,
 			COALESCE(sw.total_cost, 0) as total_cost
 		FROM session_windows sw
-		INNER JOIN sessions s ON s.session_window_id = sw.id
+		INNER JOIN session_window_messages swm ON sw.id = swm.session_window_id
+		INNER JOIN messages m ON swm.message_id = m.id
+		INNER JOIN sessions s ON m.session_id = s.id
 		WHERE sw.window_start >= ?
 		AND s.project_name = ?
 		AND sw.total_tokens > 0
+		GROUP BY sw.id, sw.total_tokens, sw.message_count, sw.total_cost
 		ORDER BY sw.window_start ASC
 	`
 	
@@ -330,9 +333,11 @@ func (s *P90PredictionService) calculateTimeToLimitByProject(projectName string,
 	
 	// Get current project usage in the active window
 	query := `
-		SELECT COALESCE(SUM(sw.total_tokens), 0) as project_tokens
+		SELECT COALESCE(SUM(DISTINCT sw.total_tokens), 0) as project_tokens
 		FROM session_windows sw
-		INNER JOIN sessions s ON s.session_window_id = sw.id
+		INNER JOIN session_window_messages swm ON sw.id = swm.session_window_id
+		INNER JOIN messages m ON swm.message_id = m.id
+		INNER JOIN sessions s ON m.session_id = s.id
 		WHERE sw.is_active = true
 		AND s.project_name = ?
 	`

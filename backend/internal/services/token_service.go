@@ -268,16 +268,17 @@ func (s *TokenService) UpdateSessionTokens(sessionID string) error {
 func (s *TokenService) calculateWindowCost(windowID string) (float64, error) {
 	query := `
 		SELECT 
-			model,
-			COALESCE(SUM(input_tokens), 0) as total_input_tokens,
-			COALESCE(SUM(output_tokens), 0) as total_output_tokens,
-			COALESCE(SUM(cache_creation_input_tokens), 0) as total_cache_creation_tokens,
-			COALESCE(SUM(cache_read_input_tokens), 0) as total_cache_read_tokens
-		FROM messages 
-		WHERE session_window_id = ? 
-		AND message_role = 'assistant'
-		AND model IS NOT NULL
-		GROUP BY model
+			m.model,
+			COALESCE(SUM(m.input_tokens), 0) as total_input_tokens,
+			COALESCE(SUM(m.output_tokens), 0) as total_output_tokens,
+			COALESCE(SUM(m.cache_creation_input_tokens), 0) as total_cache_creation_tokens,
+			COALESCE(SUM(m.cache_read_input_tokens), 0) as total_cache_read_tokens
+		FROM messages m
+		INNER JOIN session_window_messages swm ON m.id = swm.message_id
+		WHERE swm.session_window_id = ? 
+		AND m.message_role = 'assistant'
+		AND m.model IS NOT NULL
+		GROUP BY m.model
 	`
 	
 	rows, err := s.db.Query(query, windowID)

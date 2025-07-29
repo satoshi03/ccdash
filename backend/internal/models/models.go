@@ -22,7 +22,6 @@ type Session struct {
 type Message struct {
 	ID                        string    `json:"id" db:"id"`
 	SessionID                 string    `json:"session_id" db:"session_id"`
-	SessionWindowID           *string   `json:"session_window_id" db:"session_window_id"`
 	ParentUUID                *string   `json:"parent_uuid" db:"parent_uuid"`
 	IsSidechain              bool      `json:"is_sidechain" db:"is_sidechain"`
 	UserType                 *string   `json:"user_type" db:"user_type"`
@@ -38,6 +37,13 @@ type Message struct {
 	RequestID                *string   `json:"request_id" db:"request_id"`
 	Timestamp                time.Time `json:"timestamp" db:"timestamp"`
 	CreatedAt                time.Time `json:"created_at" db:"created_at"`
+}
+
+type SessionWindowMessage struct {
+	ID               string    `json:"id" db:"id"`
+	SessionWindowID  string    `json:"session_window_id" db:"session_window_id"`
+	MessageID        string    `json:"message_id" db:"message_id"`
+	CreatedAt        time.Time `json:"created_at" db:"created_at"`
 }
 
 type TokenUsage struct {

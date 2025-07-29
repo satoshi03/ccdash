@@ -6,8 +6,9 @@ import (
 	"os"
 	"path/filepath"
 
-	_ "github.com/marcboeker/go-duckdb"
 	"ccdash-backend/internal/services"
+
+	_ "github.com/marcboeker/go-duckdb"
 )
 
 func main() {
@@ -51,20 +52,6 @@ func main() {
 	}
 
 	fmt.Printf("Found %d messages. Recalculating session windows...\n", messageCount)
-
-	// Clear existing session windows
-	_, err = db.Exec("DELETE FROM session_windows")
-	if err != nil {
-		fmt.Printf("Error clearing session windows: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Clear session_window_id from messages
-	_, err = db.Exec("UPDATE messages SET session_window_id = NULL")
-	if err != nil {
-		fmt.Printf("Error clearing message window references: %v\n", err)
-		os.Exit(1)
-	}
 
 	// Use the service to recalculate windows
 	windowService := services.NewSessionWindowService(db)
