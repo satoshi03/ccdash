@@ -30,7 +30,7 @@ COPY --from=builder /app/main .
 RUN mkdir -p /root/.ccdash
 
 # Expose port
-EXPOSE 8080
+EXPOSE 6060
 
 # Command to run
 CMD ["./main"]

@@ -35,7 +35,7 @@ func GetConfig() (*Config, error) {
 	// Server configuration
 	config.ServerPort = os.Getenv("PORT")
 	if config.ServerPort == "" {
-		config.ServerPort = "8080"
+		config.ServerPort = "6060"
 	}
 
 	config.ServerHost = os.Getenv("HOST")
