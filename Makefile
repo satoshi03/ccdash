@@ -37,7 +37,7 @@ run: backend-run frontend-run
 
 dev:
 	@echo "Starting development servers..."
-	@echo "Backend will run on http://localhost:8080"
+	@echo "Backend will run on http://localhost:6060"
 	@echo "Frontend will run on http://localhost:3000"
 	@echo "Press Ctrl+C to stop both servers"
 	@(make backend-dev &) && (make frontend-dev &) && wait
@@ -62,7 +62,7 @@ backend-build:
 	@echo "Backend build completed: backend/bin/server"
 
 backend-run: backend-build
-	@echo "Starting backend server on http://localhost:8080"
+	@echo "Starting backend server on http://localhost:6060"
 	cd backend && ./bin/server
 
 backend-dev:

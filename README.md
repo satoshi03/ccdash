@@ -35,7 +35,7 @@ ccdash --backend-url http://api.example.com --frontend-url https://app.example.c
 After installation, access the following URLs in your browser:
 
   - **Frontend**: http://localhost:3000 (or your custom port)
-  - **Backend API**: http://localhost:8080 (or your custom port)
+  - **Backend API**: http://localhost:6060 (fixed port)
 
 ## Overview
 
@@ -196,10 +196,10 @@ npx ccdash version
 
 ### Command Line Options
 
-- `--backend-port, -bp`: Backend server port (default: 8080)
-- `--frontend-port, -fp`: Frontend server port (default: 3000)
-- `--backend-url, -bu`: Backend server URL (overrides backend-port)
+- `--frontend-port, -fp`: Frontend server port (default: 3000)  
 - `--frontend-url, -fu`: Frontend server URL (overrides frontend-port)
+
+**Note**: Backend port is fixed at 6060 for npm package distribution.
 - `--help, -h`: Show help message
 
 ### Prerequisites
@@ -231,7 +231,7 @@ npx ccdash dev
     go run cmd/server/main.go
     ```
 
-    The server will start at `http://localhost:8080`.
+    The server will start at `http://localhost:6060`.
 
 2.  **Start the frontend server**
 
@@ -299,12 +299,12 @@ Example token usage response:
 
   - `GIN_MODE`: Gin operation mode (development/release)
   - `CCDASH_DB_PATH`: Path to the database file (default: `~/.ccdash/ccdash.db`)
-  - `PORT`: Backend server port (default: 8080)
+  - `PORT`: Backend server port (fixed: 6060)
   - `FRONTEND_URL`: Frontend URL for CORS configuration (default: `http://localhost:3000`)
 
 #### Frontend
 
-  - `NEXT_PUBLIC_API_URL`: Backend API URL (default: `http://localhost:8080/api`)
+  - `NEXT_PUBLIC_API_URL`: Backend API URL (default: `http://localhost:6060/api`)
 
 ### Claude Code Configuration
 
@@ -313,32 +313,34 @@ Log file location: `~/.claude/projects/{project-name}/{session-id}.jsonl`
 
 ### Custom URL Configuration Examples
 
-#### Using External Backend API
+#### Frontend Configuration Examples
 ```bash
-# Use external backend API with local frontend
-npx ccdash --backend-url https://api.myserver.com
+# Use custom frontend port  
+npx ccdash --frontend-port 8080
 
-# Use both external backend and frontend
-npx ccdash --backend-url https://api.myserver.com --frontend-url https://app.myserver.com
+# Use custom frontend URL
+npx ccdash --frontend-url https://app.myserver.com
 ```
 
-#### Using Different Hosts/Networks
+#### Using Custom Frontend Port
 ```bash
-# Backend on different host, frontend on localhost
-npx ccdash --backend-url http://192.168.1.100:8080
+# Frontend on custom port
+npx ccdash --frontend-port 3001
 
-# Both services on different network
-npx ccdash --backend-url http://server.local:8080 --frontend-url http://server.local:3000
+# Frontend on custom URL
+npx ccdash --frontend-url http://app.local:3000
 ```
 
-#### Development with Custom URLs
+#### Development with Custom Frontend Port
 ```bash
-# Development mode with custom backend URL
-npx ccdash dev --backend-url http://dev.backend.local:8080
+# Development mode with custom frontend port
+npx ccdash dev --frontend-port 3001
 
-# Development with both custom URLs
-npx ccdash dev --backend-url http://dev.api.local:8080 --frontend-url http://dev.app.local:3000
+# Development with custom frontend URL
+npx ccdash dev --frontend-url http://dev.app.local:3000
 ```
+
+**Note**: Backend runs on fixed port 6060 and cannot be customized in npm package mode.
 
 ## Troubleshooting
 

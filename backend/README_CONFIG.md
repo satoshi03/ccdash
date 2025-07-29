@@ -17,7 +17,7 @@ The following environment variables can be used to configure the application:
 
 - **`PORT`** (optional)
   - Port number for the HTTP server
-  - Default: `8080`
+  - Default: `6060`
   - Example: `3001`
 
 - **`FRONTEND_URL`** (optional)
@@ -53,7 +53,7 @@ go run cmd/server/main.go
 
 ```bash
 export CCDASH_DB_PATH="/var/lib/ccdash/ccdash.db"
-export PORT="8080"
+export PORT="6060"
 export FRONTEND_URL="https://ccdash.mydomain.com"
 export CLAUDE_PROJECTS_DIR="/home/user/.ccdash/projects"
 go run cmd/server/main.go
@@ -63,7 +63,7 @@ go run cmd/server/main.go
 
 ```bash
 docker run -e CCDASH_DB_PATH="/app/data/ccdash.db" \
-           -e PORT="8080" \
+           -e PORT="6060" \
            -e FRONTEND_URL="http://localhost:3000" \
            -v /host/data:/app/data \
            ccdash-backend
@@ -117,7 +117,7 @@ export PORT="8081"
 The application validates configuration on startup and will log the following information:
 
 ```
-Server starting on :8080
+Server starting on :6060
 Database path: /Users/username/.ccdash/ccdash.db
 Claude projects directory: /Users/username/.claude/projects
 Frontend URL: http://localhost:3000

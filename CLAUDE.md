@@ -237,7 +237,7 @@ rm ~/.ccdash/ccdash.db*
 # 3. アプリケーション再起動（新ロジックでデータ再生成）
 make dev
 # または手動でログ同期
-curl -X POST http://localhost:8080/api/sync-logs
+curl -X POST http://localhost:6060/api/sync-logs
 ```
 
 ### 判定例
@@ -384,17 +384,17 @@ curl -X POST http://localhost:8080/api/sync-logs
 cd backend/cmd/database-status && go run main.go
 
 # SessionWindow状態確認
-curl -X GET http://localhost:8080/api/claude/session-windows
+curl -X GET http://localhost:6060/api/claude/session-windows
 
 # ログ同期実行
-curl -X POST http://localhost:8080/api/sync-logs
+curl -X POST http://localhost:6060/api/sync-logs
 
 # トークン使用量確認
-curl -X GET http://localhost:8080/api/token-usage
+curl -X GET http://localhost:6060/api/token-usage
 
 # プロセス確認
 ps aux | grep "go run"
-lsof -i :8080
+lsof -i :6060
 lsof -i :3000
 
 # データベースリセット（問題がある場合）

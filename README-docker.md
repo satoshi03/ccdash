@@ -21,8 +21,8 @@ docker-compose up
 ### 2. アクセス方法
 
 - **フロントエンド**: http://localhost:3000
-- **バックエンドAPI**: http://localhost:8080/api
-- **ヘルスチェック**: http://localhost:8080/api/v1/health
+- **バックエンドAPI**: http://localhost:6060/api
+- **ヘルスチェック**: http://localhost:6060/api/v1/health
 
 ### 3. 停止方法
 
@@ -41,7 +41,7 @@ docker-compose down -v
 ```bash
 cd backend
 docker build -t ccdash-backend .
-docker run -p 8080:8080 \
+docker run -p 6060:6060 \
   -v ~/.claude:/root/.claude:ro \
   -v ccdash-db:/root/.ccdash \
   ccdash-backend
@@ -53,7 +53,7 @@ docker run -p 8080:8080 \
 cd frontend
 docker build -t ccdash-frontend .
 docker run -p 3000:3000 \
-  -e NEXT_PUBLIC_API_URL=http://localhost:8080/api \
+  -e NEXT_PUBLIC_API_URL=http://localhost:6060/api \
   ccdash-frontend
 ```
 
@@ -63,7 +63,7 @@ docker run -p 3000:3000 \
 
 #### バックエンド
 - `GIN_MODE`: Ginのモード（`release` または `debug`）
-- `PORT`: サーバーポート（デフォルト: 8080）
+- `PORT`: サーバーポート（デフォルト: 6060）
 
 #### フロントエンド
 - `NODE_ENV`: Node.jsの環境（`production` または `development`）
@@ -129,4 +129,4 @@ docker-compose build --no-cache frontend
 1. **Claude Codeのログアクセス**: `~/.claude/` ディレクトリが読み取り可能である必要があります
 2. **データベース永続化**: データベースは名前付きボリュームで永続化されます
 3. **ネットワーク**: フロントエンドとバックエンドは同じDockerネットワーク内で通信します
-4. **ポート競合**: ローカルで既に8080または3000ポートが使用されている場合は、docker-compose.ymlのポート設定を変更してください
+4. **ポート競合**: ローカルで既に6060または3000ポートが使用されている場合は、docker-compose.ymlのポート設定を変更してください

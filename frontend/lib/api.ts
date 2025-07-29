@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api'
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:6060/api'
 
 // Debug logging for API base URL
 if (typeof window !== 'undefined') {
