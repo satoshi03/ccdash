@@ -123,7 +123,7 @@ export function ProjectOverview({ projects }: ProjectOverviewProps) {
                           {session.tokenUsage.toLocaleString()} {t('project.tokensLabel')}
                         </span>
                         <span className="text-xs text-muted-foreground">
-                          {session.messageCount} {t('project.messages')}
+                          {session.messageCount} msgs
                         </span>
                       </div>
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
