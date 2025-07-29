@@ -9,6 +9,7 @@ type Config struct {
 	DatabasePath     string
 	DatabaseDir      string
 	ServerPort       string
+	ServerHost       string
 	FrontendURL      string
 	ClaudeProjectsDir string
 }
@@ -35,6 +36,11 @@ func GetConfig() (*Config, error) {
 	config.ServerPort = os.Getenv("PORT")
 	if config.ServerPort == "" {
 		config.ServerPort = "8080"
+	}
+
+	config.ServerHost = os.Getenv("HOST")
+	if config.ServerHost == "" {
+		config.ServerHost = "localhost"
 	}
 
 	// Frontend URL configuration

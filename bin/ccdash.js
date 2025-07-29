@@ -219,7 +219,7 @@ function parseArgs() {
 }
 
 // Start backend server with custom port or URL
-function startBackend(port = 8080, frontendPort = 3000, frontendUrl = null) {
+function startBackend(port = 8080, frontendPort = 3000, frontendUrl = null, backendUrl = null) {
   const serverPath = path.join(packageRoot, 'bin', 'ccdash-server');
 
   if (!fs.existsSync(serverPath)) {
@@ -229,13 +229,27 @@ function startBackend(port = 8080, frontendPort = 3000, frontendUrl = null) {
 
   const frontendTargetUrl = frontendUrl || `http://localhost:${frontendPort}`;
   
-  log.info(`Starting backend server on http://localhost:${port}`);
+  // Extract host from backend URL if provided
+  let backendHost = 'localhost';
+  if (backendUrl) {
+    try {
+      const url = new URL(backendUrl);
+      backendHost = url.hostname;
+    } catch (error) {
+      log.warning(`Invalid backend URL: ${backendUrl}. Using localhost`);
+    }
+  }
+  
+  const backendDisplayUrl = backendUrl || `http://${backendHost}:${port}`;
+  log.info(`Starting backend server on ${backendDisplayUrl}`);
+  
   const backendProcess = spawn(serverPath, [], {
     stdio: 'inherit',
     detached: false,
     env: {
       ...process.env,
       PORT: port.toString(),
+      HOST: backendHost,
       FRONTEND_URL: frontendTargetUrl
     }
   });
@@ -409,7 +423,7 @@ async function main() {
         }
 
         // Start both services
-        const backendProcess = startBackend(backendPort, frontendPort, frontendUrl);
+        const backendProcess = startBackend(backendPort, frontendPort, frontendUrl, backendUrl);
         const frontendProcess = startFrontend(frontendPort, backendPort, backendUrl, frontendUrl);
 
         // Handle process cleanup
@@ -428,7 +442,8 @@ async function main() {
         process.on('SIGTERM', cleanup);
 
         log.success('ccdash is running!');
-        const backendDisplayUrl = backendUrl || `http://localhost:${backendPort}`;
+        const backendHost = backendUrl ? new URL(backendUrl).hostname : 'localhost';
+        const backendDisplayUrl = backendUrl || `http://${backendHost}:${backendPort}`;
         const frontendDisplayUrl = frontendUrl || `http://localhost:${frontendPort}`;
         log.info(`Backend:  ${backendDisplayUrl}`);
         if (frontendProcess) {
@@ -475,13 +490,26 @@ async function main() {
         log.info(`Backend:  ${devBackendUrl}`);
         log.info(`Frontend: ${devFrontendUrl}`);
 
+        // Extract host from backend URL if provided
+        let devBackendHost = 'localhost';
+        if (backendUrl) {
+          try {
+            const url = new URL(backendUrl);
+            devBackendHost = url.hostname;
+          } catch (error) {
+            log.warning(`Invalid backend URL: ${backendUrl}. Using localhost`);
+          }
+        }
+
         log.info(`Setting backend FRONTEND_URL to: ${frontendTargetUrl}`);
+        log.info(`Backend will bind to: ${devBackendHost}:${backendPort}`);
         const devBackend = spawn('go', ['run', 'cmd/server/main.go'], {
           cwd: backendPath,
           stdio: 'inherit',
           env: {
             ...process.env,
             PORT: backendPort.toString(),
+            HOST: devBackendHost,
             FRONTEND_URL: frontendTargetUrl
           }
         });
