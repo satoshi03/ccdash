@@ -220,6 +220,12 @@ func (s *TokenService) GetActiveSessionsInWindow() ([]models.Session, error) {
 }
 
 func (s *TokenService) UpdateSessionTokens(sessionID string) error {
+	// First calculate the session cost
+	sessionCost, err := s.CalculateSessionCost(sessionID)
+	if err != nil {
+		return fmt.Errorf("failed to calculate session cost: %w", err)
+	}
+	
 	query := `
 		UPDATE sessions 
 		SET 
@@ -245,11 +251,12 @@ func (s *TokenService) UpdateSessionTokens(sessionID string) error {
 			),
 			end_time = (
 				SELECT MAX(timestamp) FROM messages WHERE session_id = ?
-			)
+			),
+			total_cost = ?
 		WHERE id = ?
 	`
 	
-	_, err := s.db.Exec(query, sessionID, sessionID, sessionID, sessionID, sessionID, sessionID)
+	_, err = s.db.Exec(query, sessionID, sessionID, sessionID, sessionID, sessionID, sessionCost, sessionID)
 	if err != nil {
 		return fmt.Errorf("failed to update session tokens: %w", err)
 	}
