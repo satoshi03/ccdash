@@ -303,10 +303,24 @@ function SessionDetailContent() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => {
-                        navigator.clipboard.writeText(session.id)
-                        setCopiedSessionId(true)
-                        setTimeout(() => setCopiedSessionId(false), 2000)
+                      onClick={async () => {
+                        try {
+                          if (navigator.clipboard && navigator.clipboard.writeText) {
+                            await navigator.clipboard.writeText(session.id)
+                          } else {
+                            // Fallback for older browsers or non-HTTPS contexts
+                            const textArea = document.createElement('textarea')
+                            textArea.value = session.id
+                            document.body.appendChild(textArea)
+                            textArea.select()
+                            document.execCommand('copy')
+                            document.body.removeChild(textArea)
+                          }
+                          setCopiedSessionId(true)
+                          setTimeout(() => setCopiedSessionId(false), 2000)
+                        } catch (error) {
+                          console.error('Failed to copy session ID:', error)
+                        }
                       }}
                       className="h-6 w-6 p-0"
                     >
@@ -394,7 +408,7 @@ function SessionDetailContent() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-[600px] pr-4">
+            <div className="pr-4">
               <div className="space-y-4">
                 {messageList.map((message, index) => (
                   <div key={message.id} className="border rounded-lg p-4 min-w-0 overfl">
@@ -443,7 +457,7 @@ function SessionDetailContent() {
                   </div>
                 ))}
               </div>
-            </ScrollArea>
+            </div>
             
             {/* Pagination */}
             {paginationInfo && paginationInfo.total_pages > 1 && (
