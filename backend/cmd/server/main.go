@@ -114,12 +114,12 @@ func main() {
 		api.POST("/sync-logs", handler.SyncLogs)
 	}
 
-	log.Printf("Server starting on :%s", cfg.ServerPort)
+	log.Printf("Server starting on %s:%s", cfg.ServerHost, cfg.ServerPort)
 	log.Printf("Database path: %s", cfg.DatabasePath)
 	log.Printf("Claude projects directory: %s", cfg.ClaudeProjectsDir)
 	log.Printf("Frontend URL: %s", cfg.FrontendURL)
 
-	if err := r.Run(":" + cfg.ServerPort); err != nil {
+	if err := r.Run(cfg.ServerHost + ":" + cfg.ServerPort); err != nil {
 		log.Fatal("Failed to start server:", err)
 	}
 }
