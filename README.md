@@ -39,6 +39,8 @@ After installation, access the following URLs in your browser:
 
 ## Overview
 
+![CCDash Screenshot](assets/images/ccdash_top_1.png)
+
 CCDash is a tool that visualizes Claude Code usage and helps with efficient task management. It supports monitoring token usage, managing sessions, and will support automatic task scheduling in the future.
 
 ## Features
