@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-const { spawn } = require('child_process');
+const { spawn, exec } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -49,6 +49,60 @@ if (isNpmPackage()) {
 } else {
   // For development, frontend is in frontend/
   frontendPath = path.join(packageRoot, 'frontend');
+}
+
+// Browser launch helper function
+function openBrowser(url) {
+  let command;
+  
+  switch (process.platform) {
+    case 'darwin': // macOS
+      command = `open "${url}"`;
+      break;
+    case 'win32': // Windows
+      command = `start "" "${url}"`;
+      break;
+    default: // Linux and others
+      command = `xdg-open "${url}"`;
+      break;
+  }
+  
+  exec(command, (error) => {
+    if (error) {
+      log.warning(`Could not open browser automatically: ${error.message}`);
+      log.info(`Please open your browser and navigate to: ${url}`);
+    } else {
+      log.success(`Opened browser at: ${url}`);
+    }
+  });
+}
+
+// Wait for service to be ready before opening browser
+function waitForService(url, maxAttempts = 30, interval = 1000) {
+  return new Promise((resolve, reject) => {
+    let attempts = 0;
+    
+    const checkService = () => {
+      attempts++;
+      
+      // Simple HTTP check using curl or similar
+      const testCommand = process.platform === 'win32' 
+        ? `powershell -Command "try { Invoke-WebRequest -Uri '${url}' -TimeoutSec 1 -UseBasicParsing | Out-Null; exit 0 } catch { exit 1 }"`
+        : `curl -s --connect-timeout 1 --max-time 1 "${url}" > /dev/null 2>&1`;
+      
+      exec(testCommand, (error) => {
+        if (!error) {
+          resolve(true);
+        } else if (attempts >= maxAttempts) {
+          reject(new Error(`Service not ready after ${maxAttempts} attempts`));
+        } else {
+          setTimeout(checkService, interval);
+        }
+      });
+    };
+    
+    checkService();
+  });
 }
 
 // Early function declaration needed for path setup
@@ -197,6 +251,7 @@ function parseArgs() {
   let frontendPort = 3000;
   const backendUrl = null; // Backend URL is not configurable
   let frontendUrl = null;
+  let openBrowserFlag = true; // Default: open browser automatically
 
   for (let i = 0; i < args.length; i++) {
     const arg = args[i];
@@ -213,6 +268,10 @@ function parseArgs() {
     } else if (arg === '--frontend-url' || arg === '-fu') {
       frontendUrl = args[i + 1];
       i++;
+    } else if (arg === '--no-open' || arg === '--no-browser') {
+      openBrowserFlag = false;
+    } else if (arg === '--open' || arg === '--browser') {
+      openBrowserFlag = true;
     } else if (!arg.startsWith('-')) {
       command = arg;
     }
@@ -228,7 +287,7 @@ function parseArgs() {
     }
   }
 
-  return { command, backendPort, frontendPort, backendUrl, frontendUrl };
+  return { command, backendPort, frontendPort, backendUrl, frontendUrl, openBrowser: openBrowserFlag };
 }
 
 // Start backend server with fixed port 6060
@@ -395,7 +454,7 @@ function startFrontend(port = 3000, backendPort = 6060, backendUrl = null, front
 
 // Main CLI function
 async function main() {
-  const { command, backendPort, frontendPort, backendUrl, frontendUrl } = parseArgs();
+  const { command, backendPort, frontendPort, backendUrl, frontendUrl, openBrowser: shouldOpenBrowser } = parseArgs();
 
   log.logo();
 
@@ -464,6 +523,35 @@ async function main() {
           log.info(`Frontend: ${frontendDisplayUrl}`);
         }
         log.info('Press Ctrl+C to stop');
+
+        // Open browser automatically if frontend is available and flag is set
+        if (frontendProcess && shouldOpenBrowser) {
+          log.info('Waiting for services to be ready...');
+          
+          // Wait for services in background to avoid blocking the main process
+          (async () => {
+            try {
+              // Wait for both backend and frontend to be ready
+              await Promise.all([
+                waitForService(backendDisplayUrl + '/api/health'),
+                waitForService(frontendDisplayUrl)
+              ]);
+              
+              // Open browser after services are ready
+              setTimeout(() => {
+                openBrowser(frontendDisplayUrl);
+              }, 1000); // Small delay to ensure services are fully ready
+              
+            } catch (error) {
+              log.warning('Services took too long to start, please open browser manually');
+              log.info(`Frontend: ${frontendDisplayUrl}`);
+            }
+          })();
+        } else if (!frontendProcess && shouldOpenBrowser) {
+          // If no frontend but browser should open, suggest API endpoint
+          log.info('Frontend not available, but you can access the API directly');
+          log.info(`API endpoint: ${backendDisplayUrl}/api/health`);
+        }
 
         break;
 
@@ -558,6 +646,30 @@ async function main() {
         process.on('SIGINT', devCleanup);
         process.on('SIGTERM', devCleanup);
 
+        // Open browser for development mode if requested
+        if (shouldOpenBrowser) {
+          log.info('Development mode - waiting for services to be ready...');
+          
+          (async () => {
+            try {
+              // Wait for both services to be ready
+              await Promise.all([
+                waitForService(devBackendUrl + '/api/health'),
+                waitForService(devFrontendUrl)
+              ]);
+              
+              // Open browser after services are ready
+              setTimeout(() => {
+                openBrowser(devFrontendUrl);
+              }, 2000); // Longer delay for dev mode as it takes more time to start
+              
+            } catch (error) {
+              log.warning('Development services took too long to start, please open browser manually');
+              log.info(`Frontend: ${devFrontendUrl}`);
+            }
+          })();
+        }
+
         break;
 
       case 'help':
@@ -575,16 +687,23 @@ Commands:
 Options:
   --frontend-port, -fp   Frontend server port (default: 3000)
   --frontend-url, -fu    Frontend server URL (overrides frontend-port)
+  --no-open, --no-browser   Don't open browser automatically
+  --open, --browser         Open browser automatically (default)
 
 Note: Backend port is fixed at 6060 for npm package distribution
 
 Examples:
-  npx ccdash                                              # Start with default ports (backend: 6060, frontend: 3000)
+  npx ccdash                                              # Start with default ports and open browser
+  npx ccdash --no-open                                    # Start without opening browser
   npx ccdash --frontend-port 3001                         # Start with custom frontend port
   npx ccdash -fp 3001                                     # Start with custom frontend port (short form)
   npx ccdash --frontend-url https://app.example.com       # Use custom frontend URL
-  npx ccdash dev --frontend-port 3001                     # Development mode with custom frontend port
+  npx ccdash dev --frontend-port 3001 --no-browser        # Development mode without browser
   npx ccdash build                                        # Build the application
+
+Browser Launch:
+  By default, ccdash will automatically open your browser when services are ready.
+  Use --no-open to disable automatic browser launch.
 
 For more information, visit: https://github.com/satoshi03/ccdash
         `);
