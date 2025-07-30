@@ -186,6 +186,53 @@ To update common configuration:
    ./setup.sh
    ```
 
+## CORS and Private IP Support
+
+### Automatic Private IP Support (v0.5.7+)
+
+The backend now automatically allows CORS requests from **any private IP address**, making it work seamlessly with nginx on different network configurations:
+
+**Supported IP ranges:**
+- `10.0.0.0/8` (Class A private)
+- `172.16.0.0/12` (Class B private) 
+- `192.168.0.0/16` (Class C private)
+- `127.0.0.0/8` (Loopback)
+
+**Examples of automatically allowed origins:**
+- `http://192.168.1.100` 
+- `http://10.0.0.50`
+- `http://172.16.0.10`
+- `http://localhost`, `http://127.0.0.1`
+
+### Security Features
+
+- ✅ Only HTTP/HTTPS protocols allowed
+- ✅ Only standard ports (80, 443, 3000, 8080) allowed for private IPs
+- ✅ Public IP addresses are **not** automatically allowed
+- ✅ Explicit origin allow-list still supported via `CORS_ALLOWED_ORIGINS`
+
+### Configuration Options
+
+```bash
+# Allow specific additional origins
+export CORS_ALLOWED_ORIGINS="https://mydomain.com,http://custom-server:8080"
+
+# Allow all origins (development only - not recommended)
+export CORS_ALLOW_ALL=true
+
+# Then start the backend
+cd backend && go run cmd/server/main.go
+```
+
+### Why This Works
+
+1. **nginx proxy**: Requests from `http://192.168.3.5/api/` → `http://localhost:6060/api/`
+2. **Browser origin**: Sees request as coming from `http://192.168.3.5`
+3. **Backend CORS**: Automatically allows private IP `192.168.3.5`
+4. **No CORS errors**: ✅ Cross-origin requests work without manual configuration
+
+This eliminates the need to manually configure CORS for each user's specific IP address while maintaining security by only allowing private network access.
+
 ## Important Notes
 
 - This configuration is for development use
@@ -193,3 +240,4 @@ To update common configuration:
 - SSL/HTTPS configuration is not included
 - Both frontend and backend services must be running
 - `ccdash.conf` is gitignored, so configurations are not shared between team members
+- Private IP CORS support is automatic - no manual configuration needed

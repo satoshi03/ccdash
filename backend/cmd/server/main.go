@@ -3,8 +3,12 @@ package main
 import (
 	"fmt"
 	"log"
+	"net"
 	"net/http"
+	"net/url"
+	"os"
 	"runtime"
+	"strings"
 
 	"ccdash-backend/internal/config"
 	"ccdash-backend/internal/database"
@@ -14,6 +18,78 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
+
+// isPrivateIP checks if an IP address is in private ranges
+func isPrivateIP(ip string) bool {
+	privateRanges := []string{
+		"10.0.0.0/8",     // Class A private
+		"172.16.0.0/12",  // Class B private
+		"192.168.0.0/16", // Class C private
+		"127.0.0.0/8",    // Loopback
+	}
+	
+	parsedIP := net.ParseIP(ip)
+	if parsedIP == nil {
+		return false
+	}
+	
+	for _, cidr := range privateRanges {
+		_, network, err := net.ParseCIDR(cidr)
+		if err != nil {
+			continue
+		}
+		if network.Contains(parsedIP) {
+			return true
+		}
+	}
+	
+	return false
+}
+
+// isAllowedOrigin checks if an origin should be allowed for CORS
+func isAllowedOrigin(origin string, allowedOrigins []string) bool {
+	// Check explicit allowed origins first
+	for _, allowed := range allowedOrigins {
+		if origin == allowed {
+			return true
+		}
+	}
+	
+	// Parse the origin URL to check if it's from a private IP
+	parsedURL, err := url.Parse(origin)
+	if err != nil {
+		return false
+	}
+	
+	// Extract hostname/IP from the URL
+	hostname := parsedURL.Hostname()
+	if hostname == "" {
+		return false
+	}
+	
+	// Allow localhost and 127.0.0.1 always
+	if hostname == "localhost" || hostname == "127.0.0.1" {
+		return true
+	}
+	
+	// Check if it's a private IP address
+	if isPrivateIP(hostname) {
+		// Additional security: only allow HTTP/HTTPS on standard ports for private IPs
+		port := parsedURL.Port()
+		scheme := parsedURL.Scheme
+		
+		if scheme != "http" && scheme != "https" {
+			return false
+		}
+		
+		// Allow standard ports or no port specified
+		if port == "" || port == "80" || port == "443" || port == "3000" || port == "8080" {
+			return true
+		}
+	}
+	
+	return false
+}
 
 func main() {
 	// Load configuration
@@ -79,10 +155,61 @@ func main() {
 
 	r := gin.Default()
 
-	corsConfig := cors.DefaultConfig()
-	corsConfig.AllowOrigins = []string{cfg.FrontendURL}
-	corsConfig.AllowCredentials = true
-	r.Use(cors.New(corsConfig))
+	// Check for permissive CORS mode (useful for development)
+	if os.Getenv("CORS_ALLOW_ALL") == "true" {
+		corsConfig := cors.DefaultConfig()
+		corsConfig.AllowAllOrigins = true
+		corsConfig.AllowCredentials = true
+		corsConfig.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"}
+		corsConfig.AllowHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With", "DNT", "User-Agent", "If-Modified-Since", "Cache-Control", "Range"}
+		r.Use(cors.New(corsConfig))
+		log.Println("CORS: Allowing all origins (CORS_ALLOW_ALL=true)")
+	} else {
+		// Use custom CORS logic that allows private IP addresses
+		explicitlyAllowedOrigins := []string{
+			cfg.FrontendURL, // Default: http://localhost:3000
+		}
+		
+		// Add custom origins from environment variable
+		if customOrigins := os.Getenv("CORS_ALLOWED_ORIGINS"); customOrigins != "" {
+			for _, origin := range strings.Split(customOrigins, ",") {
+				origin = strings.TrimSpace(origin)
+				if origin != "" {
+					explicitlyAllowedOrigins = append(explicitlyAllowedOrigins, origin)
+				}
+			}
+		}
+		
+		// Custom CORS middleware that allows private IP addresses
+		r.Use(func(c *gin.Context) {
+			origin := c.Request.Header.Get("Origin")
+			
+			// Handle preflight requests
+			if c.Request.Method == "OPTIONS" {
+				if origin != "" && isAllowedOrigin(origin, explicitlyAllowedOrigins) {
+					c.Header("Access-Control-Allow-Origin", origin)
+					c.Header("Access-Control-Allow-Credentials", "true")
+					c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
+					c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With, DNT, User-Agent, If-Modified-Since, Cache-Control, Range")
+					c.Header("Access-Control-Max-Age", "86400")
+					c.AbortWithStatus(204)
+					return
+				}
+			}
+			
+			// Handle actual requests
+			if origin != "" && isAllowedOrigin(origin, explicitlyAllowedOrigins) {
+				c.Header("Access-Control-Allow-Origin", origin)
+				c.Header("Access-Control-Allow-Credentials", "true")
+				c.Header("Access-Control-Expose-Headers", "Content-Length, Content-Range")
+			}
+			
+			c.Next()
+		})
+		
+		log.Printf("CORS: Allowing explicit origins: %v", explicitlyAllowedOrigins)
+		log.Println("CORS: Also allowing all private IP addresses (10.x.x.x, 172.16-31.x.x, 192.168.x.x, localhost)")
+	}
 
 	r.Use(func(c *gin.Context) {
 		c.Set("db", db)
