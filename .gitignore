@@ -45,3 +45,6 @@ logs
 .next
 
 backend/bin
+
+# nginx personal configuration
+nginx/ccdash.conf
