@@ -81,7 +81,12 @@ export function ProjectOverview({ projects }: ProjectOverviewProps) {
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
                 <Folder className="w-4 h-4 text-muted-foreground" />
-                <CardTitle className="text-sm font-medium truncate">{project.originalPath.split("/").pop()}</CardTitle>
+                <Link 
+                  href={`/projects/${encodeURIComponent(project.name)}`}
+                  className="hover:underline"
+                >
+                  <CardTitle className="text-sm font-medium truncate">{project.originalPath.split("/").pop()}</CardTitle>
+                </Link>
               </div>
               <CardDescription className="text-xs">{project.originalPath}</CardDescription>
             </CardHeader>

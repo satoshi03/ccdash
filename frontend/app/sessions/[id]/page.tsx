@@ -353,6 +353,23 @@ function SessionDetailContent() {
     }
   }
 
+  const getJobStatusText = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return t('common.completed') || 'Completed'
+      case 'failed':
+        return t('common.failed') || 'Failed'
+      case 'cancelled':
+        return t('common.cancelled') || 'Cancelled'
+      case 'pending':
+        return t('common.pending') || 'Pending'
+      case 'running':
+        return t('common.running') || 'Running'
+      default:
+        return status.charAt(0).toUpperCase() + status.slice(1)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -518,7 +535,7 @@ function SessionDetailContent() {
                         htmlFor="yolo-mode" 
                         className="text-xs text-muted-foreground cursor-pointer"
                       >
-                        YOLO Mode (skip permissions)
+                        {t('session.yoloMode') || 'YOLO Mode (skip permissions)'}
                       </label>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -532,7 +549,7 @@ function SessionDetailContent() {
                         htmlFor="async-mode" 
                         className="text-xs text-muted-foreground cursor-pointer"
                       >
-                        Async Execution (recommended)
+                        {t('session.asyncExecution') || 'Async Execution (recommended)'}
                       </label>
                     </div>
                   </div>
@@ -545,7 +562,7 @@ function SessionDetailContent() {
                       onClick={handleCancelJob}
                     >
                       <Square className="w-4 h-4 mr-2" />
-                      Cancel
+                      {t('common.cancel') || 'Cancel'}
                     </Button>
                   )}
                   <Button 
@@ -556,12 +573,12 @@ function SessionDetailContent() {
                     {isExecuting || isJobRunning ? (
                       <>
                         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
-                        {isJobRunning ? 'Running...' : (t('session.executing') || 'Executing...')}
+                        {isJobRunning ? (t('common.running') || 'Running...') : (t('common.executing') || 'Executing...')}
                       </>
                     ) : (
                       <>
                         <Play className="w-4 h-4 mr-2" />
-                        {t('session.execute') || 'Execute'}
+                        {t('common.execute') || 'Execute'}
                       </>
                     )}
                   </Button>
@@ -580,10 +597,10 @@ function SessionDetailContent() {
                       job.status === 'cancelled' ? 'secondary' :
                       'outline'
                     }>
-                      {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
+                      {getJobStatusText(job.status)}
                     </Badge>
                     <span className="text-sm text-muted-foreground">
-                      Job ID: {job.id.slice(-8)}
+                      {t('session.jobId') || 'Job ID'}: {job.id.slice(-8)}
                     </span>
                     {job.duration_ms > 0 && (
                       <span className="text-sm text-muted-foreground">
@@ -593,7 +610,7 @@ function SessionDetailContent() {
                     {isPolling && (
                       <div className="flex items-center gap-1">
                         <div className="animate-spin rounded-full h-3 w-3 border-b border-current"></div>
-                        <span className="text-xs text-muted-foreground">Polling...</span>
+                        <span className="text-xs text-muted-foreground">{t('session.polling') || 'Polling...'}</span>
                       </div>
                     )}
                   </div>
@@ -605,7 +622,7 @@ function SessionDetailContent() {
                         onClick={handleCancelJob}
                       >
                         <Square className="w-4 h-4 mr-1" />
-                        Cancel
+                        {t('common.cancel') || 'Cancel'}
                       </Button>
                     )}
                     <Button
@@ -614,7 +631,7 @@ function SessionDetailContent() {
                       onClick={handleDeleteJob}
                     >
                       <Trash2 className="w-4 h-4 mr-1" />
-                      Delete
+                      {t('common.delete') || 'Delete'}
                     </Button>
                     <Button
                       variant="outline"
@@ -622,7 +639,7 @@ function SessionDetailContent() {
                       onClick={clearJob}
                     >
                       <RotateCcw className="w-4 h-4 mr-1" />
-                      Clear
+                      {t('common.clear') || 'Clear'}
                     </Button>
                   </div>
                 </div>
@@ -631,7 +648,7 @@ function SessionDetailContent() {
                 {job.status === 'running' && (
                   <div className="space-y-1">
                     <div className="flex items-center justify-between text-sm">
-                      <span>Progress</span>
+                      <span>{t('common.progress') || 'Progress'}</span>
                       <span>{job.progress}%</span>
                     </div>
                     <Progress value={job.progress} className="h-2" />
@@ -669,7 +686,7 @@ function SessionDetailContent() {
 
                 {jobError && (
                   <div>
-                    <div className="text-sm font-medium mb-1 text-red-600">Job Management Error:</div>
+                    <div className="text-sm font-medium mb-1 text-red-600">{t('session.jobManagementError') || 'Job Management Error'}:</div>
                     <div className="bg-red-50 border border-red-200 rounded-md p-3">
                       <pre className="text-xs text-red-800 whitespace-pre-wrap break-words">
                         {jobError}

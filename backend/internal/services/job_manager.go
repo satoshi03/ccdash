@@ -38,7 +38,7 @@ type Job struct {
 	Duration    int64      `json:"duration_ms"`
 	ProjectPath string     `json:"project_path,omitempty"`
 	YoloMode    bool       `json:"yolo_mode,omitempty"`
-	
+
 	// Internal fields
 	ctx    context.Context
 	cancel context.CancelFunc
@@ -46,11 +46,11 @@ type Job struct {
 
 // JobManager manages asynchronous Claude Code execution jobs
 type JobManager struct {
-	jobs         map[string]*Job
-	mutex        sync.RWMutex
+	jobs           map[string]*Job
+	mutex          sync.RWMutex
 	sessionService *SessionService
-	maxJobs      int
-	jobTTL       time.Duration
+	maxJobs        int
+	jobTTL         time.Duration
 }
 
 // NewJobManager creates a new JobManager instance
@@ -58,13 +58,13 @@ func NewJobManager(sessionService *SessionService) *JobManager {
 	jm := &JobManager{
 		jobs:           make(map[string]*Job),
 		sessionService: sessionService,
-		maxJobs:        100, // Maximum number of jobs to keep in memory
+		maxJobs:        100,            // Maximum number of jobs to keep in memory
 		jobTTL:         24 * time.Hour, // Jobs expire after 24 hours
 	}
-	
+
 	// Start cleanup goroutine
 	go jm.cleanupExpiredJobs()
-	
+
 	return jm
 }
 
@@ -113,7 +113,7 @@ func (jm *JobManager) StartJob(jobID string) error {
 	jm.mutex.Lock()
 	job, exists := jm.jobs[jobID]
 	jm.mutex.Unlock()
-	
+
 	if !exists {
 		return fmt.Errorf("job not found")
 	}
@@ -129,52 +129,52 @@ func (jm *JobManager) StartJob(jobID string) error {
 
 	// Start execution in goroutine
 	go jm.executeJob(job)
-	
+
 	return nil
 }
 
-// executeJob executes the job in background
 func (jm *JobManager) executeJob(job *Job) {
+	// contextのリソースを確実に解放するために、最初に関数呼び出しをdeferする
+	defer job.cancel()
+
+	// 関数の終了時にジョブの状態を一度だけ更新するようにする
+	// これにより、パニック時でも安全に状態が更新され、ロックの問題を回避できる
 	defer func() {
+		// パニックが発生した場合、ここで捕捉してエラー情報を設定する
 		if r := recover(); r != nil {
 			log.Printf("Job %s panicked: %v", job.ID, r)
 			jm.mutex.Lock()
 			job.Status = JobFailed
 			job.Error = fmt.Sprintf("Job panicked: %v", r)
-			endTime := time.Now()
-			job.EndTime = &endTime
-			job.Duration = endTime.Sub(job.StartTime).Milliseconds()
-			job.cancel()
+			// パニック時もEndTimeやDurationを設定する
+			if job.EndTime == nil {
+				endTime := time.Now()
+				job.EndTime = &endTime
+				job.Duration = endTime.Sub(job.StartTime).Milliseconds()
+			}
 			jm.mutex.Unlock()
 		}
 	}()
 
 	startTime := time.Now()
-	
+
 	// Build Claude command
+	// Note: --resume option with -p may cause hanging issues
+	// Using new session approach instead
 	claudeCmd := []string{"claude", "-p"}
-	
-	// Add yolo mode flag if requested
 	if job.YoloMode {
 		claudeCmd = append(claudeCmd, "--dangerously-skip-permissions")
 	}
-	
-	// Add resume and command arguments
-	claudeCmd = append(claudeCmd, "--resume", job.SessionID, job.Command)
+	claudeCmd = append(claudeCmd, job.Command)
 
 	// Create command with context
 	cmd := exec.CommandContext(job.ctx, claudeCmd[0], claudeCmd[1:]...)
-
-	// Set working directory
 	if job.ProjectPath != "" {
 		cmd.Dir = job.ProjectPath
 	}
-
-	// Inherit environment
 	cmd.Env = os.Environ()
+	// Set stdin to nil to prevent hanging on interactive prompts
 	cmd.Stdin = nil
-
-	// Set process group
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
 	}
@@ -182,34 +182,38 @@ func (jm *JobManager) executeJob(job *Job) {
 	log.Printf("Starting async job %s: %v", job.ID, claudeCmd)
 	log.Printf("Working directory: %s", cmd.Dir)
 
-	// Execute command
+	// コマンドを実行し、標準出力と標準エラーを同時に取得
 	output, execErr := cmd.CombinedOutput()
+
+	// 終了時刻と実行時間を計算
 	endTime := time.Now()
 	duration := endTime.Sub(startTime).Milliseconds()
 
-	// Update job status
+	// ジョブの状態を更新するためにロックを取得
 	jm.mutex.Lock()
 	defer jm.mutex.Unlock()
 
+	// 最終的な状態をjobオブジェクトに設定
 	job.Output = string(output)
 	job.Duration = duration
 	job.EndTime = &endTime
 	job.Progress = 100
 
 	if execErr != nil {
-		job.Status = JobFailed
-		job.Error = execErr.Error()
-		log.Printf("Job %s failed: %v", job.ID, execErr)
-	} else if job.ctx.Err() != nil {
-		job.Status = JobCancelled
-		job.Error = "Job was cancelled or timed out"
-		log.Printf("Job %s cancelled: %v", job.ID, job.ctx.Err())
+		// コンテキストのキャンセルによるエラーかどうかを判別する
+		if job.ctx.Err() != nil {
+			job.Status = JobCancelled
+			job.Error = "Job was cancelled or timed out"
+			log.Printf("Job %s cancelled: %v", job.ID, job.ctx.Err())
+		} else {
+			job.Status = JobFailed
+			job.Error = execErr.Error()
+			log.Printf("Job %s failed: %v", job.ID, execErr)
+		}
 	} else {
 		job.Status = JobCompleted
 		log.Printf("Job %s completed successfully in %dms", job.ID, duration)
 	}
-
-	job.cancel()
 }
 
 // GetJob retrieves a job by ID
