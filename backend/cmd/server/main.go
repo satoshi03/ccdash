@@ -232,6 +232,8 @@ func main() {
 		api.GET("/sessions/:id/activity", handler.GetSessionActivityReport)
 		api.GET("/claude/sessions/recent", handler.GetRecentSessions)
 		api.GET("/claude/available-tokens", handler.GetAvailableTokens)
+		api.GET("/claude/commands", handler.GetAvailableClaudeCommands)
+		api.POST("/claude/execute", handler.ExecuteClaudeCommand)
 		api.GET("/costs/current-month", handler.GetCurrentMonthCosts)
 		api.GET("/tasks", handler.GetTasks)
 		api.GET("/session-windows", handler.GetSessionWindows)

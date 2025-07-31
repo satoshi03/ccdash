@@ -3,6 +3,7 @@ package services
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -333,9 +334,38 @@ func (s *SessionWindowService) GetOrCreateWindowForMessage(messageTime time.Time
 
 // UpdateWindowStats recalculates and updates the statistics for a window using time-based calculation
 func (s *SessionWindowService) UpdateWindowStats(windowID string) error {
-	// First get the window time range
+	// Retry mechanism for handling concurrent update conflicts
+	maxRetries := 3
+	for retry := 0; retry < maxRetries; retry++ {
+		err := s.updateWindowStatsWithTx(windowID)
+		if err != nil {
+			// Check if it's a DuckDB conflict error
+			if strings.Contains(err.Error(), "Conflict on update!") || 
+			   strings.Contains(err.Error(), "TransactionContext Error") {
+				if retry < maxRetries-1 {
+					// Wait a bit before retrying with exponential backoff
+					time.Sleep(time.Duration(10*(retry+1)) * time.Millisecond)
+					continue
+				}
+			}
+			return err
+		}
+		return nil
+	}
+	return fmt.Errorf("failed to update window stats after %d retries", maxRetries)
+}
+
+// updateWindowStatsWithTx performs the actual update within a transaction
+func (s *SessionWindowService) updateWindowStatsWithTx(windowID string) error {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("failed to begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+
+	// First get the window time range with row-level lock
 	var windowStart, windowEnd time.Time
-	err := s.db.QueryRow(`
+	err = tx.QueryRow(`
 		SELECT window_start, window_end FROM session_windows WHERE id = ?
 	`, windowID).Scan(&windowStart, &windowEnd)
 
@@ -344,13 +374,13 @@ func (s *SessionWindowService) UpdateWindowStats(windowID string) error {
 	}
 
 	// Calculate total_cost for this window
-	totalCost, err := s.calculateWindowCostByID(windowID)
+	totalCost, err := s.calculateWindowCostByIDWithTx(tx, windowID)
 	if err != nil {
 		// Continue without cost calculation if it fails
 		totalCost = 0.0
 	}
 
-	// Calculate stats using relation table
+	// Calculate stats using relation table within transaction
 	query := `
 		UPDATE session_windows 
 		SET 
@@ -389,7 +419,7 @@ func (s *SessionWindowService) UpdateWindowStats(windowID string) error {
 		WHERE id = ?
 	`
 
-	_, err = s.db.Exec(query,
+	_, err = tx.Exec(query,
 		windowID,  // total_input_tokens
 		windowID,  // total_output_tokens
 		windowID,  // total_tokens
@@ -400,6 +430,11 @@ func (s *SessionWindowService) UpdateWindowStats(windowID string) error {
 
 	if err != nil {
 		return fmt.Errorf("failed to update window stats: %w", err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
 	return nil
@@ -441,6 +476,60 @@ func (s *SessionWindowService) calculateWindowCostByID(windowID string) (float64
 	`
 
 	rows, err := s.db.Query(query, windowID)
+	if err != nil {
+		return 0.0, fmt.Errorf("failed to query messages for cost calculation: %w", err)
+	}
+	defer rows.Close()
+
+	var totalCost float64
+
+	for rows.Next() {
+		var model string
+		var inputTokens, outputTokens, cacheCreationTokens, cacheReadTokens int
+
+		err := rows.Scan(&model, &inputTokens, &outputTokens, &cacheCreationTokens, &cacheReadTokens)
+		if err != nil {
+			return 0.0, fmt.Errorf("failed to scan message data for cost calculation: %w", err)
+		}
+
+		cost := pricingCalculator.CalculateCost(
+			model,
+			inputTokens,
+			outputTokens,
+			cacheCreationTokens,
+			cacheReadTokens,
+		)
+
+		totalCost += cost
+	}
+
+	if err := rows.Err(); err != nil {
+		return 0.0, fmt.Errorf("error iterating over messages for cost calculation: %w", err)
+	}
+
+	return totalCost, nil
+}
+
+// calculateWindowCostByIDWithTx calculates the total cost for messages in a specific window by ID within a transaction
+func (s *SessionWindowService) calculateWindowCostByIDWithTx(tx *sql.Tx, windowID string) (float64, error) {
+	pricingCalculator := NewPricingCalculator()
+
+	query := `
+		SELECT 
+			m.model,
+			COALESCE(SUM(m.input_tokens), 0) as total_input_tokens,
+			COALESCE(SUM(m.output_tokens), 0) as total_output_tokens,
+			COALESCE(SUM(m.cache_creation_input_tokens), 0) as total_cache_creation_tokens,
+			COALESCE(SUM(m.cache_read_input_tokens), 0) as total_cache_read_tokens
+		FROM messages m
+		INNER JOIN session_window_messages swm ON m.id = swm.message_id
+		WHERE swm.session_window_id = ?
+		AND m.message_role = 'assistant'
+		AND m.model IS NOT NULL
+		GROUP BY m.model
+	`
+
+	rows, err := tx.Query(query, windowID)
 	if err != nil {
 		return 0.0, fmt.Errorf("failed to query messages for cost calculation: %w", err)
 	}

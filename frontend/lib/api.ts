@@ -101,6 +101,28 @@ export interface InitializationStatus {
   error?: string
 }
 
+export interface ClaudeCommand {
+  name: string
+  description: string
+  example: string
+}
+
+export interface ClaudeCommandRequest {
+  session_id: string
+  command: string
+  timeout?: number
+}
+
+export interface ClaudeCommandResponse {
+  session_id: string
+  command: string
+  output: string
+  error?: string
+  exit_code: number
+  duration_ms: number
+  success: boolean
+}
+
 export interface ApiResponse<T> {
   data?: T
   error?: string
@@ -201,6 +223,17 @@ class ApiClient {
     return this.request<InitializationStatus>('/initialization-status')
   }
 
+  async getAvailableClaudeCommands(): Promise<{ commands: ClaudeCommand[], note: string }> {
+    return this.request<{ commands: ClaudeCommand[], note: string }>('/claude/commands')
+  }
+
+  async executeClaudeCommand(request: ClaudeCommandRequest): Promise<ClaudeCommandResponse> {
+    return this.request<ClaudeCommandResponse>('/claude/execute', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    })
+  }
+
 }
 
 export const apiClient = new ApiClient(API_BASE_URL)
@@ -230,5 +263,9 @@ export const api = {
   },
   initialization: {
     getStatus: () => apiClient.getInitializationStatus(),
+  },
+  claude: {
+    getCommands: () => apiClient.getAvailableClaudeCommands(),
+    executeCommand: (request: ClaudeCommandRequest) => apiClient.executeClaudeCommand(request),
   },
 }

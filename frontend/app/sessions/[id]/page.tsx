@@ -7,6 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Pagination,
   PaginationContent,
@@ -16,8 +18,8 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import { ArrowLeft, Clock, MessageSquare, Code2, User, Bot, Copy, Check } from "lucide-react"
-import { api, PaginatedMessages, SessionDetail } from "@/lib/api"
+import { ArrowLeft, Clock, MessageSquare, Code2, User, Bot, Copy, Check, Play, Terminal } from "lucide-react"
+import { api, PaginatedMessages, SessionDetail, ClaudeCommandRequest, ClaudeCommandResponse } from "@/lib/api"
 import { Header } from "@/components/header"
 import { useI18n } from "@/hooks/use-i18n"
 
@@ -55,6 +57,9 @@ function SessionDetailContent() {
   const [currentPage, setCurrentPage] = useState(1)
   const [pageSize] = useState(20)
   const [copiedSessionId, setCopiedSessionId] = useState(false)
+  const [commandInput, setCommandInput] = useState('')
+  const [isExecuting, setIsExecuting] = useState(false)
+  const [commandResult, setCommandResult] = useState<ClaudeCommandResponse | null>(null)
 
   useEffect(() => {
     const page = parseInt(searchParams.get('page') || '1')
@@ -270,6 +275,37 @@ function SessionDetailContent() {
     router.push(url.pathname + url.search)
   }
 
+  const handleExecuteCommand = async () => {
+    if (!commandInput.trim() || !sessionId || isExecuting) return
+
+    setIsExecuting(true)
+    setCommandResult(null)
+
+    try {
+      const request: ClaudeCommandRequest = {
+        session_id: sessionId,
+        command: commandInput.trim(),
+        timeout: 300 // 5 minutes default
+      }
+
+      const result = await api.claude.executeCommand(request)
+      setCommandResult(result)
+    } catch (err) {
+      console.error('Command execution failed:', err)
+      setCommandResult({
+        session_id: sessionId,
+        command: commandInput.trim(),
+        output: '',
+        error: err instanceof Error ? err.message : 'Unknown error occurred',
+        exit_code: -1,
+        duration_ms: 0,
+        success: false
+      })
+    } finally {
+      setIsExecuting(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -390,6 +426,114 @@ function SessionDetailContent() {
             </CardContent>
           </Card>
         </div>
+
+        {/* Claude Command Execution */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Terminal className="w-5 h-5" />
+              {t('session.executeCommand') || 'Execute Claude Command'}
+            </CardTitle>
+            <CardDescription>
+              {t('session.executeCommandDescription') || 'Execute a Claude Code command on this session'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Textarea
+                placeholder={t('session.commandPlaceholder') || 'Enter command (e.g., "run the tests", "npm run build")'}
+                value={commandInput}
+                onChange={(e) => setCommandInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && e.shiftKey) {
+                    e.preventDefault()
+                    handleExecuteCommand()
+                  }
+                }}
+                disabled={isExecuting}
+                className="min-h-[80px] resize-y"
+                rows={3}
+              />
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  {t('session.commandHint') || 'Press Shift + Enter to execute command'}
+                </p>
+                <Button 
+                  onClick={handleExecuteCommand}
+                  disabled={!commandInput.trim() || isExecuting}
+                  className="min-w-[100px]"
+                >
+                  {isExecuting ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                      {t('session.executing') || 'Executing...'}
+                    </>
+                  ) : (
+                    <>
+                      <Play className="w-4 h-4 mr-2" />
+                      {t('session.execute') || 'Execute'}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+            
+            {/* Command Result */}
+            {commandResult && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Badge variant={commandResult.success ? "default" : "destructive"}>
+                      {commandResult.success ? t('session.success') || 'Success' : t('session.failed') || 'Failed'}
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">
+                      {t('session.exitCode') || 'Exit Code'}: {commandResult.exit_code}
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                      {commandResult.duration_ms}ms
+                    </span>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setCommandResult(null)}
+                  >
+                    {t('common.clear') || 'Clear'}
+                  </Button>
+                </div>
+                
+                <div className="text-sm">
+                  <span className="font-medium">{t('session.command') || 'Command'}:</span>
+                  <code className="ml-2 bg-muted px-2 py-1 rounded text-xs">
+                    claude --resume {commandResult.session_id} "{commandResult.command}"
+                  </code>
+                </div>
+                
+                {commandResult.output && (
+                  <div>
+                    <div className="text-sm font-medium mb-1">{t('session.output') || 'Output'}:</div>
+                    <ScrollArea className="h-48 w-full border rounded-md">
+                      <pre className="p-3 text-xs whitespace-pre-wrap break-words">
+                        {commandResult.output}
+                      </pre>
+                    </ScrollArea>
+                  </div>
+                )}
+                
+                {commandResult.error && (
+                  <div>
+                    <div className="text-sm font-medium mb-1 text-red-600">{t('session.error') || 'Error'}:</div>
+                    <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                      <pre className="text-xs text-red-800 whitespace-pre-wrap break-words">
+                        {commandResult.error}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Messages */}
         <Card>
