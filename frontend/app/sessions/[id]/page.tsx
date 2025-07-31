@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Progress } from "@/components/ui/progress"
 import {
   Pagination,
   PaginationContent,
@@ -17,10 +19,11 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination"
-import { ArrowLeft, Clock, MessageSquare, Code2, User, Bot, Copy, Check, Play, Terminal } from "lucide-react"
+import { ArrowLeft, Clock, MessageSquare, Code2, User, Bot, Copy, Check, Play, Terminal, Square, Trash2, RotateCcw } from "lucide-react"
 import { api, PaginatedMessages, SessionDetail, ClaudeCommandRequest, ClaudeCommandResponse } from "@/lib/api"
 import { Header } from "@/components/header"
 import { useI18n } from "@/hooks/use-i18n"
+import { useAsyncJob } from "@/hooks/use-async-job"
 
 type Message = {
   id: string
@@ -59,6 +62,24 @@ function SessionDetailContent() {
   const [commandInput, setCommandInput] = useState('')
   const [isExecuting, setIsExecuting] = useState(false)
   const [commandResult, setCommandResult] = useState<ClaudeCommandResponse | null>(null)
+  const [yoloMode, setYoloMode] = useState(false)
+  const [useAsyncExecution, setUseAsyncExecution] = useState(true)
+
+  // Async job management
+  const {
+    job,
+    isPolling,
+    error: jobError,
+    executeAsync,
+    cancelJob,
+    deleteJob,
+    clearJob,
+    isJobRunning
+  } = useAsyncJob({
+    pollingInterval: 2000,
+    autoCleanup: false, // Manual cleanup to show results
+    maxRetries: 15
+  })
 
   useEffect(() => {
     const page = parseInt(searchParams.get('page') || '1')
@@ -277,31 +298,58 @@ function SessionDetailContent() {
   const handleExecuteCommand = async () => {
     if (!commandInput.trim() || !sessionId || isExecuting) return
 
-    setIsExecuting(true)
-    setCommandResult(null)
+    const request: ClaudeCommandRequest = {
+      session_id: sessionId,
+      command: commandInput.trim(),
+      timeout: 600, // 10 minutes default
+      yolo_mode: yoloMode
+    }
 
-    try {
-      const request: ClaudeCommandRequest = {
-        session_id: sessionId,
-        command: commandInput.trim(),
-        timeout: 300 // 5 minutes default
+    if (useAsyncExecution) {
+      // Clear previous job and result
+      clearJob()
+      setCommandResult(null)
+      
+      try {
+        await executeAsync(request)
+      } catch (err) {
+        console.error('Async command execution failed:', err)
       }
+    } else {
+      // Sync execution (legacy)
+      setIsExecuting(true)
+      setCommandResult(null)
+      clearJob()
 
-      const result = await api.claude.executeCommand(request)
-      setCommandResult(result)
-    } catch (err) {
-      console.error('Command execution failed:', err)
-      setCommandResult({
-        session_id: sessionId,
-        command: commandInput.trim(),
-        output: '',
-        error: err instanceof Error ? err.message : 'Unknown error occurred',
-        exit_code: -1,
-        duration_ms: 0,
-        success: false
-      })
-    } finally {
-      setIsExecuting(false)
+      try {
+        const result = await api.claude.executeCommand(request)
+        setCommandResult(result)
+      } catch (err) {
+        console.error('Command execution failed:', err)
+        setCommandResult({
+          session_id: sessionId,
+          command: commandInput.trim(),
+          output: '',
+          error: err instanceof Error ? err.message : 'Unknown error occurred',
+          exit_code: -1,
+          duration_ms: 0,
+          success: false
+        })
+      } finally {
+        setIsExecuting(false)
+      }
+    }
+  }
+
+  const handleCancelJob = async () => {
+    if (job) {
+      await cancelJob(job.id)
+    }
+  }
+
+  const handleDeleteJob = async () => {
+    if (job) {
+      await deleteJob(job.id)
     }
   }
 
@@ -449,37 +497,192 @@ function SessionDetailContent() {
                     handleExecuteCommand()
                   }
                 }}
-                disabled={isExecuting}
+                disabled={isExecuting || isJobRunning}
                 className="min-h-[80px] resize-y"
                 rows={3}
               />
               <div className="flex items-center justify-between">
-                <p className="text-xs text-muted-foreground">
-                  {t('session.commandHint') || 'Press Shift + Enter to execute command'}
-                </p>
-                <Button 
-                  onClick={handleExecuteCommand}
-                  disabled={!commandInput.trim() || isExecuting}
-                  className="min-w-[100px]"
-                >
-                  {isExecuting ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
-                      {t('session.executing') || 'Executing...'}
-                    </>
-                  ) : (
-                    <>
-                      <Play className="w-4 h-4 mr-2" />
-                      {t('session.execute') || 'Execute'}
-                    </>
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs text-muted-foreground">
+                    {t('session.commandHint') || 'Press Shift + Enter to execute command'}
+                  </p>
+                  <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="yolo-mode"
+                        checked={yoloMode}
+                        onCheckedChange={(checked) => setYoloMode(checked as boolean)}
+                        disabled={isJobRunning}
+                      />
+                      <label 
+                        htmlFor="yolo-mode" 
+                        className="text-xs text-muted-foreground cursor-pointer"
+                      >
+                        YOLO Mode (skip permissions)
+                      </label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Checkbox 
+                        id="async-mode"
+                        checked={useAsyncExecution}
+                        onCheckedChange={(checked) => setUseAsyncExecution(checked as boolean)}
+                        disabled={isJobRunning}
+                      />
+                      <label 
+                        htmlFor="async-mode" 
+                        className="text-xs text-muted-foreground cursor-pointer"
+                      >
+                        Async Execution (recommended)
+                      </label>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {isJobRunning && (
+                    <Button 
+                      variant="outline"
+                      size="sm"
+                      onClick={handleCancelJob}
+                    >
+                      <Square className="w-4 h-4 mr-2" />
+                      Cancel
+                    </Button>
                   )}
-                </Button>
+                  <Button 
+                    onClick={handleExecuteCommand}
+                    disabled={!commandInput.trim() || isExecuting || isJobRunning}
+                    className="min-w-[100px]"
+                  >
+                    {isExecuting || isJobRunning ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                        {isJobRunning ? 'Running...' : (t('session.executing') || 'Executing...')}
+                      </>
+                    ) : (
+                      <>
+                        <Play className="w-4 h-4 mr-2" />
+                        {t('session.execute') || 'Execute'}
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             </div>
             
-            {/* Command Result */}
-            {commandResult && (
-              <div className="space-y-2">
+            {/* Async Job Status */}
+            {job && (
+              <div className="space-y-3 border-t pt-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Badge variant={
+                      job.status === 'completed' ? 'default' :
+                      job.status === 'failed' ? 'destructive' :
+                      job.status === 'cancelled' ? 'secondary' :
+                      'outline'
+                    }>
+                      {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">
+                      Job ID: {job.id.slice(-8)}
+                    </span>
+                    {job.duration_ms > 0 && (
+                      <span className="text-sm text-muted-foreground">
+                        {job.duration_ms}ms
+                      </span>
+                    )}
+                    {isPolling && (
+                      <div className="flex items-center gap-1">
+                        <div className="animate-spin rounded-full h-3 w-3 border-b border-current"></div>
+                        <span className="text-xs text-muted-foreground">Polling...</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {isJobRunning && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleCancelJob}
+                      >
+                        <Square className="w-4 h-4 mr-1" />
+                        Cancel
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDeleteJob}
+                    >
+                      <Trash2 className="w-4 h-4 mr-1" />
+                      Delete
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={clearJob}
+                    >
+                      <RotateCcw className="w-4 h-4 mr-1" />
+                      Clear
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Progress Bar */}
+                {job.status === 'running' && (
+                  <div className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <span>Progress</span>
+                      <span>{job.progress}%</span>
+                    </div>
+                    <Progress value={job.progress} className="h-2" />
+                  </div>
+                )}
+                
+                <div className="text-sm">
+                  <span className="font-medium">{t('session.command') || 'Command'}:</span>
+                  <code className="ml-2 bg-muted px-2 py-1 rounded text-xs">
+                    claude {job.yolo_mode ? '-p --dangerously-skip-permissions' : '-p'} --resume {job.session_id} &quot;{job.command}&quot;
+                  </code>
+                </div>
+                
+                {job.output && (
+                  <div>
+                    <div className="text-sm font-medium mb-1">{t('session.output') || 'Output'}:</div>
+                    <ScrollArea className="h-48 w-full border rounded-md">
+                      <pre className="p-3 text-xs whitespace-pre-wrap break-words">
+                        {job.output}
+                      </pre>
+                    </ScrollArea>
+                  </div>
+                )}
+                
+                {job.error && (
+                  <div>
+                    <div className="text-sm font-medium mb-1 text-red-600">{t('session.error') || 'Error'}:</div>
+                    <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                      <pre className="text-xs text-red-800 whitespace-pre-wrap break-words">
+                        {job.error}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+
+                {jobError && (
+                  <div>
+                    <div className="text-sm font-medium mb-1 text-red-600">Job Management Error:</div>
+                    <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                      <pre className="text-xs text-red-800 whitespace-pre-wrap break-words">
+                        {jobError}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Legacy Command Result (for sync execution) */}
+            {!job && commandResult && (
+              <div className="space-y-2 border-t pt-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Badge variant={commandResult.success ? "default" : "destructive"}>

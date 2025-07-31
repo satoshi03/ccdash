@@ -37,6 +37,7 @@ type Job struct {
 	EndTime     *time.Time `json:"end_time,omitempty"`
 	Duration    int64      `json:"duration_ms"`
 	ProjectPath string     `json:"project_path,omitempty"`
+	YoloMode    bool       `json:"yolo_mode,omitempty"`
 	
 	// Internal fields
 	ctx    context.Context
@@ -68,7 +69,7 @@ func NewJobManager(sessionService *SessionService) *JobManager {
 }
 
 // CreateJob creates a new asynchronous job
-func (jm *JobManager) CreateJob(sessionID, command string, timeout int) (*Job, error) {
+func (jm *JobManager) CreateJob(sessionID, command string, timeout int, yoloMode bool) (*Job, error) {
 	// Validate session exists
 	session, err := jm.sessionService.GetSessionByID(sessionID)
 	if err != nil {
@@ -89,6 +90,7 @@ func (jm *JobManager) CreateJob(sessionID, command string, timeout int) (*Job, e
 		Progress:    0,
 		StartTime:   time.Now(),
 		ProjectPath: session.ProjectPath,
+		YoloMode:    yoloMode,
 		ctx:         ctx,
 		cancel:      cancel,
 	}
@@ -150,7 +152,15 @@ func (jm *JobManager) executeJob(job *Job) {
 	startTime := time.Now()
 	
 	// Build Claude command
-	claudeCmd := []string{"claude", "--resume", job.SessionID, job.Command}
+	claudeCmd := []string{"claude", "-p"}
+	
+	// Add yolo mode flag if requested
+	if job.YoloMode {
+		claudeCmd = append(claudeCmd, "--dangerously-skip-permissions")
+	}
+	
+	// Add resume and command arguments
+	claudeCmd = append(claudeCmd, "--resume", job.SessionID, job.Command)
 
 	// Create command with context
 	cmd := exec.CommandContext(job.ctx, claudeCmd[0], claudeCmd[1:]...)

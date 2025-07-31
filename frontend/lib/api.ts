@@ -111,6 +111,7 @@ export interface ClaudeCommandRequest {
   session_id: string
   command: string
   timeout?: number
+  yolo_mode?: boolean
 }
 
 export interface ClaudeCommandResponse {
@@ -121,6 +122,32 @@ export interface ClaudeCommandResponse {
   exit_code: number
   duration_ms: number
   success: boolean
+}
+
+// Job related interfaces for async execution
+export type JobStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+
+export interface Job {
+  id: string
+  session_id: string
+  command: string
+  status: JobStatus
+  output: string
+  error?: string
+  progress: number // 0-100
+  start_time: string
+  end_time?: string
+  duration_ms: number
+  project_path?: string
+  yolo_mode?: boolean
+}
+
+export interface AsyncCommandResponse {
+  job_id: string
+  session_id: string
+  command: string
+  status: JobStatus
+  message: string
 }
 
 export interface ApiResponse<T> {
@@ -234,6 +261,38 @@ class ApiClient {
     })
   }
 
+  // Async job execution methods
+  async executeClaudeCommandAsync(request: ClaudeCommandRequest): Promise<AsyncCommandResponse> {
+    return this.request<AsyncCommandResponse>('/claude/execute-async', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    })
+  }
+
+  async getJob(jobId: string): Promise<Job> {
+    return this.request<Job>(`/claude/jobs/${jobId}`)
+  }
+
+  async getAllJobs(): Promise<{ jobs: Job[], count: number }> {
+    return this.request<{ jobs: Job[], count: number }>('/claude/jobs')
+  }
+
+  async getJobsBySession(sessionId: string): Promise<{ jobs: Job[], count: number, session_id: string }> {
+    return this.request<{ jobs: Job[], count: number, session_id: string }>(`/claude/sessions/${sessionId}/jobs`)
+  }
+
+  async cancelJob(jobId: string): Promise<{ message: string, job_id: string }> {
+    return this.request<{ message: string, job_id: string }>(`/claude/jobs/${jobId}/cancel`, {
+      method: 'POST',
+    })
+  }
+
+  async deleteJob(jobId: string): Promise<{ message: string, job_id: string }> {
+    return this.request<{ message: string, job_id: string }>(`/claude/jobs/${jobId}`, {
+      method: 'DELETE',
+    })
+  }
+
 }
 
 export const apiClient = new ApiClient(API_BASE_URL)
@@ -267,5 +326,11 @@ export const api = {
   claude: {
     getCommands: () => apiClient.getAvailableClaudeCommands(),
     executeCommand: (request: ClaudeCommandRequest) => apiClient.executeClaudeCommand(request),
+    executeCommandAsync: (request: ClaudeCommandRequest) => apiClient.executeClaudeCommandAsync(request),
+    getJob: (jobId: string) => apiClient.getJob(jobId),
+    getAllJobs: () => apiClient.getAllJobs(),
+    getJobsBySession: (sessionId: string) => apiClient.getJobsBySession(sessionId),
+    cancelJob: (jobId: string) => apiClient.cancelJob(jobId),
+    deleteJob: (jobId: string) => apiClient.deleteJob(jobId),
   },
 }

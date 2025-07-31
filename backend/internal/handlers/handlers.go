@@ -226,7 +226,7 @@ func (h *Handler) SyncLogs(c *gin.Context) {
 		})
 		return
 	}
-	
+
 	// Mark sync as in progress
 	syncInProgress = true
 	syncMutex.Unlock()
@@ -468,7 +468,8 @@ func (h *Handler) GetInitializationStatus(c *gin.Context) {
 type ClaudeCommandRequest struct {
 	SessionID string `json:"session_id" binding:"required"`
 	Command   string `json:"command" binding:"required"`
-	Timeout   int    `json:"timeout,omitempty"` // seconds, default 300 (5 minutes)
+	Timeout   int    `json:"timeout,omitempty"`   // seconds, default 300 (5 minutes)
+	YoloMode  bool   `json:"yolo_mode,omitempty"` // enable --dangerously-skip-permissions flag
 }
 
 // ClaudeCommandResponse represents the response for Claude Code command execution
@@ -493,10 +494,10 @@ func (h *Handler) ExecuteClaudeCommand(c *gin.Context) {
 		return
 	}
 
-	// Set default timeout to 5 minutes
+	// Set default timeout to 10 minutes
 	timeout := req.Timeout
 	if timeout <= 0 {
-		timeout = 300
+		timeout = 600
 	}
 
 	// Validate session exists
@@ -517,7 +518,15 @@ func (h *Handler) ExecuteClaudeCommand(c *gin.Context) {
 
 	// Build the claude command
 	// Use --resume flag to target specific session
-	claudeCmd := []string{"claude", "--resume", req.SessionID, req.Command}
+	claudeCmd := []string{"claude", "-p"}
+
+	// Add yolo mode flag if requested
+	if req.YoloMode {
+		claudeCmd = append(claudeCmd, "--dangerously-skip-permissions")
+	}
+
+	// Add resume and command arguments
+	claudeCmd = append(claudeCmd, "--resume", req.SessionID, req.Command)
 
 	// Execute the command
 	cmd := exec.CommandContext(ctx, claudeCmd[0], claudeCmd[1:]...)
@@ -538,10 +547,10 @@ func (h *Handler) ExecuteClaudeCommand(c *gin.Context) {
 
 	// Inherit parent process environment to ensure proper permissions
 	cmd.Env = os.Environ()
-	
+
 	// Ensure proper TTY and interactive mode for Claude Code
-	cmd.Stdin = nil  // No stdin for background execution
-	
+	cmd.Stdin = nil // No stdin for background execution
+
 	// Set process group to allow proper signal handling
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
@@ -638,7 +647,7 @@ func (h *Handler) ExecuteClaudeCommandAsync(c *gin.Context) {
 	}
 
 	// Create job
-	job, err := h.jobManager.CreateJob(req.SessionID, req.Command, req.Timeout)
+	job, err := h.jobManager.CreateJob(req.SessionID, req.Command, req.Timeout, req.YoloMode)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error":   "Failed to create job",
@@ -692,7 +701,7 @@ func (h *Handler) GetJob(c *gin.Context) {
 func (h *Handler) GetAllJobs(c *gin.Context) {
 	jobs := h.jobManager.GetAllJobs()
 	c.JSON(http.StatusOK, gin.H{
-		"jobs": jobs,
+		"jobs":  jobs,
 		"count": len(jobs),
 	})
 }
@@ -709,8 +718,8 @@ func (h *Handler) GetJobsBySession(c *gin.Context) {
 
 	jobs := h.jobManager.GetJobsBySession(sessionID)
 	c.JSON(http.StatusOK, gin.H{
-		"jobs": jobs,
-		"count": len(jobs),
+		"jobs":       jobs,
+		"count":      len(jobs),
 		"session_id": sessionID,
 	})
 }
