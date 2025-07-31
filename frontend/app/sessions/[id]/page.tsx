@@ -7,7 +7,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import {
   Pagination,
@@ -505,7 +504,7 @@ function SessionDetailContent() {
                 <div className="text-sm">
                   <span className="font-medium">{t('session.command') || 'Command'}:</span>
                   <code className="ml-2 bg-muted px-2 py-1 rounded text-xs">
-                    claude --resume {commandResult.session_id} "{commandResult.command}"
+                    claude --resume {commandResult.session_id} &quot;{commandResult.command}&quot;
                   </code>
                 </div>
                 
