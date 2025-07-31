@@ -240,6 +240,7 @@ func main() {
 		api.GET("/predictions/p90", handler.GetP90Predictions)
 		api.GET("/predictions/p90/project/:project", handler.GetP90PredictionsByProject)
 		api.GET("/predictions/burn-rate-history", handler.GetBurnRateHistory)
+		api.GET("/sync-status", handler.GetSyncStatus)
 		api.POST("/sync-logs", handler.SyncLogs)
 	}
 
