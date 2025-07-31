@@ -80,14 +80,17 @@ type Handler struct {
 	sessionService       *services.SessionService
 	sessionWindowService *services.SessionWindowService
 	p90PredictionService *services.P90PredictionService
+	jobManager           *services.JobManager
 }
 
 func NewHandler(tokenService *services.TokenService, sessionService *services.SessionService, sessionWindowService *services.SessionWindowService, p90PredictionService *services.P90PredictionService) *Handler {
+	jobManager := services.NewJobManager(sessionService)
 	return &Handler{
 		tokenService:         tokenService,
 		sessionService:       sessionService,
 		sessionWindowService: sessionWindowService,
 		p90PredictionService: p90PredictionService,
+		jobManager:           jobManager,
 	}
 }
 
@@ -618,5 +621,144 @@ func (h *Handler) GetAvailableClaudeCommands(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"commands": commands,
 		"note":     "Commands will be executed using 'claude --resume <session_id> <command>'",
+	})
+}
+
+// Async Job Management Endpoints
+
+// ExecuteClaudeCommandAsync starts a Claude Code command execution asynchronously
+func (h *Handler) ExecuteClaudeCommandAsync(c *gin.Context) {
+	var req ClaudeCommandRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid request body",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// Create job
+	job, err := h.jobManager.CreateJob(req.SessionID, req.Command, req.Timeout)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Failed to create job",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// Start job execution
+	if err := h.jobManager.StartJob(job.ID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "Failed to start job",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	// Return job ID immediately
+	c.JSON(http.StatusAccepted, gin.H{
+		"job_id":     job.ID,
+		"session_id": job.SessionID,
+		"command":    job.Command,
+		"status":     job.Status,
+		"message":    "Job started successfully. Use /api/claude/jobs/{job_id} to check status.",
+	})
+}
+
+// GetJob returns the status and result of a specific job
+func (h *Handler) GetJob(c *gin.Context) {
+	jobID := c.Param("id")
+	if jobID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Job ID is required",
+		})
+		return
+	}
+
+	job, err := h.jobManager.GetJob(jobID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error":   "Job not found",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, job)
+}
+
+// GetAllJobs returns all jobs (for admin/debugging purposes)
+func (h *Handler) GetAllJobs(c *gin.Context) {
+	jobs := h.jobManager.GetAllJobs()
+	c.JSON(http.StatusOK, gin.H{
+		"jobs": jobs,
+		"count": len(jobs),
+	})
+}
+
+// GetJobsBySession returns jobs for a specific session
+func (h *Handler) GetJobsBySession(c *gin.Context) {
+	sessionID := c.Param("session_id")
+	if sessionID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Session ID is required",
+		})
+		return
+	}
+
+	jobs := h.jobManager.GetJobsBySession(sessionID)
+	c.JSON(http.StatusOK, gin.H{
+		"jobs": jobs,
+		"count": len(jobs),
+		"session_id": sessionID,
+	})
+}
+
+// CancelJob cancels a running job
+func (h *Handler) CancelJob(c *gin.Context) {
+	jobID := c.Param("id")
+	if jobID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Job ID is required",
+		})
+		return
+	}
+
+	if err := h.jobManager.CancelJob(jobID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Failed to cancel job",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Job cancelled successfully",
+		"job_id":  jobID,
+	})
+}
+
+// DeleteJob removes a job from memory
+func (h *Handler) DeleteJob(c *gin.Context) {
+	jobID := c.Param("id")
+	if jobID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Job ID is required",
+		})
+		return
+	}
+
+	if err := h.jobManager.DeleteJob(jobID); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Failed to delete job",
+			"details": err.Error(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Job deleted successfully",
+		"job_id":  jobID,
 	})
 }
