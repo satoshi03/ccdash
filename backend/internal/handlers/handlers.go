@@ -3,15 +3,77 @@ package handlers
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"log"
 	"net/http"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
+	"strings"
+	"sync"
+	"syscall"
 	"time"
 
 	"ccdash-backend/internal/services"
 
 	"github.com/gin-gonic/gin"
 )
+
+// Global sync mutex to prevent concurrent sync operations
+var syncMutex sync.Mutex
+var syncInProgress bool
+
+// validateProjectPath validates that the project path is accessible and safe
+func validateProjectPath(path string) error {
+	// Convert to absolute path
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return fmt.Errorf("failed to resolve absolute path: %w", err)
+	}
+
+	// Check if path exists and is accessible
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return fmt.Errorf("path not accessible: %w", err)
+	}
+
+	// Ensure it's a directory
+	if !info.IsDir() {
+		return fmt.Errorf("path is not a directory")
+	}
+
+	// Basic security check - should be under user's home directory or common development paths
+	homeDir, _ := os.UserHomeDir()
+	allowedPrefixes := []string{
+		homeDir,
+		"/Users",
+		"/home",
+		"/tmp",
+		"/var/tmp",
+	}
+
+	allowed := false
+	for _, prefix := range allowedPrefixes {
+		if strings.HasPrefix(absPath, prefix) {
+			allowed = true
+			break
+		}
+	}
+
+	if !allowed {
+		return fmt.Errorf("path outside allowed directories")
+	}
+
+	// Check write permissions
+	testFile := filepath.Join(absPath, ".ccdash_write_test")
+	if err := os.WriteFile(testFile, []byte("test"), 0644); err != nil {
+		return fmt.Errorf("no write permission in directory: %w", err)
+	}
+	os.Remove(testFile) // Clean up test file
+
+	return nil
+}
 
 type Handler struct {
 	tokenService         *services.TokenService
@@ -151,6 +213,28 @@ func (h *Handler) GetSessionDetails(c *gin.Context) {
 func (h *Handler) SyncLogs(c *gin.Context) {
 	db := c.MustGet("db").(*sql.DB)
 
+	// Check if sync is already in progress - non-blocking check
+	syncMutex.Lock()
+	if syncInProgress {
+		syncMutex.Unlock()
+		c.JSON(http.StatusConflict, gin.H{
+			"error":   "Sync already in progress",
+			"message": "Another sync operation is currently running. Please wait and try again.",
+		})
+		return
+	}
+	
+	// Mark sync as in progress
+	syncInProgress = true
+	syncMutex.Unlock()
+
+	// Ensure we clear the sync flag when done
+	defer func() {
+		syncMutex.Lock()
+		syncInProgress = false
+		syncMutex.Unlock()
+	}()
+
 	// Enable differential sync to fix partial log reading issues
 	useDiffSync := true
 
@@ -187,6 +271,23 @@ func (h *Handler) SyncLogs(c *gin.Context) {
 			"message": "Logs synced successfully (full)",
 		})
 	}
+}
+
+// GetSyncStatus returns current sync operation status
+func (h *Handler) GetSyncStatus(c *gin.Context) {
+	syncMutex.Lock()
+	isInProgress := syncInProgress
+	syncMutex.Unlock()
+
+	c.JSON(http.StatusOK, gin.H{
+		"sync_in_progress": isInProgress,
+		"message": func() string {
+			if isInProgress {
+				return "Sync operation is currently running"
+			}
+			return "No sync operation in progress"
+		}(),
+	})
 }
 
 // GetSessionActivityReport returns detailed activity analysis for a session
@@ -420,11 +521,44 @@ func (h *Handler) ExecuteClaudeCommand(c *gin.Context) {
 
 	// Set working directory to the session's project path if available
 	if session.ProjectPath != "" {
+		// Validate project path accessibility
+		if err := validateProjectPath(session.ProjectPath); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error":   "Project path not accessible",
+				"details": err.Error(),
+				"path":    session.ProjectPath,
+			})
+			return
+		}
 		cmd.Dir = session.ProjectPath
 	}
 
+	// Inherit parent process environment to ensure proper permissions
+	cmd.Env = os.Environ()
+	
+	// Ensure proper TTY and interactive mode for Claude Code
+	cmd.Stdin = nil  // No stdin for background execution
+	
+	// Set process group to allow proper signal handling
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
+	}
+
+	// Log command execution details
+	log.Printf("Executing Claude command: %v", claudeCmd)
+	log.Printf("Working directory: %s", cmd.Dir)
+	log.Printf("User: %s, UID: %d, GID: %d", os.Getenv("USER"), os.Getuid(), os.Getgid())
+
 	output, execErr := cmd.CombinedOutput()
 	duration := time.Since(startTime).Milliseconds()
+
+	// Log execution result
+	if execErr != nil {
+		log.Printf("Command execution failed: %v", execErr)
+		log.Printf("Command output: %s", string(output))
+	} else {
+		log.Printf("Command executed successfully in %dms", duration)
+	}
 
 	response := ClaudeCommandResponse{
 		SessionID: req.SessionID,
