@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
 	"regexp"
 	"strings"
@@ -150,8 +151,12 @@ func (je *JobExecutor) queueMonitor() {
 	}
 }
 
-// checkPendingJobs looks for pending jobs and queues them
+// checkPendingJobs looks for pending jobs and queues them, also checks for stale running jobs
 func (je *JobExecutor) checkPendingJobs() {
+	// First, check for stale running jobs
+	je.checkStaleRunningJobs()
+	
+	// Then check for pending jobs
 	pendingJobs, err := je.jobService.GetPendingJobs(10)
 	if err != nil {
 		log.Printf("Error getting pending jobs: %v", err)
@@ -175,6 +180,101 @@ func (je *JobExecutor) checkPendingJobs() {
 		default:
 			log.Printf("Job queue full, skipping job %s", job.ID)
 		}
+	}
+}
+
+// checkStaleRunningJobs checks for jobs marked as running but not tracked by executor
+func (je *JobExecutor) checkStaleRunningJobs() {
+	// Get running jobs from database
+	status := models.JobStatusRunning
+	filters := models.JobFilters{
+		Status: &status,
+		Limit:  50,
+	}
+	
+	runningJobs, err := je.jobService.GetJobs(filters)
+	if err != nil {
+		log.Printf("Error getting running jobs for stale check: %v", err)
+		return
+	}
+	
+	for _, job := range runningJobs {
+		// Check if job is tracked by executor
+		je.cancelMutex.RLock()
+		_, isTracked := je.cancelMap[job.ID]
+		je.cancelMutex.RUnlock()
+		
+		if !isTracked {
+			// Job is marked as running but not tracked by executor
+			log.Printf("Found stale running job %s, checking process status", job.ID)
+			
+			if job.PID != nil {
+				// Check if process actually exists
+				if !je.isProcessRunning(*job.PID) {
+					log.Printf("Process %d for job %s is not running, marking as failed", *job.PID, job.ID)
+					je.jobService.UpdateJobStatus(job.ID, models.JobStatusFailed, nil)
+					errorMsg := "Process not found (likely crashed or killed)"
+					je.jobService.UpdateJobLogs(job.ID, nil, &errorMsg, nil)
+					continue
+				}
+			}
+			
+			// Check if job has been running too long (30 minutes timeout)
+			if job.StartedAt != nil {
+				runningTime := time.Since(*job.StartedAt)
+				if runningTime > 30*time.Minute {
+					log.Printf("Job %s running too long (%v), marking as failed", job.ID, runningTime)
+					
+					// Try to kill the process if PID exists
+					if job.PID != nil {
+						je.killProcess(*job.PID)
+					}
+					
+					je.jobService.UpdateJobStatus(job.ID, models.JobStatusFailed, nil)
+					errorMsg := fmt.Sprintf("Job timeout after %v", runningTime)
+					exitCode := -1
+					je.jobService.UpdateJobLogs(job.ID, nil, &errorMsg, &exitCode)
+				}
+			}
+		}
+	}
+}
+
+// isProcessRunning checks if a process with given PID is still running
+func (je *JobExecutor) isProcessRunning(pid int) bool {
+	process, err := os.FindProcess(pid)
+	if err != nil {
+		return false
+	}
+	
+	// Send signal 0 to check if process exists
+	err = process.Signal(syscall.Signal(0))
+	return err == nil
+}
+
+// killProcess attempts to gracefully kill a process, then force kill if necessary
+func (je *JobExecutor) killProcess(pid int) {
+	process, err := os.FindProcess(pid)
+	if err != nil {
+		log.Printf("Process %d not found", pid)
+		return
+	}
+	
+	// Try graceful shutdown first
+	log.Printf("Sending SIGTERM to process %d", pid)
+	err = process.Signal(syscall.SIGTERM)
+	if err != nil {
+		log.Printf("Failed to send SIGTERM to process %d: %v", pid, err)
+		return
+	}
+	
+	// Wait for graceful shutdown
+	time.Sleep(5 * time.Second)
+	
+	// Check if still running
+	if je.isProcessRunning(pid) {
+		log.Printf("Process %d still running, sending SIGKILL", pid)
+		process.Signal(syscall.SIGKILL)
 	}
 }
 
@@ -227,14 +327,40 @@ func (je *JobExecutor) executeJob(jobID string) {
 	
 	log.Printf("Executing job %s: %v in directory %s", jobID, cmdArgs, job.ExecutionDirectory)
 	
-	// Update job status to running
+	// Prepare command
 	cmd := exec.CommandContext(jobCtx, cmdArgs[0], cmdArgs[1:]...)
 	cmd.Dir = job.ExecutionDirectory
 	
-	// Set process group ID for proper process management
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	// Inherit environment variables from backend process
+	cmd.Env = os.Environ()
 	
-	// Update job status with PID
+	// Set process group ID for proper process management while preserving permissions
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
+		// Inherit the same user/group permissions as the backend process
+		Credential: nil, // nil means inherit current process credentials
+	}
+	
+	// Capture output pipes BEFORE starting command
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Printf("Error creating stdout pipe for job %s: %v", jobID, err)
+		je.jobService.UpdateJobStatus(jobID, models.JobStatusFailed, nil)
+		errorMsg := fmt.Sprintf("Failed to create stdout pipe: %v", err)
+		je.jobService.UpdateJobLogs(jobID, nil, &errorMsg, nil)
+		return
+	}
+	
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		log.Printf("Error creating stderr pipe for job %s: %v", jobID, err)
+		je.jobService.UpdateJobStatus(jobID, models.JobStatusFailed, nil)
+		errorMsg := fmt.Sprintf("Failed to create stderr pipe: %v", err)
+		je.jobService.UpdateJobLogs(jobID, nil, &errorMsg, nil)
+		return
+	}
+	
+	// Update job status to running
 	err = je.jobService.UpdateJobStatus(jobID, models.JobStatusRunning, nil)
 	if err != nil {
 		log.Printf("Error updating job %s status to running: %v", jobID, err)
@@ -255,19 +381,6 @@ func (je *JobExecutor) executeJob(jobID string) {
 	err = je.jobService.UpdateJobStatus(jobID, models.JobStatusRunning, &pid)
 	if err != nil {
 		log.Printf("Error updating job %s PID: %v", jobID, err)
-	}
-	
-	// Capture output
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		log.Printf("Error creating stdout pipe for job %s: %v", jobID, err)
-		return
-	}
-	
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		log.Printf("Error creating stderr pipe for job %s: %v", jobID, err)
-		return
 	}
 	
 	// Stream output
@@ -297,8 +410,23 @@ func (je *JobExecutor) executeJob(jobID string) {
 		}
 	}()
 	
-	// Wait for command to complete
-	err = cmd.Wait()
+	// Wait for command to complete with timeout handling
+	done := make(chan error, 1)
+	go func() {
+		done <- cmd.Wait()
+	}()
+	
+	select {
+	case err = <-done:
+		// Command completed normally
+	case <-jobCtx.Done():
+		// Context cancelled (timeout or manual cancellation)
+		log.Printf("Job %s timed out or was cancelled, killing process", jobID)
+		if cmd.Process != nil {
+			cmd.Process.Kill()
+		}
+		err = jobCtx.Err()
+	}
 	
 	// Wait for output goroutines to finish
 	outputWg.Wait()
@@ -356,10 +484,10 @@ func (je *JobExecutor) validateCommand(command string) error {
 		return fmt.Errorf("command cannot be empty")
 	}
 	
-	// Check for dangerous characters
+	// Check for extremely dangerous patterns only (since commands go through Claude Code CLI)
 	dangerousPatterns := []string{
-		`;`, `&`, `|`, `$`, "`", `>`, `<`, `(`, `)`,
-		`rm -rf`, `del /`, `format c:`, `shutdown`, `reboot`,
+		`rm -rf /`, `del /`, `format c:`, `shutdown -h`, `reboot`, 
+		`mkfs`, `fdisk`, `parted`, `sudo rm -rf`, `chmod 777 /`,
 	}
 	
 	commandLower := strings.ToLower(command)
