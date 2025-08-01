@@ -8,6 +8,7 @@ type Session struct {
 	ID               string    `json:"id" db:"id"`
 	ProjectName      string    `json:"project_name" db:"project_name"`
 	ProjectPath      string    `json:"project_path" db:"project_path"`
+	ProjectID        *string   `json:"project_id" db:"project_id"` // Phase 2: nullable for backward compatibility
 	StartTime        time.Time `json:"start_time" db:"start_time"`
 	EndTime          *time.Time `json:"end_time" db:"end_time"`
 	TotalInputTokens int       `json:"total_input_tokens" db:"total_input_tokens"`

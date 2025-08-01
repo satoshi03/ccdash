@@ -109,10 +109,14 @@ func createTables(db *sql.DB) error {
 		// Add total_cost column to existing sessions table if it doesn't exist
 		`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS total_cost DOUBLE DEFAULT 0.0`,
 
+		// Add project_id column to sessions table for Project integration (Phase 2)
+		`ALTER TABLE sessions ADD COLUMN IF NOT EXISTS project_id VARCHAR`,
+
 		// Add total_cost column to existing session_windows table if it doesn't exist
 		`ALTER TABLE session_windows ADD COLUMN IF NOT EXISTS total_cost DOUBLE DEFAULT 0.0`,
 
 		`CREATE INDEX IF NOT EXISTS idx_sessions_project_name ON sessions (project_name)`,
+		`CREATE INDEX IF NOT EXISTS idx_sessions_project_id ON sessions (project_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_sessions_start_time ON sessions (start_time)`,
 		`CREATE INDEX IF NOT EXISTS idx_sessions_status ON sessions (status)`,
 		`CREATE INDEX IF NOT EXISTS idx_messages_session_id ON messages (session_id)`,

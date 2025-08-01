@@ -22,12 +22,14 @@ type DiffSyncService struct {
 	windowService   *SessionWindowService
 	stateManager    *FileSyncStateManager
 	relationService *SessionWindowMessageService
+	projectService  *ProjectService // Phase 2: Add ProjectService for integration
 }
 
 func NewDiffSyncService(db *sql.DB, tokenService *TokenService, sessionService *SessionService) *DiffSyncService {
 	stateManager := NewFileSyncStateManager(db)
 	windowService := NewSessionWindowService(db)
 	relationService := NewSessionWindowMessageService(db)
+	projectService := NewProjectService(db) // Phase 2: Initialize ProjectService
 	return &DiffSyncService{
 		db:              db,
 		tokenService:    tokenService,
@@ -35,6 +37,7 @@ func NewDiffSyncService(db *sql.DB, tokenService *TokenService, sessionService *
 		windowService:   windowService,
 		stateManager:    stateManager,
 		relationService: relationService,
+		projectService:  projectService, // Phase 2: Add to struct
 	}
 }
 
@@ -290,8 +293,12 @@ func (d *DiffSyncService) processLogEntry(entry *models.LogEntry, projectName st
 		actualProjectName = projectName
 	}
 
-	if err := d.sessionService.CreateOrUpdateSession(entry.SessionID, actualProjectName, actualProjectPath, entry.Timestamp); err != nil {
-		return fmt.Errorf("failed to create/update session: %w", err)
+	// Phase 2: Use Project-integrated session creation
+	if err := d.sessionService.CreateOrUpdateSessionWithProject(entry.SessionID, actualProjectName, actualProjectPath, entry.Timestamp); err != nil {
+		// Fallback to legacy method for backward compatibility
+		if err := d.sessionService.CreateOrUpdateSession(entry.SessionID, actualProjectName, actualProjectPath, entry.Timestamp); err != nil {
+			return fmt.Errorf("failed to create/update session: %w", err)
+		}
 	}
 
 	message := &models.Message{
