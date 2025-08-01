@@ -102,3 +102,17 @@ type BurnRatePoint struct {
 	Timestamp     time.Time `json:"timestamp"`
 	TokensPerHour int       `json:"tokens_per_hour"`
 }
+
+// Project represents a project entity
+type Project struct {
+	ID            string    `json:"id" db:"id"`
+	Name          string    `json:"name" db:"name"`
+	Path          string    `json:"path" db:"path"`
+	Description   *string   `json:"description" db:"description"`
+	RepositoryURL *string   `json:"repository_url" db:"repository_url"`
+	Language      *string   `json:"language" db:"language"`
+	Framework     *string   `json:"framework" db:"framework"`
+	IsActive      bool      `json:"is_active" db:"is_active"`
+	CreatedAt     time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
+}
