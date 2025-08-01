@@ -117,3 +117,58 @@ type Project struct {
 	CreatedAt     time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
 }
+
+// Job represents a task execution job
+type Job struct {
+	ID                  string     `json:"id" db:"id"`
+	ProjectID           string     `json:"project_id" db:"project_id"`
+	Command             string     `json:"command" db:"command"`
+	ExecutionDirectory  string     `json:"execution_directory" db:"execution_directory"`
+	YoloMode           bool       `json:"yolo_mode" db:"yolo_mode"`
+	Status             string     `json:"status" db:"status"`
+	Priority           int        `json:"priority" db:"priority"`
+	CreatedAt          time.Time  `json:"created_at" db:"created_at"`
+	StartedAt          *time.Time `json:"started_at" db:"started_at"`
+	CompletedAt        *time.Time `json:"completed_at" db:"completed_at"`
+	OutputLog          *string    `json:"output_log" db:"output_log"`
+	ErrorLog           *string    `json:"error_log" db:"error_log"`
+	ExitCode           *int       `json:"exit_code" db:"exit_code"`
+	PID                *int       `json:"pid" db:"pid"`
+	ScheduledAt        *time.Time `json:"scheduled_at" db:"scheduled_at"`
+	ScheduleType       *string    `json:"schedule_type" db:"schedule_type"`
+	
+	// リレーション情報（JOIN時に使用）
+	Project            *Project   `json:"project,omitempty"`
+}
+
+// JobStatus constants
+const (
+	JobStatusPending   = "pending"
+	JobStatusRunning   = "running" 
+	JobStatusCompleted = "completed"
+	JobStatusFailed    = "failed"
+	JobStatusCancelled = "cancelled"
+)
+
+// ScheduleType constants
+const (
+	ScheduleTypeImmediate  = "immediate"
+	ScheduleTypeAfterReset = "after_reset"
+	ScheduleTypeCustom     = "custom"
+)
+
+// JobFilters for queries
+type JobFilters struct {
+	ProjectID *string
+	Status    *string
+	Limit     int
+	Offset    int
+}
+
+// CreateJobRequest represents job creation request
+type CreateJobRequest struct {
+	ProjectID    string `json:"project_id" binding:"required"`
+	Command      string `json:"command" binding:"required"`
+	YoloMode     bool   `json:"yolo_mode"`
+	ScheduleType string `json:"schedule_type"`
+}
