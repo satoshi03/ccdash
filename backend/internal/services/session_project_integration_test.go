@@ -79,6 +79,8 @@ func setupIntegrationTestDB(t *testing.T) *sql.DB {
 	return db
 }
 
+// Note: isValidUUID function is defined in project_service_test.go to avoid duplication
+
 // TestBackwardCompatibility tests that existing functionality still works
 func TestBackwardCompatibility(t *testing.T) {
 	db := setupIntegrationTestDB(t)
@@ -162,6 +164,11 @@ func TestProjectIntegration(t *testing.T) {
 
 	if *sessionProjectID != project.ID {
 		t.Errorf("Expected session project_id %s, got %s", project.ID, *sessionProjectID)
+	}
+
+	// Verify project ID is a valid UUID
+	if !isValidUUID(project.ID) {
+		t.Errorf("Expected project ID to be a valid UUID, got %s", project.ID)
 	}
 
 	// Test 2: GetSessionsByProject should return the session
