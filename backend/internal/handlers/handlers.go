@@ -145,6 +145,17 @@ func (h *Handler) GetSessionDetails(c *gin.Context) {
 }
 
 func (h *Handler) SyncLogs(c *gin.Context) {
+	// Initialize中はsync-logsを受け付けない
+	initService := services.GetGlobalInitializationService()
+	if initService.IsInitializing() {
+		c.JSON(http.StatusConflict, gin.H{
+			"error": "System is currently initializing",
+			"message": "Please wait for initialization to complete before syncing logs",
+			"status": initService.GetState().Status,
+		})
+		return
+	}
+	
 	db := c.MustGet("db").(*sql.DB)
 	
 	// Enable differential sync to fix partial log reading issues

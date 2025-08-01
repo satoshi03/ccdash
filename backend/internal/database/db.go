@@ -125,6 +125,26 @@ func createTables(db *sql.DB) error {
 
 		`CREATE INDEX IF NOT EXISTS idx_session_window_messages_window_id ON session_window_messages(session_window_id)`,
 		`CREATE INDEX IF NOT EXISTS idx_session_window_messages_message_id ON session_window_messages(message_id)`,
+
+		// Projects table
+		`CREATE TABLE IF NOT EXISTS projects (
+			id VARCHAR PRIMARY KEY,
+			name VARCHAR NOT NULL,
+			path VARCHAR NOT NULL,
+			description TEXT,
+			repository_url VARCHAR,
+			language VARCHAR,
+			framework VARCHAR,
+			is_active BOOLEAN DEFAULT true,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			UNIQUE(name, path)
+		)`,
+
+		// Projects table indexes
+		`CREATE INDEX IF NOT EXISTS idx_projects_name ON projects (name)`,
+		`CREATE INDEX IF NOT EXISTS idx_projects_active ON projects (is_active)`,
+		`CREATE INDEX IF NOT EXISTS idx_projects_path ON projects (path)`,
 	}
 
 	for _, query := range queries {
