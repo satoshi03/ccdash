@@ -101,6 +101,53 @@ export interface InitializationStatus {
   error?: string
 }
 
+export interface Project {
+  id: string
+  name: string
+  path: string
+  description?: string
+  repository_url?: string
+  language?: string
+  framework?: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface Job {
+  id: string
+  project_id: string
+  command: string
+  execution_directory: string
+  yolo_mode: boolean
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
+  priority: number
+  created_at: string
+  started_at?: string
+  completed_at?: string
+  output_log?: string
+  error_log?: string
+  exit_code?: number
+  pid?: number
+  scheduled_at?: string
+  schedule_type?: string
+  project?: Project
+}
+
+export interface CreateJobRequest {
+  project_id: string
+  command: string
+  yolo_mode: boolean
+  schedule_type: string
+}
+
+export interface JobFilters {
+  project_id?: string
+  status?: string
+  limit?: number
+  offset?: number
+}
+
 export interface ApiResponse<T> {
   data?: T
   error?: string
@@ -201,6 +248,63 @@ class ApiClient {
     return this.request<InitializationStatus>('/initialization-status')
   }
 
+  // Projects API
+  async getProjects(): Promise<{ projects: Project[], count: number }> {
+    return this.request<{ projects: Project[], count: number }>('/projects')
+  }
+
+  async getProject(id: string): Promise<Project> {
+    return this.request<Project>(`/projects/${id}`)
+  }
+
+  // Jobs API
+  async createJob(request: CreateJobRequest): Promise<{ job: Job, message: string }> {
+    return this.request<{ job: Job, message: string }>('/jobs', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    })
+  }
+
+  async getJobs(filters?: JobFilters): Promise<{ jobs: Job[], count: number }> {
+    let url = '/jobs'
+    if (filters) {
+      const params = new URLSearchParams()
+      if (filters.project_id) params.append('project_id', filters.project_id)
+      if (filters.status) params.append('status', filters.status)
+      if (filters.limit) params.append('limit', filters.limit.toString())
+      if (filters.offset) params.append('offset', filters.offset.toString())
+      if (params.toString()) {
+        url += `?${params.toString()}`
+      }
+    }
+    return this.request<{ jobs: Job[], count: number }>(url)
+  }
+
+  async getJob(id: string): Promise<{ job: Job, is_running: boolean }> {
+    return this.request<{ job: Job, is_running: boolean }>(`/jobs/${id}`)
+  }
+
+  async cancelJob(id: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/jobs/${id}/cancel`, {
+      method: 'POST',
+    })
+  }
+
+  async deleteJob(id: string): Promise<{ message: string }> {
+    return this.request<{ message: string }>(`/jobs/${id}`, {
+      method: 'DELETE',
+    })
+  }
+
+  async getJobQueueStatus(): Promise<{
+    running_jobs: number
+    queued_jobs: number
+    worker_count: number
+    claude_available: boolean
+  }> {
+    return this.request('/jobs/queue/status')
+  }
+
 }
 
 export const apiClient = new ApiClient(API_BASE_URL)
@@ -230,5 +334,17 @@ export const api = {
   },
   initialization: {
     getStatus: () => apiClient.getInitializationStatus(),
+  },
+  projects: {
+    getAll: () => apiClient.getProjects(),
+    getById: (id: string) => apiClient.getProject(id),
+  },
+  jobs: {
+    create: (request: CreateJobRequest) => apiClient.createJob(request),
+    getAll: (filters?: JobFilters) => apiClient.getJobs(filters),
+    getById: (id: string) => apiClient.getJob(id),
+    cancel: (id: string) => apiClient.cancelJob(id),
+    delete: (id: string) => apiClient.deleteJob(id),
+    getQueueStatus: () => apiClient.getJobQueueStatus(),
   },
 }

@@ -253,7 +253,7 @@ func TestJobExecutor_BuildCommand(t *testing.T) {
 			name:     "yolo mode",
 			command:  "ls -la",
 			yoloMode: true,
-			expected: []string{"claude", "--yolo", "-p", "ls -la"},
+			expected: []string{"claude", "--dangerously-skip-permissions", "-p", "ls -la"},
 		},
 	}
 

@@ -341,6 +341,18 @@ func (je *JobExecutor) executeJob(jobID string) {
 		Credential: nil, // nil means inherit current process credentials
 	}
 	
+	// Set stdin to /dev/null to prevent hanging on input
+	devNull, err := os.OpenFile(os.DevNull, os.O_RDONLY, 0)
+	if err != nil {
+		log.Printf("Error opening /dev/null for job %s: %v", jobID, err)
+		je.jobService.UpdateJobStatus(jobID, models.JobStatusFailed, nil)
+		errorMsg := fmt.Sprintf("Failed to open /dev/null: %v", err)
+		je.jobService.UpdateJobLogs(jobID, nil, &errorMsg, nil)
+		return
+	}
+	defer devNull.Close()
+	cmd.Stdin = devNull
+	
 	// Capture output pipes BEFORE starting command
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -510,7 +522,7 @@ func (je *JobExecutor) buildCommand(command string, yoloMode bool) []string {
 	args := []string{"claude"}
 	
 	if yoloMode {
-		args = append(args, "--yolo")
+		args = append(args, "--dangerously-skip-permissions")
 	}
 	
 	args = append(args, "-p", command)

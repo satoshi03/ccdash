@@ -5,11 +5,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { P90ProgressCard } from "@/components/p90-progress-card"
 import { SessionList } from "@/components/session-list"
 import { ProjectOverview } from "@/components/project-overview"
+import { TaskExecutionForm } from "@/components/task-execution-form"
+import { JobHistory } from "@/components/job-history"
+import { JobDetailModal } from "@/components/job-detail-modal"
 import { Header } from "@/components/header"
 import { useTokenUsage, useSessions, useSyncLogs, useP90Predictions } from "@/hooks/use-api"
 import { useI18n } from "@/hooks/use-i18n"
 import { Settings, getSettings } from "@/lib/settings"
-import { Session } from "@/lib/api"
+import { Session, Job } from "@/lib/api"
 
 export default function Dashboard() {
   const { data: tokenUsage, loading: tokenLoading, error: tokenError, refetch: refetchTokens } = useTokenUsage()
@@ -19,9 +22,25 @@ export default function Dashboard() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [settings, setSettings] = useState<Settings>(() => getSettings())
   
+  // Task execution states
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null)
+  const [jobDetailModalOpen, setJobDetailModalOpen] = useState(false)
+  const [refreshTrigger, setRefreshTrigger] = useState(0)
+  
   const handleSettingsChange = (newSettings: Settings) => {
     setSettings(newSettings)
   }
+  
+  // Task execution event handlers
+  const handleJobCreated = () => {
+    setRefreshTrigger(prev => prev + 1)
+  }
+  
+  const handleJobSelect = (job: Job) => {
+    setSelectedJob(job)
+    setJobDetailModalOpen(true)
+  }
+  
   const { t } = useI18n()
 
   const refreshData = useCallback(async () => {
@@ -135,6 +154,7 @@ export default function Dashboard() {
           <TabsList>
             <TabsTrigger value="overview">{t('common.overview')}</TabsTrigger>
             <TabsTrigger value="sessions">{t('common.sessions')}</TabsTrigger>
+            <TabsTrigger value="tasks">タスク実行</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
@@ -161,7 +181,25 @@ export default function Dashboard() {
             )}
           </TabsContent>
 
+          <TabsContent value="tasks" className="space-y-6">
+            {/* Task Execution Form */}
+            <TaskExecutionForm onJobCreated={handleJobCreated} />
+            
+            {/* Job History */}
+            <JobHistory 
+              onJobSelect={handleJobSelect} 
+              refreshTrigger={refreshTrigger}
+            />
+          </TabsContent>
+
         </Tabs>
+        
+        {/* Job Detail Modal */}
+        <JobDetailModal
+          jobId={selectedJob?.id || null}
+          open={jobDetailModalOpen}
+          onOpenChange={setJobDetailModalOpen}
+        />
       </div>
     </div>
   )
