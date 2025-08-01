@@ -1,13 +1,12 @@
 package services
 
 import (
-	"crypto/md5"
 	"database/sql"
 	"fmt"
-	"strings"
 	"time"
 
 	"ccdash-backend/internal/models"
+	"github.com/google/uuid"
 )
 
 type ProjectService struct {
@@ -69,8 +68,8 @@ func (p *ProjectService) FindProjectByNameAndPath(name, path string) (*models.Pr
 
 // CreateProject creates a new project
 func (p *ProjectService) CreateProject(name, path string) (*models.Project, error) {
-	// Generate unique ID based on name and path
-	id := p.generateProjectID(name, path)
+	// Generate UUID for project ID
+	id := uuid.New().String()
 	now := time.Now()
 	
 	project := &models.Project{
@@ -219,16 +218,9 @@ func (p *ProjectService) DeleteProject(id string) error {
 	return nil
 }
 
-// generateProjectID generates a unique project ID based on name and path
-func (p *ProjectService) generateProjectID(name, path string) string {
-	// Normalize name for ID generation
-	normalizedName := strings.ReplaceAll(strings.ToLower(name), " ", "_")
-	
-	// Generate hash of path for uniqueness
-	pathHash := fmt.Sprintf("%x", md5.Sum([]byte(path)))
-	
-	// Combine normalized name with path hash (first 8 characters)
-	return fmt.Sprintf("%s_%s", normalizedName, pathHash[:8])
+// generateProjectUUID generates a new UUID for project ID
+func (p *ProjectService) generateProjectUUID() string {
+	return uuid.New().String()
 }
 
 // MigrateExistingSessionsToProjects migrates existing sessions to create projects
@@ -265,8 +257,8 @@ func (p *ProjectService) MigrateExistingSessionsToProjects() error {
 		}
 		
 		if existing == nil {
-			// Create project with original creation time
-			id := p.generateProjectID(name, path)
+			// Create project with original creation time using UUID
+			id := uuid.New().String()
 			createQuery := `
 				INSERT INTO projects (id, name, path, is_active, created_at, updated_at)
 				VALUES (?, ?, ?, ?, ?, ?)

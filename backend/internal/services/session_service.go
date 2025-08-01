@@ -13,12 +13,14 @@ import (
 type SessionService struct {
 	db               *sql.DB
 	activityDetector *SessionActivityDetector
+	projectService   *ProjectService // Phase 2: Add ProjectService dependency
 }
 
 func NewSessionService(db *sql.DB) *SessionService {
 	return &SessionService{
 		db:               db,
 		activityDetector: NewSessionActivityDetector(db),
+		projectService:   NewProjectService(db), // Phase 2: Initialize ProjectService
 	}
 }
 
@@ -29,6 +31,7 @@ func (s *SessionService) GetAllSessions() ([]models.SessionSummary, error) {
 			s.id,
 			s.project_name,
 			s.project_path,
+			s.project_id,
 			s.start_time,
 			s.end_time,
 			s.total_input_tokens,
@@ -58,6 +61,7 @@ func (s *SessionService) GetAllSessions() ([]models.SessionSummary, error) {
 			&session.ID,
 			&session.ProjectName,
 			&session.ProjectPath,
+			&session.ProjectID,
 			&startTime,
 			&session.EndTime,
 			&session.TotalInputTokens,
@@ -455,4 +459,215 @@ func extractCodeFromContent(content string) []string {
 	}
 	
 	return codeBlocks
+}
+
+// Phase 2: Project Integration Methods
+
+// CreateOrUpdateSessionWithProject creates or updates a session using Project integration
+func (s *SessionService) CreateOrUpdateSessionWithProject(sessionID, projectName, projectPath string, messageTime ...time.Time) error {
+	// Get or create project
+	project, err := s.projectService.GetOrCreateProject(projectName, projectPath)
+	if err != nil {
+		return fmt.Errorf("failed to get/create project: %w", err)
+	}
+
+	// Check if session already exists
+	existsQuery := `SELECT id FROM sessions WHERE id = ?`
+	var existingID string
+	err = s.db.QueryRow(existsQuery, sessionID).Scan(&existingID)
+	
+	if err == nil {
+		// Session exists, update project_id if not set
+		updateQuery := `
+			UPDATE sessions 
+			SET project_id = ?
+			WHERE id = ? AND project_id IS NULL
+		`
+		_, err = s.db.Exec(updateQuery, project.ID, sessionID)
+		if err != nil {
+			return fmt.Errorf("failed to update session project_id: %w", err)
+		}
+		return nil
+	} else if err != sql.ErrNoRows {
+		return fmt.Errorf("failed to check existing session: %w", err)
+	}
+
+	// Create new session with project_id
+	var startTime time.Time
+	if len(messageTime) > 0 {
+		startTime = messageTime[0]
+	} else {
+		startTime = time.Now()
+	}
+
+	insertQuery := `
+		INSERT INTO sessions (id, project_name, project_path, project_id, start_time, status)
+		VALUES (?, ?, ?, ?, ?, 'active')
+	`
+	_, err = s.db.Exec(insertQuery, sessionID, projectName, projectPath, project.ID, startTime)
+	if err != nil {
+		return fmt.Errorf("failed to create session with project: %w", err)
+	}
+
+	return nil
+}
+
+// GetSessionsByProject retrieves all sessions for a specific project
+func (s *SessionService) GetSessionsByProject(projectID string) ([]models.SessionSummary, error) {
+	query := `
+		SELECT 
+			s.id,
+			s.project_name,
+			s.project_path,
+			s.project_id,
+			s.start_time,
+			s.end_time,
+			s.total_input_tokens,
+			s.total_output_tokens,
+			s.total_tokens,
+			s.message_count,
+			s.total_cost,
+			s.status,
+			s.created_at
+		FROM sessions s
+		WHERE s.project_id = ?
+		ORDER BY s.start_time DESC
+	`
+	
+	rows, err := s.db.Query(query, projectID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get sessions by project: %w", err)
+	}
+	defer rows.Close()
+	
+	var sessions []models.SessionSummary
+	
+	for rows.Next() {
+		var session models.SessionSummary
+		var startTime sql.NullTime
+		
+		err := rows.Scan(
+			&session.ID,
+			&session.ProjectName,
+			&session.ProjectPath,
+			&session.ProjectID,
+			&startTime,
+			&session.EndTime,
+			&session.TotalInputTokens,
+			&session.TotalOutputTokens,
+			&session.TotalTokens,
+			&session.MessageCount,
+			&session.TotalCost,
+			&session.Status,
+			&session.CreatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan session: %w", err)
+		}
+		
+		// Handle NULL start_time
+		if startTime.Valid {
+			session.StartTime = startTime.Time
+		} else {
+			session.StartTime = session.CreatedAt
+		}
+		
+		session.LastActivity = session.StartTime
+		session.IsActive = false
+		
+		if session.EndTime != nil {
+			duration := session.EndTime.Sub(session.StartTime)
+			session.Duration = &duration
+		}
+		
+		sessions = append(sessions, session)
+	}
+	
+	return sessions, nil
+}
+
+// MigrateSessionToProject updates existing sessions to use project_id
+func (s *SessionService) MigrateSessionToProject(sessionID string) error {
+	// Get session details
+	query := `
+		SELECT project_name, project_path, project_id 
+		FROM sessions 
+		WHERE id = ?
+	`
+	
+	var projectName, projectPath string
+	var projectID *string
+	err := s.db.QueryRow(query, sessionID).Scan(&projectName, &projectPath, &projectID)
+	if err != nil {
+		return fmt.Errorf("failed to get session details: %w", err)
+	}
+	
+	// Skip if already has project_id
+	if projectID != nil {
+		return nil
+	}
+	
+	// Get or create project
+	project, err := s.projectService.GetOrCreateProject(projectName, projectPath)
+	if err != nil {
+		return fmt.Errorf("failed to get/create project: %w", err)
+	}
+	
+	// Update session with project_id
+	updateQuery := `
+		UPDATE sessions 
+		SET project_id = ?
+		WHERE id = ?
+	`
+	_, err = s.db.Exec(updateQuery, project.ID, sessionID)
+	if err != nil {
+		return fmt.Errorf("failed to update session project_id: %w", err)
+	}
+	
+	return nil
+}
+
+// GetSessionsWithoutProjectID returns sessions that don't have project_id set
+func (s *SessionService) GetSessionsWithoutProjectID() ([]models.Session, error) {
+	query := `
+		SELECT id, project_name, project_path, start_time, end_time,
+			   total_input_tokens, total_output_tokens, total_tokens,
+			   message_count, status, created_at, total_cost, project_id
+		FROM sessions
+		WHERE project_id IS NULL
+		ORDER BY created_at ASC
+		LIMIT 100
+	`
+	
+	rows, err := s.db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query sessions without project_id: %w", err)
+	}
+	defer rows.Close()
+	
+	var sessions []models.Session
+	for rows.Next() {
+		var session models.Session
+		err := rows.Scan(
+			&session.ID,
+			&session.ProjectName,
+			&session.ProjectPath,
+			&session.StartTime,
+			&session.EndTime,
+			&session.TotalInputTokens,
+			&session.TotalOutputTokens,
+			&session.TotalTokens,
+			&session.MessageCount,
+			&session.Status,
+			&session.CreatedAt,
+			&session.TotalCost,
+			&session.ProjectID,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan session: %w", err)
+		}
+		sessions = append(sessions, session)
+	}
+	
+	return sessions, nil
 }

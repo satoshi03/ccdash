@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"ccdash-backend/internal/models"
+	"github.com/google/uuid"
 	_ "github.com/marcboeker/go-duckdb"
 )
 
@@ -56,6 +57,12 @@ func setupProjectTestDB(t *testing.T) *sql.DB {
 	return db
 }
 
+// isValidUUID checks if a string is a valid UUID
+func isValidUUID(u string) bool {
+	_, err := uuid.Parse(u)
+	return err == nil
+}
+
 func TestCreateProject(t *testing.T) {
 	db := setupProjectTestDB(t)
 	defer db.Close()
@@ -81,6 +88,11 @@ func TestCreateProject(t *testing.T) {
 
 	if !project.IsActive {
 		t.Error("Expected project to be active")
+	}
+
+	// Verify project ID is a valid UUID
+	if !isValidUUID(project.ID) {
+		t.Errorf("Expected project ID to be a valid UUID, got %s", project.ID)
 	}
 
 	// Verify project was inserted in database
@@ -120,6 +132,14 @@ func TestGetOrCreateProject(t *testing.T) {
 
 	if project1.ID != project2.ID {
 		t.Errorf("Expected same project ID, got %s and %s", project1.ID, project2.ID)
+	}
+
+	// Verify both IDs are valid UUIDs
+	if !isValidUUID(project1.ID) {
+		t.Errorf("Expected project1 ID to be a valid UUID, got %s", project1.ID)
+	}
+	if !isValidUUID(project2.ID) {
+		t.Errorf("Expected project2 ID to be a valid UUID, got %s", project2.ID)
 	}
 
 	// Verify only one project exists in database
@@ -170,6 +190,14 @@ func TestFindProjectByNameAndPath(t *testing.T) {
 
 	if foundProject.ID != createdProject.ID {
 		t.Errorf("Expected project ID %s, got %s", createdProject.ID, foundProject.ID)
+	}
+
+	// Verify IDs are valid UUIDs
+	if !isValidUUID(createdProject.ID) {
+		t.Errorf("Expected created project ID to be a valid UUID, got %s", createdProject.ID)
+	}
+	if !isValidUUID(foundProject.ID) {
+		t.Errorf("Expected found project ID to be a valid UUID, got %s", foundProject.ID)
 	}
 }
 
