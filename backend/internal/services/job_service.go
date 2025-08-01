@@ -2,6 +2,7 @@ package services
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"time"
 	
@@ -28,6 +29,11 @@ func (js *JobService) CreateJob(req *models.CreateJobRequest) (*models.Job, erro
 		return nil, fmt.Errorf("project not found: %s", req.ProjectID)
 	}
 	
+	// スケジュールパラメータの検証
+	if err := js.validateScheduleParams(req.ScheduleType, req.ScheduleParams); err != nil {
+		return nil, fmt.Errorf("invalid schedule parameters: %w", err)
+	}
+	
 	job := &models.Job{
 		ID:                 uuid.New().String(),
 		ProjectID:          req.ProjectID,
@@ -40,22 +46,44 @@ func (js *JobService) CreateJob(req *models.CreateJobRequest) (*models.Job, erro
 		ScheduleType:      &req.ScheduleType,
 	}
 	
-	// immediate実行の場合はscheduled_atも設定
-	if req.ScheduleType == models.ScheduleTypeImmediate {
+	// スケジュールタイプに応じてscheduled_atを設定
+	switch req.ScheduleType {
+	case models.ScheduleTypeImmediate:
 		now := time.Now()
 		job.ScheduledAt = &now
+	case models.ScheduleTypeDelayed:
+		if req.ScheduleParams != nil && req.ScheduleParams.DelayHours != nil {
+			scheduledTime := time.Now().Add(time.Duration(*req.ScheduleParams.DelayHours) * time.Hour)
+			job.ScheduledAt = &scheduledTime
+		}
+	case models.ScheduleTypeScheduled:
+		if req.ScheduleParams != nil && req.ScheduleParams.ScheduledTime != nil {
+			job.ScheduledAt = req.ScheduleParams.ScheduledTime
+		}
+	}
+	
+	// ScheduleParamsをJSON文字列に変換
+	var scheduleParamsJSON *string
+	if req.ScheduleParams != nil {
+		paramsBytes, err := json.Marshal(req.ScheduleParams)
+		if err != nil {
+			return nil, fmt.Errorf("failed to marshal schedule params: %w", err)
+		}
+		paramsStr := string(paramsBytes)
+		scheduleParamsJSON = &paramsStr
+		job.ScheduleParams = scheduleParamsJSON
 	}
 	
 	query := `
 		INSERT INTO jobs (
 			id, project_id, command, execution_directory, yolo_mode, 
-			status, priority, created_at, scheduled_at, schedule_type
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+			status, priority, created_at, scheduled_at, schedule_type, schedule_params
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 	
 	_, err = js.db.Exec(query,
 		job.ID, job.ProjectID, job.Command, job.ExecutionDirectory,
 		job.YoloMode, job.Status, job.Priority, job.CreatedAt.Format(time.RFC3339),
-		formatTimePtr(job.ScheduledAt), job.ScheduleType)
+		formatTimePtr(job.ScheduledAt), job.ScheduleType, scheduleParamsJSON)
 	
 	if err != nil {
 		return nil, fmt.Errorf("failed to create job: %w", err)
@@ -70,7 +98,7 @@ func (js *JobService) GetJobs(filters models.JobFilters) ([]*models.Job, error) 
 		SELECT j.id, j.project_id, j.command, j.execution_directory, j.yolo_mode,
 			   j.status, j.priority, j.created_at, j.started_at, j.completed_at,
 			   j.output_log, j.error_log, j.exit_code, j.pid,
-			   j.scheduled_at, j.schedule_type,
+			   j.scheduled_at, j.schedule_type, j.schedule_params,
 			   p.name as project_name, p.path as project_path
 		FROM jobs j
 		LEFT JOIN projects p ON j.project_id = p.id
@@ -125,7 +153,7 @@ func (js *JobService) GetJobByID(id string) (*models.Job, error) {
 		SELECT j.id, j.project_id, j.command, j.execution_directory, j.yolo_mode,
 			   j.status, j.priority, j.created_at, j.started_at, j.completed_at,
 			   j.output_log, j.error_log, j.exit_code, j.pid,
-			   j.scheduled_at, j.schedule_type,
+			   j.scheduled_at, j.schedule_type, j.schedule_params,
 			   p.name as project_name, p.path as project_path
 		FROM jobs j
 		LEFT JOIN projects p ON j.project_id = p.id
@@ -199,8 +227,8 @@ func (js *JobService) UpdateJobStatus(id string, status string, pid *int) error 
 	query := `INSERT INTO jobs (
 		id, project_id, command, execution_directory, yolo_mode, 
 		status, priority, created_at, started_at, completed_at, 
-		output_log, error_log, exit_code, pid, scheduled_at, schedule_type
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		output_log, error_log, exit_code, pid, scheduled_at, schedule_type, schedule_params
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	var scheduledAt interface{}
 	if job.ScheduledAt != nil {
@@ -212,7 +240,7 @@ func (js *JobService) UpdateJobStatus(id string, status string, pid *int) error 
 	_, err = js.db.Exec(query,
 		job.ID, job.ProjectID, job.Command, job.ExecutionDirectory, job.YoloMode,
 		status, job.Priority, job.CreatedAt.Format(time.RFC3339), startedAt, completedAt,
-		job.OutputLog, job.ErrorLog, job.ExitCode, pidValue, scheduledAt, job.ScheduleType,
+		job.OutputLog, job.ErrorLog, job.ExitCode, pidValue, scheduledAt, job.ScheduleType, job.ScheduleParams,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to insert updated job: %w", err)
@@ -243,8 +271,8 @@ func (js *JobService) UpdateJobLogs(id string, outputLog, errorLog *string, exit
 	query := `INSERT INTO jobs (
 		id, project_id, command, execution_directory, yolo_mode, 
 		status, priority, created_at, started_at, completed_at, 
-		output_log, error_log, exit_code, pid, scheduled_at, schedule_type
-	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+		output_log, error_log, exit_code, pid, scheduled_at, schedule_type, schedule_params
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
 
 	var startedAtStr interface{}
 	if job.StartedAt != nil {
@@ -270,7 +298,7 @@ func (js *JobService) UpdateJobLogs(id string, outputLog, errorLog *string, exit
 	_, err = js.db.Exec(query,
 		job.ID, job.ProjectID, job.Command, job.ExecutionDirectory, job.YoloMode,
 		job.Status, job.Priority, job.CreatedAt.Format(time.RFC3339), startedAtStr, completedAtStr,
-		outputLog, errorLog, exitCode, job.PID, scheduledAtStr, job.ScheduleType,
+		outputLog, errorLog, exitCode, job.PID, scheduledAtStr, job.ScheduleType, job.ScheduleParams,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to insert job with updated logs: %w", err)
@@ -332,7 +360,7 @@ func (js *JobService) getProjectByID(id string) (*models.Project, error) {
 func (js *JobService) scanJobRow(row interface{}, job *models.Job) error {
 	var createdAt, startedAt, completedAt, scheduledAt, outputLog, errorLog sql.NullString
 	var exitCode, pid sql.NullInt64
-	var scheduleType sql.NullString
+	var scheduleType, scheduleParams sql.NullString
 	
 	scanner, ok := row.(interface {
 		Scan(dest ...interface{}) error
@@ -345,7 +373,7 @@ func (js *JobService) scanJobRow(row interface{}, job *models.Job) error {
 		&job.ID, &job.ProjectID, &job.Command, &job.ExecutionDirectory,
 		&job.YoloMode, &job.Status, &job.Priority, &createdAt,
 		&startedAt, &completedAt, &outputLog, &errorLog,
-		&exitCode, &pid, &scheduledAt, &scheduleType,
+		&exitCode, &pid, &scheduledAt, &scheduleType, &scheduleParams,
 		&job.Project.Name, &job.Project.Path)
 	
 	if err != nil {
@@ -389,6 +417,9 @@ func (js *JobService) scanJobRow(row interface{}, job *models.Job) error {
 	if scheduleType.Valid {
 		job.ScheduleType = &scheduleType.String
 	}
+	if scheduleParams.Valid {
+		job.ScheduleParams = &scheduleParams.String
+	}
 	
 	return nil
 }
@@ -398,4 +429,69 @@ func formatTimePtr(t *time.Time) interface{} {
 		return nil
 	}
 	return t.Format(time.RFC3339)
+}
+
+// validateScheduleParams validates schedule parameters based on schedule type
+func (js *JobService) validateScheduleParams(scheduleType string, params *models.ScheduleParams) error {
+	switch scheduleType {
+	case models.ScheduleTypeImmediate:
+		// immediateタイプはパラメータ不要
+		return nil
+	case models.ScheduleTypeAfterReset:
+		// after_resetタイプはパラメータ不要
+		return nil
+	case models.ScheduleTypeDelayed:
+		if params == nil || params.DelayHours == nil {
+			return fmt.Errorf("delay_hours is required for delayed schedule type")
+		}
+		if *params.DelayHours < 1 || *params.DelayHours > 168 { // 最大1週間
+			return fmt.Errorf("delay_hours must be between 1 and 168")
+		}
+		return nil
+	case models.ScheduleTypeScheduled:
+		if params == nil || params.ScheduledTime == nil {
+			return fmt.Errorf("scheduled_time is required for scheduled type")
+		}
+		if params.ScheduledTime.Before(time.Now()) {
+			return fmt.Errorf("scheduled_time must be in the future")
+		}
+		return nil
+	default:
+		return fmt.Errorf("invalid schedule type: %s", scheduleType)
+	}
+}
+
+// GetScheduledJobs retrieves jobs that are scheduled for execution
+func (js *JobService) GetScheduledJobs() ([]*models.Job, error) {
+	now := time.Now()
+	query := `
+		SELECT j.id, j.project_id, j.command, j.execution_directory, j.yolo_mode,
+			   j.status, j.priority, j.created_at, j.started_at, j.completed_at,
+			   j.output_log, j.error_log, j.exit_code, j.pid,
+			   j.scheduled_at, j.schedule_type, j.schedule_params,
+			   p.name as project_name, p.path as project_path
+		FROM jobs j
+		LEFT JOIN projects p ON j.project_id = p.id
+		WHERE j.status = ? 
+		  AND j.scheduled_at IS NOT NULL
+		  AND j.scheduled_at <= ?
+		ORDER BY j.priority DESC, j.scheduled_at ASC`
+	
+	rows, err := js.db.Query(query, models.JobStatusPending, now.Format(time.RFC3339))
+	if err != nil {
+		return nil, fmt.Errorf("failed to query scheduled jobs: %w", err)
+	}
+	defer rows.Close()
+	
+	var jobs []*models.Job
+	for rows.Next() {
+		job := &models.Job{Project: &models.Project{}}
+		err := js.scanJobRow(rows, job)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan scheduled job row: %w", err)
+		}
+		jobs = append(jobs, job)
+	}
+	
+	return jobs, nil
 }

@@ -136,6 +136,7 @@ type Job struct {
 	PID                *int       `json:"pid" db:"pid"`
 	ScheduledAt        *time.Time `json:"scheduled_at" db:"scheduled_at"`
 	ScheduleType       *string    `json:"schedule_type" db:"schedule_type"`
+	ScheduleParams     *string    `json:"schedule_params" db:"schedule_params"`
 	
 	// リレーション情報（JOIN時に使用）
 	Project            *Project   `json:"project,omitempty"`
@@ -154,8 +155,15 @@ const (
 const (
 	ScheduleTypeImmediate  = "immediate"
 	ScheduleTypeAfterReset = "after_reset"
-	ScheduleTypeCustom     = "custom"
+	ScheduleTypeDelayed    = "delayed"    // N時間後実行
+	ScheduleTypeScheduled  = "scheduled"  // 時刻指定（customを廃止）
 )
+
+// ScheduleParams stores additional scheduling parameters
+type ScheduleParams struct {
+	DelayHours    *int       `json:"delay_hours,omitempty"`    // For delayed execution
+	ScheduledTime *time.Time `json:"scheduled_time,omitempty"` // For scheduled execution
+}
 
 // JobFilters for queries
 type JobFilters struct {
@@ -167,8 +175,9 @@ type JobFilters struct {
 
 // CreateJobRequest represents job creation request
 type CreateJobRequest struct {
-	ProjectID    string `json:"project_id" binding:"required"`
-	Command      string `json:"command" binding:"required"`
-	YoloMode     bool   `json:"yolo_mode"`
-	ScheduleType string `json:"schedule_type"`
+	ProjectID      string          `json:"project_id" binding:"required"`
+	Command        string          `json:"command" binding:"required"`
+	YoloMode       bool            `json:"yolo_mode"`
+	ScheduleType   string          `json:"schedule_type"`
+	ScheduleParams *ScheduleParams `json:"schedule_params,omitempty"`
 }

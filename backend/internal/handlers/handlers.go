@@ -627,7 +627,8 @@ func (h *Handler) CreateJob(c *gin.Context) {
 	validScheduleTypes := map[string]bool{
 		models.ScheduleTypeImmediate:  true,
 		models.ScheduleTypeAfterReset: true,
-		models.ScheduleTypeCustom:     true,
+		models.ScheduleTypeDelayed:    true,
+		models.ScheduleTypeScheduled:  true,
 	}
 	
 	if !validScheduleTypes[req.ScheduleType] {
@@ -636,7 +637,8 @@ func (h *Handler) CreateJob(c *gin.Context) {
 			"valid_types": []string{
 				models.ScheduleTypeImmediate,
 				models.ScheduleTypeAfterReset,
-				models.ScheduleTypeCustom,
+				models.ScheduleTypeDelayed,
+				models.ScheduleTypeScheduled,
 			},
 		})
 		return

@@ -168,6 +168,7 @@ func createTables(db *sql.DB) error {
 			pid INTEGER,
 			scheduled_at TEXT,
 			schedule_type TEXT,
+			schedule_params TEXT,
 			FOREIGN KEY (project_id) REFERENCES projects(id)
 		)`,
 
@@ -176,6 +177,9 @@ func createTables(db *sql.DB) error {
 		`CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status)`,
 		`CREATE INDEX IF NOT EXISTS idx_jobs_created_at ON jobs(created_at DESC)`,
 		`CREATE INDEX IF NOT EXISTS idx_jobs_priority_created ON jobs(priority DESC, created_at DESC)`,
+		
+		// Add schedule_params column to existing jobs table if it doesn't exist
+		`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS schedule_params TEXT`,
 		
 		// Phase 3: Add foreign key constraint from sessions to projects
 		// Note: In DuckDB, foreign key constraints must be added during table creation or with specific ALTER syntax
