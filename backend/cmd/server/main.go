@@ -114,6 +114,7 @@ func main() {
 	sessionService := services.NewSessionService(db)
 	sessionWindowService := services.NewSessionWindowService(db)
 	p90PredictionService := services.NewP90PredictionService(db)
+	projectService := services.NewProjectService(db) // Phase 3: Add ProjectService
 
 	// Perform initial log sync if this is a new database (in background)
 	if isNewDatabase {
@@ -151,7 +152,7 @@ func main() {
 		}()
 	}
 
-	handler := handlers.NewHandler(tokenService, sessionService, sessionWindowService, p90PredictionService)
+	handler := handlers.NewHandler(tokenService, sessionService, sessionWindowService, p90PredictionService, projectService) // Phase 3: Add ProjectService
 
 	r := gin.Default()
 
@@ -239,6 +240,14 @@ func main() {
 		api.GET("/predictions/p90/project/:project", handler.GetP90PredictionsByProject)
 		api.GET("/predictions/burn-rate-history", handler.GetBurnRateHistory)
 		api.POST("/sync-logs", handler.SyncLogs)
+		
+		// Phase 3: Projects API endpoints
+		api.GET("/projects", handler.GetAllProjects)
+		api.GET("/projects/:id", handler.GetProject)
+		api.PUT("/projects/:id", handler.UpdateProject)
+		api.DELETE("/projects/:id", handler.DeleteProject)
+		api.GET("/projects/:id/sessions", handler.GetProjectSessions)
+		// Note: migrate-sessions endpoint removed - migration is handled automatically by DiffSyncService
 	}
 
 	log.Printf("Server starting on %s:%s", cfg.ServerHost, cfg.ServerPort)

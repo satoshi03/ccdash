@@ -14,14 +14,16 @@ type Handler struct {
 	sessionService      *services.SessionService
 	sessionWindowService *services.SessionWindowService
 	p90PredictionService *services.P90PredictionService
+	projectService      *services.ProjectService // Phase 3: Add ProjectService
 }
 
-func NewHandler(tokenService *services.TokenService, sessionService *services.SessionService, sessionWindowService *services.SessionWindowService, p90PredictionService *services.P90PredictionService) *Handler {
+func NewHandler(tokenService *services.TokenService, sessionService *services.SessionService, sessionWindowService *services.SessionWindowService, p90PredictionService *services.P90PredictionService, projectService *services.ProjectService) *Handler {
 	return &Handler{
 		tokenService:        tokenService,
 		sessionService:      sessionService,
 		sessionWindowService: sessionWindowService,
 		p90PredictionService: p90PredictionService,
+		projectService:      projectService, // Phase 3: Initialize ProjectService
 	}
 }
 
@@ -365,5 +367,234 @@ func (h *Handler) GetInitializationStatus(c *gin.Context) {
 	initService := services.GetGlobalInitializationService()
 	state := initService.GetState()
 	c.JSON(http.StatusOK, state)
+}
+
+// Phase 3: Projects API Handlers
+
+// GetAllProjects returns all active projects
+func (h *Handler) GetAllProjects(c *gin.Context) {
+	projects, err := h.projectService.GetAllProjects()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to get projects",
+			"details": err.Error(),
+		})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"projects": projects,
+		"count": len(projects),
+	})
+}
+
+// GetProject returns a specific project by ID
+func (h *Handler) GetProject(c *gin.Context) {
+	projectID := c.Param("id")
+	if projectID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Project ID is required",
+		})
+		return
+	}
+	
+	project, err := h.projectService.GetProjectByID(projectID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to get project",
+			"details": err.Error(),
+		})
+		return
+	}
+	
+	if project == nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "Project not found",
+		})
+		return
+	}
+	
+	// Get sessions for this project
+	sessions, err := h.sessionService.GetSessionsByProject(projectID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to get project sessions",
+			"details": err.Error(),
+		})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"project": project,
+		"sessions": sessions,
+		"session_count": len(sessions),
+	})
+}
+
+// UpdateProject updates an existing project
+func (h *Handler) UpdateProject(c *gin.Context) {
+	projectID := c.Param("id")
+	if projectID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Project ID is required",
+		})
+		return
+	}
+	
+	// Get existing project
+	project, err := h.projectService.GetProjectByID(projectID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to get project",
+			"details": err.Error(),
+		})
+		return
+	}
+	
+	if project == nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "Project not found",
+		})
+		return
+	}
+	
+	// Parse request body
+	var updateRequest struct {
+		Description   *string `json:"description"`
+		RepositoryURL *string `json:"repository_url"`
+		Language      *string `json:"language"`
+		Framework     *string `json:"framework"`
+		IsActive      *bool   `json:"is_active"`
+	}
+	
+	if err := c.ShouldBindJSON(&updateRequest); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Invalid request body",
+			"details": err.Error(),
+		})
+		return
+	}
+	
+	// Update fields if provided
+	if updateRequest.Description != nil {
+		project.Description = updateRequest.Description
+	}
+	if updateRequest.RepositoryURL != nil {
+		project.RepositoryURL = updateRequest.RepositoryURL
+	}
+	if updateRequest.Language != nil {
+		project.Language = updateRequest.Language
+	}
+	if updateRequest.Framework != nil {
+		project.Framework = updateRequest.Framework
+	}
+	if updateRequest.IsActive != nil {
+		project.IsActive = *updateRequest.IsActive
+	}
+	
+	// Update project
+	err = h.projectService.UpdateProject(project)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to update project",
+			"details": err.Error(),
+		})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"project": project,
+		"message": "Project updated successfully",
+	})
+}
+
+// DeleteProject soft deletes a project
+func (h *Handler) DeleteProject(c *gin.Context) {
+	projectID := c.Param("id")
+	if projectID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Project ID is required",
+		})
+		return
+	}
+	
+	err := h.projectService.DeleteProject(projectID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to delete project",
+			"details": err.Error(),
+		})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Project deleted successfully",
+	})
+}
+
+// GetProjectSessions returns all sessions for a specific project
+func (h *Handler) GetProjectSessions(c *gin.Context) {
+	projectID := c.Param("id")
+	if projectID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "Project ID is required",
+		})
+		return
+	}
+	
+	sessions, err := h.sessionService.GetSessionsByProject(projectID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to get project sessions",
+			"details": err.Error(),
+		})
+		return
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"sessions": sessions,
+		"count": len(sessions),
+		"project_id": projectID,
+	})
+}
+
+// MigrateSessionsToProjects migrates sessions without project_id to use projects
+func (h *Handler) MigrateSessionsToProjects(c *gin.Context) {
+	// Get sessions without project_id
+	sessions, err := h.sessionService.GetSessionsWithoutProjectID()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to get sessions for migration",
+			"details": err.Error(),
+		})
+		return
+	}
+	
+	if len(sessions) == 0 {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "No sessions need migration",
+			"migrated_count": 0,
+		})
+		return
+	}
+	
+	migratedCount := 0
+	errorCount := 0
+	
+	for _, session := range sessions {
+		err := h.sessionService.MigrateSessionToProject(session.ID)
+		if err != nil {
+			errorCount++
+			continue
+		}
+		migratedCount++
+	}
+	
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Migration completed",
+		"migrated_count": migratedCount,
+		"error_count": errorCount,
+		"total_sessions": len(sessions),
+	})
 }
 
