@@ -115,6 +115,8 @@ func main() {
 	sessionWindowService := services.NewSessionWindowService(db)
 	p90PredictionService := services.NewP90PredictionService(db)
 	projectService := services.NewProjectService(db) // Phase 3: Add ProjectService
+	jobService := services.NewJobService(db)         // Phase 2: Add JobService
+	jobExecutor := services.NewJobExecutor(jobService, 3) // Phase 2: Add JobExecutor with 3 workers
 
 	// Perform initial log sync if this is a new database (in background)
 	if isNewDatabase {
@@ -152,7 +154,11 @@ func main() {
 		}()
 	}
 
-	handler := handlers.NewHandler(tokenService, sessionService, sessionWindowService, p90PredictionService, projectService) // Phase 3: Add ProjectService
+	// Start job executor
+	jobExecutor.Start()
+	defer jobExecutor.Stop()
+
+	handler := handlers.NewHandler(tokenService, sessionService, sessionWindowService, p90PredictionService, projectService, jobService, jobExecutor) // Phase 2: Add JobService and JobExecutor
 
 	r := gin.Default()
 
@@ -248,6 +254,14 @@ func main() {
 		api.DELETE("/projects/:id", handler.DeleteProject)
 		api.GET("/projects/:id/sessions", handler.GetProjectSessions)
 		// Note: migrate-sessions endpoint removed - migration is handled automatically by DiffSyncService
+		
+		// Phase 2: Jobs API endpoints
+		api.POST("/jobs", handler.CreateJob)
+		api.GET("/jobs", handler.GetJobs)
+		api.GET("/jobs/:id", handler.GetJobByID)
+		api.POST("/jobs/:id/cancel", handler.CancelJob)
+		api.DELETE("/jobs/:id", handler.DeleteJob)
+		api.GET("/jobs/queue/status", handler.GetJobQueueStatus)
 	}
 
 	log.Printf("Server starting on %s:%s", cfg.ServerHost, cfg.ServerPort)

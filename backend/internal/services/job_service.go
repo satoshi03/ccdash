@@ -146,42 +146,136 @@ func (js *JobService) GetJobByID(id string) (*models.Job, error) {
 }
 
 // UpdateJobStatus updates job status and related fields
+// Note: Using DELETE+INSERT workaround due to DuckDB UPDATE constraint bug
 func (js *JobService) UpdateJobStatus(id string, status string, pid *int) error {
+	// First, get the current job data
+	job, err := js.GetJobByID(id)
+	if err != nil {
+		return fmt.Errorf("failed to get job for update: %w", err)
+	}
+	if job == nil {
+		return fmt.Errorf("job not found: %s", id)
+	}
+
 	now := time.Now()
-	
-	if status == models.JobStatusRunning {
-		query := "UPDATE jobs SET status = ?, pid = ?, started_at = ? WHERE id = ?"
-		args := []interface{}{status, pid, now.Format(time.RFC3339), id}
-		_, err := js.db.Exec(query, args...)
-		if err != nil {
-			return fmt.Errorf("failed to update job status: %w", err)
-		}
-	} else if status == models.JobStatusCompleted || status == models.JobStatusFailed || status == models.JobStatusCancelled {
-		query := "UPDATE jobs SET status = ?, pid = NULL, completed_at = ? WHERE id = ?"
-		args := []interface{}{status, now.Format(time.RFC3339), id}
-		_, err := js.db.Exec(query, args...)
-		if err != nil {
-			return fmt.Errorf("failed to update job status: %w", err)
-		}
+
+	// Delete the existing job record
+	_, err = js.db.Exec("DELETE FROM jobs WHERE id = ?", id)
+	if err != nil {
+		return fmt.Errorf("failed to delete job for update: %w", err)
+	}
+
+	// Prepare the new values
+	var pidValue interface{}
+	if pid != nil {
+		pidValue = *pid
+	}
+
+	var startedAt interface{}
+	var completedAt interface{}
+
+	// Handle timestamps - convert *time.Time to string or nil
+	if job.StartedAt != nil {
+		startedAt = job.StartedAt.Format(time.RFC3339)
 	} else {
-		query := "UPDATE jobs SET status = ?, pid = ? WHERE id = ?"
-		args := []interface{}{status, pid, id}
-		_, err := js.db.Exec(query, args...)
-		if err != nil {
-			return fmt.Errorf("failed to update job status: %w", err)
-		}
+		startedAt = nil
+	}
+
+	if job.CompletedAt != nil {
+		completedAt = job.CompletedAt.Format(time.RFC3339)
+	} else {
+		completedAt = nil
+	}
+
+	// Update timestamps based on status
+	if status == models.JobStatusRunning && job.StartedAt == nil {
+		startedAt = now.Format(time.RFC3339)
+	} else if status == models.JobStatusCompleted || status == models.JobStatusFailed || status == models.JobStatusCancelled {
+		completedAt = now.Format(time.RFC3339)
+		pidValue = nil // Clear PID when job completes
+	}
+
+	// Insert the updated job record
+	query := `INSERT INTO jobs (
+		id, project_id, command, execution_directory, yolo_mode, 
+		status, priority, created_at, started_at, completed_at, 
+		output_log, error_log, exit_code, pid, scheduled_at, schedule_type
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+	var scheduledAt interface{}
+	if job.ScheduledAt != nil {
+		scheduledAt = job.ScheduledAt.Format(time.RFC3339)
+	} else {
+		scheduledAt = nil
+	}
+
+	_, err = js.db.Exec(query,
+		job.ID, job.ProjectID, job.Command, job.ExecutionDirectory, job.YoloMode,
+		status, job.Priority, job.CreatedAt.Format(time.RFC3339), startedAt, completedAt,
+		job.OutputLog, job.ErrorLog, job.ExitCode, pidValue, scheduledAt, job.ScheduleType,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to insert updated job: %w", err)
 	}
 	
 	return nil
 }
 
 // UpdateJobLogs updates job output and error logs
+// Note: Using DELETE+INSERT workaround due to DuckDB UPDATE constraint bug
 func (js *JobService) UpdateJobLogs(id string, outputLog, errorLog *string, exitCode *int) error {
-	query := "UPDATE jobs SET output_log = ?, error_log = ?, exit_code = ? WHERE id = ?"
-	_, err := js.db.Exec(query, outputLog, errorLog, exitCode, id)
+	// First, get the current job data
+	job, err := js.GetJobByID(id)
 	if err != nil {
-		return fmt.Errorf("failed to update job logs: %w", err)
+		return fmt.Errorf("failed to get job for log update: %w", err)
 	}
+	if job == nil {
+		return fmt.Errorf("job not found: %s", id)
+	}
+
+	// Delete the existing job record
+	_, err = js.db.Exec("DELETE FROM jobs WHERE id = ?", id)
+	if err != nil {
+		return fmt.Errorf("failed to delete job for log update: %w", err)
+	}
+
+	// Insert the updated job record with new logs
+	query := `INSERT INTO jobs (
+		id, project_id, command, execution_directory, yolo_mode, 
+		status, priority, created_at, started_at, completed_at, 
+		output_log, error_log, exit_code, pid, scheduled_at, schedule_type
+	) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+
+	var startedAtStr interface{}
+	if job.StartedAt != nil {
+		startedAtStr = job.StartedAt.Format(time.RFC3339)
+	} else {
+		startedAtStr = nil
+	}
+
+	var completedAtStr interface{}
+	if job.CompletedAt != nil {
+		completedAtStr = job.CompletedAt.Format(time.RFC3339)
+	} else {
+		completedAtStr = nil
+	}
+
+	var scheduledAtStr interface{}
+	if job.ScheduledAt != nil {
+		scheduledAtStr = job.ScheduledAt.Format(time.RFC3339)
+	} else {
+		scheduledAtStr = nil
+	}
+
+	_, err = js.db.Exec(query,
+		job.ID, job.ProjectID, job.Command, job.ExecutionDirectory, job.YoloMode,
+		job.Status, job.Priority, job.CreatedAt.Format(time.RFC3339), startedAtStr, completedAtStr,
+		outputLog, errorLog, exitCode, job.PID, scheduledAtStr, job.ScheduleType,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to insert job with updated logs: %w", err)
+	}
+	
 	return nil
 }
 
