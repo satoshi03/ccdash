@@ -2,6 +2,7 @@ package services
 
 import (
 	"database/sql"
+	"strings"
 	"testing"
 	"time"
 
@@ -482,7 +483,7 @@ func TestJobService_ValidateScheduleParams(t *testing.T) {
 			if tt.wantErr {
 				if err == nil {
 					t.Error("Expected error but got nil")
-				} else if tt.errMsg != "" && !contains(err.Error(), tt.errMsg) {
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
 					t.Errorf("Expected error containing '%s', got '%s'", tt.errMsg, err.Error())
 				}
 			} else {
@@ -614,7 +615,3 @@ func timePtr(t time.Time) *time.Time {
 	return &t
 }
 
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && s[:len(substr)] == substr || 
-		len(s) > len(substr) && contains(s[1:], substr)
-}
