@@ -51,6 +51,7 @@ func setupJobExecutorTestDB(t *testing.T) *sql.DB {
 			pid INTEGER,
 			scheduled_at TEXT,
 			schedule_type TEXT,
+			schedule_params TEXT,
 			FOREIGN KEY (project_id) REFERENCES projects(id)
 		)`,
 	}

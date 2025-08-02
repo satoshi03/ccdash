@@ -2,6 +2,7 @@ package services
 
 import (
 	"database/sql"
+	"strings"
 	"testing"
 	"time"
 
@@ -54,6 +55,7 @@ func setupJobTestDB(t *testing.T) *sql.DB {
 			pid INTEGER,
 			scheduled_at VARCHAR,
 			schedule_type VARCHAR,
+			schedule_params TEXT,
 			FOREIGN KEY (project_id) REFERENCES projects(id)
 		)`
 
@@ -399,3 +401,217 @@ func TestJobService_DeleteJob_RunningJob(t *testing.T) {
 		t.Error("Expected error when deleting running job")
 	}
 }
+
+// Test schedule parameter validation
+func TestJobService_ValidateScheduleParams(t *testing.T) {
+	db := setupJobTestDB(t)
+	defer db.Close()
+	
+	jobService := NewJobService(db)
+	
+	tests := []struct {
+		name         string
+		scheduleType string
+		params       *models.ScheduleParams
+		wantErr      bool
+		errMsg       string
+	}{
+		{
+			name:         "immediate - no params required",
+			scheduleType: models.ScheduleTypeImmediate,
+			params:       nil,
+			wantErr:      false,
+		},
+		{
+			name:         "after_reset - no params required",
+			scheduleType: models.ScheduleTypeAfterReset,
+			params:       nil,
+			wantErr:      false,
+		},
+		{
+			name:         "delayed - missing params",
+			scheduleType: models.ScheduleTypeDelayed,
+			params:       nil,
+			wantErr:      true,
+			errMsg:       "delay_hours is required",
+		},
+		{
+			name:         "delayed - valid params",
+			scheduleType: models.ScheduleTypeDelayed,
+			params:       &models.ScheduleParams{DelayHours: intPtr(2)},
+			wantErr:      false,
+		},
+		{
+			name:         "delayed - invalid delay hours",
+			scheduleType: models.ScheduleTypeDelayed,
+			params:       &models.ScheduleParams{DelayHours: intPtr(200)},
+			wantErr:      true,
+			errMsg:       "must be between 1 and 168",
+		},
+		{
+			name:         "scheduled - missing params",
+			scheduleType: models.ScheduleTypeScheduled,
+			params:       nil,
+			wantErr:      true,
+			errMsg:       "scheduled_time is required",
+		},
+		{
+			name:         "scheduled - valid params",
+			scheduleType: models.ScheduleTypeScheduled,
+			params:       &models.ScheduleParams{ScheduledTime: timePtr(time.Now().Add(time.Hour))},
+			wantErr:      false,
+		},
+		{
+			name:         "scheduled - past time",
+			scheduleType: models.ScheduleTypeScheduled,
+			params:       &models.ScheduleParams{ScheduledTime: timePtr(time.Now().Add(-time.Hour))},
+			wantErr:      true,
+			errMsg:       "must be in the future",
+		},
+		{
+			name:         "invalid schedule type",
+			scheduleType: "invalid",
+			params:       nil,
+			wantErr:      true,
+			errMsg:       "invalid schedule type",
+		},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := jobService.validateScheduleParams(tt.scheduleType, tt.params)
+			if tt.wantErr {
+				if err == nil {
+					t.Error("Expected error but got nil")
+				} else if tt.errMsg != "" && !strings.Contains(err.Error(), tt.errMsg) {
+					t.Errorf("Expected error containing '%s', got '%s'", tt.errMsg, err.Error())
+				}
+			} else {
+				if err != nil {
+					t.Errorf("Expected no error but got: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// Test creating jobs with schedule parameters
+func TestJobService_CreateJob_WithScheduleParams(t *testing.T) {
+	db := setupJobTestDB(t)
+	defer db.Close()
+	
+	project := createTestProject(t, db)
+	jobService := NewJobService(db)
+	
+	// Test delayed job
+	delayHours := 3
+	req := &models.CreateJobRequest{
+		ProjectID:    project.ID,
+		Command:      "delayed command",
+		YoloMode:     false,
+		ScheduleType: models.ScheduleTypeDelayed,
+		ScheduleParams: &models.ScheduleParams{
+			DelayHours: &delayHours,
+		},
+	}
+	
+	job, err := jobService.CreateJob(req)
+	if err != nil {
+		t.Fatalf("Failed to create delayed job: %v", err)
+	}
+	
+	if job.ScheduledAt == nil {
+		t.Error("ScheduledAt should be set for delayed job")
+	} else {
+		expectedTime := time.Now().Add(time.Duration(delayHours) * time.Hour)
+		timeDiff := job.ScheduledAt.Sub(expectedTime)
+		if timeDiff > time.Minute || timeDiff < -time.Minute {
+			t.Errorf("ScheduledAt time incorrect, expected around %v, got %v", expectedTime, *job.ScheduledAt)
+		}
+	}
+	
+	if job.ScheduleParams == nil {
+		t.Error("ScheduleParams should be saved")
+	}
+	
+	// Test scheduled job
+	scheduledTime := time.Now().Add(24 * time.Hour)
+	req2 := &models.CreateJobRequest{
+		ProjectID:    project.ID,
+		Command:      "scheduled command",
+		YoloMode:     true,
+		ScheduleType: models.ScheduleTypeScheduled,
+		ScheduleParams: &models.ScheduleParams{
+			ScheduledTime: &scheduledTime,
+		},
+	}
+	
+	job2, err := jobService.CreateJob(req2)
+	if err != nil {
+		t.Fatalf("Failed to create scheduled job: %v", err)
+	}
+	
+	if job2.ScheduledAt == nil {
+		t.Error("ScheduledAt should be set for scheduled job")
+	} else if !job2.ScheduledAt.Equal(scheduledTime) {
+		t.Errorf("ScheduledAt should match scheduled_time, expected %v, got %v", scheduledTime, *job2.ScheduledAt)
+	}
+}
+
+// Test GetScheduledJobs
+func TestJobService_GetScheduledJobs(t *testing.T) {
+	db := setupJobTestDB(t)
+	defer db.Close()
+	
+	project := createTestProject(t, db)
+	jobService := NewJobService(db)
+	
+	// Create immediate job (should be returned)
+	req1 := &models.CreateJobRequest{
+		ProjectID:    project.ID,
+		Command:      "immediate job",
+		ScheduleType: models.ScheduleTypeImmediate,
+	}
+	job1, _ := jobService.CreateJob(req1)
+	
+	// Create future scheduled job (should not be returned)
+	futureTime := time.Now().Add(24 * time.Hour)
+	req2 := &models.CreateJobRequest{
+		ProjectID:    project.ID,
+		Command:      "future job",
+		ScheduleType: models.ScheduleTypeScheduled,
+		ScheduleParams: &models.ScheduleParams{
+			ScheduledTime: &futureTime,
+		},
+	}
+	jobService.CreateJob(req2)
+	
+	// Create past scheduled job (should be returned)
+	// Note: We can't use CreateJob for past time due to validation,
+	// but in real scenarios, jobs might become "past" if not executed on time
+	
+	// Get scheduled jobs
+	scheduledJobs, err := jobService.GetScheduledJobs()
+	if err != nil {
+		t.Fatalf("GetScheduledJobs failed: %v", err)
+	}
+	
+	// Should only return the immediate job
+	if len(scheduledJobs) != 1 {
+		t.Errorf("Expected 1 scheduled job, got %d", len(scheduledJobs))
+	}
+	
+	if len(scheduledJobs) > 0 && scheduledJobs[0].ID != job1.ID {
+		t.Errorf("Expected job ID %s, got %s", job1.ID, scheduledJobs[0].ID)
+	}
+}
+
+// Helper functions
+func intPtr(i int) *int {
+	return &i
+}
+
+func timePtr(t time.Time) *time.Time {
+	return &t
+}
+
