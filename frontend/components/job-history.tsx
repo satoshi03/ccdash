@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -35,11 +35,11 @@ export function JobHistory({ onJobSelect, refreshTrigger }: JobHistoryProps) {
   const { cancelJob, deleteJob, loading: actionLoading } = useJobActions()
 
   // Refresh when refreshTrigger changes
-  useState(() => {
-    if (refreshTrigger) {
+  useEffect(() => {
+    if (refreshTrigger && refreshTrigger > 0) {
       refetch()
     }
-  })
+  }, [refreshTrigger, refetch])
 
   const getStatusBadge = (status: Job['status']) => {
     const statusConfig = {

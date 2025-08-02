@@ -48,3 +48,13 @@ backend/bin
 
 # nginx personal configuration
 nginx/ccdash.conf
+
+# log files
+*.log
+server.log
+test_server.log
+test_server2.log
+backend/cmd/server/server.log
+
+# serena files
+.serena/
