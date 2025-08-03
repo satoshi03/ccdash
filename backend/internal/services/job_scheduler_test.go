@@ -1,7 +1,6 @@
 package services
 
 import (
-	"database/sql"
 	"encoding/json"
 	"testing"
 	"time"
@@ -28,7 +27,7 @@ func TestJobScheduler_AfterResetJobs(t *testing.T) {
 	projectID := "test-project-1"
 	_, err := db.Exec(`
 		INSERT INTO projects (id, name, path, created_at, updated_at)
-		VALUES (?, ?, ?, datetime('now'), datetime('now'))`,
+		VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
 		projectID, "Test Project", "/test/path")
 	require.NoError(t, err)
 
@@ -53,7 +52,7 @@ func TestJobScheduler_AfterResetJobs(t *testing.T) {
 			total_input_tokens, total_output_tokens, total_tokens,
 			message_count, session_count, total_cost,
 			created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0.0, datetime('now'), datetime('now'))`,
+		) VALUES (?, ?, ?, ?, ?, 0, 0, 0, 0, 0, 0.0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
 		windowID,
 		time.Now().Format(time.RFC3339),
 		resetTime.Format(time.RFC3339),
@@ -77,7 +76,7 @@ func TestJobScheduler_AfterResetJobs(t *testing.T) {
 	newResetTime := time.Now().Add(10 * time.Hour)
 	_, err = db.Exec(`
 		UPDATE session_windows 
-		SET reset_time = ?, window_end = ?, updated_at = datetime('now')
+		SET reset_time = ?, window_end = ?, updated_at = CURRENT_TIMESTAMP
 		WHERE id = ?`,
 		newResetTime.Format(time.RFC3339),
 		newResetTime.Format(time.RFC3339),
@@ -109,7 +108,7 @@ func TestJobScheduler_DelayedJobs(t *testing.T) {
 	projectID := "test-project-2"
 	_, err := db.Exec(`
 		INSERT INTO projects (id, name, path, created_at, updated_at)
-		VALUES (?, ?, ?, datetime('now'), datetime('now'))`,
+		VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
 		projectID, "Test Project 2", "/test/path2")
 	require.NoError(t, err)
 
@@ -170,7 +169,7 @@ func TestJobScheduler_ScheduledJobs(t *testing.T) {
 	projectID := "test-project-3"
 	_, err := db.Exec(`
 		INSERT INTO projects (id, name, path, created_at, updated_at)
-		VALUES (?, ?, ?, datetime('now'), datetime('now'))`,
+		VALUES (?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
 		projectID, "Test Project 3", "/test/path3")
 	require.NoError(t, err)
 

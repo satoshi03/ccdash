@@ -3,7 +3,6 @@ package services
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"log"
 	"sync"
@@ -167,7 +166,7 @@ func (js *JobScheduler) checkScheduledJobs() error {
 		FROM jobs 
 		WHERE status = ? 
 		AND scheduled_at IS NOT NULL 
-		AND scheduled_at <= ?
+		AND scheduled_at <= CAST(? AS TIMESTAMP)
 		AND schedule_type IN (?, ?)
 		ORDER BY priority DESC, scheduled_at ASC`
 	
