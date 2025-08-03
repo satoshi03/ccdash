@@ -334,11 +334,32 @@ func (je *JobExecutor) executeJob(jobID string) {
 	// Inherit environment variables from backend process
 	cmd.Env = os.Environ()
 	
-	// Set process group ID for proper process management while preserving permissions
+	// Ensure Claude Code environment variables are set
+	// These are required for claude command to work properly
+	claudeCodeSet := false
+	entrypointSet := false
+	for i, env := range cmd.Env {
+		if strings.HasPrefix(env, "CLAUDECODE=") {
+			cmd.Env[i] = "CLAUDECODE=1"
+			claudeCodeSet = true
+		} else if strings.HasPrefix(env, "CLAUDE_CODE_ENTRYPOINT=") {
+			cmd.Env[i] = "CLAUDE_CODE_ENTRYPOINT=cli"
+			entrypointSet = true
+		}
+	}
+	if !claudeCodeSet {
+		cmd.Env = append(cmd.Env, "CLAUDECODE=1")
+	}
+	if !entrypointSet {
+		cmd.Env = append(cmd.Env, "CLAUDE_CODE_ENTRYPOINT=cli")
+	}
+	
+	// Set process attributes to prevent TTY conflicts
 	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Setpgid: true,
 		// Inherit the same user/group permissions as the backend process
 		Credential: nil, // nil means inherit current process credentials
+		// Prevent the process from being stopped by TTY signals
+		Setsid: true, // Create a new session to detach from controlling terminal
 	}
 	
 	// Set stdin to /dev/null to prevent hanging on input
@@ -525,7 +546,8 @@ func (je *JobExecutor) buildCommand(command string, yoloMode bool) []string {
 		args = append(args, "--dangerously-skip-permissions")
 	}
 	
-	args = append(args, "-p", command)
+	// Use --print flag for non-interactive mode
+	args = append(args, "--print", command)
 	
 	return args
 }
