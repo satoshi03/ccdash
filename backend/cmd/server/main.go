@@ -158,6 +158,11 @@ func main() {
 	jobExecutor.Start()
 	defer jobExecutor.Stop()
 
+	// Start job scheduler
+	jobScheduler := services.NewJobScheduler(db, jobService, jobExecutor, sessionWindowService)
+	jobScheduler.Start()
+	defer jobScheduler.Stop()
+
 	handler := handlers.NewHandler(tokenService, sessionService, sessionWindowService, p90PredictionService, projectService, jobService, jobExecutor) // Phase 2: Add JobService and JobExecutor
 
 	r := gin.Default()
