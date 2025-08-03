@@ -21,7 +21,7 @@ func TestJobScheduler_AfterResetJobs(t *testing.T) {
 	defer jobExecutor.Stop()
 
 	windowService := &SessionWindowService{db: db}
-	scheduler := NewJobScheduler(db, jobService, jobExecutor, windowService)
+	scheduler := NewJobScheduler(db, jobService, jobExecutor, windowService, 1*time.Minute)
 
 	// Create a project
 	projectID := "test-project-1"
@@ -102,7 +102,7 @@ func TestJobScheduler_DelayedJobs(t *testing.T) {
 	defer jobExecutor.Stop()
 
 	windowService := &SessionWindowService{db: db}
-	scheduler := NewJobScheduler(db, jobService, jobExecutor, windowService)
+	scheduler := NewJobScheduler(db, jobService, jobExecutor, windowService, 1*time.Minute)
 
 	// Create a project
 	projectID := "test-project-2"
@@ -163,7 +163,7 @@ func TestJobScheduler_ScheduledJobs(t *testing.T) {
 	defer jobExecutor.Stop()
 
 	windowService := &SessionWindowService{db: db}
-	scheduler := NewJobScheduler(db, jobService, jobExecutor, windowService)
+	scheduler := NewJobScheduler(db, jobService, jobExecutor, windowService, 1*time.Minute)
 
 	// Create a project
 	projectID := "test-project-3"
@@ -228,7 +228,7 @@ func TestJobScheduler_GetSchedulerStatus(t *testing.T) {
 	jobService := NewJobService(db)
 	jobExecutor := NewJobExecutor(jobService, 1)
 	windowService := &SessionWindowService{db: db}
-	scheduler := NewJobScheduler(db, jobService, jobExecutor, windowService)
+	scheduler := NewJobScheduler(db, jobService, jobExecutor, windowService, 1*time.Minute)
 
 	// Get status before starting
 	status := scheduler.GetSchedulerStatus()

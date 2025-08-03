@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -18,10 +19,11 @@ type JobScheduler struct {
 	windowService *SessionWindowService
 	db            *sql.DB
 	
-	ticker        *time.Ticker
-	ctx           context.Context
-	cancel        context.CancelFunc
-	wg            sync.WaitGroup
+	ticker          *time.Ticker
+	pollingInterval time.Duration
+	ctx             context.Context
+	cancel          context.CancelFunc
+	wg              sync.WaitGroup
 	
 	// Last known reset time to detect window changes
 	lastResetTime *time.Time
@@ -29,25 +31,26 @@ type JobScheduler struct {
 }
 
 // NewJobScheduler creates a new job scheduler
-func NewJobScheduler(db *sql.DB, jobService *JobService, jobExecutor *JobExecutor, windowService *SessionWindowService) *JobScheduler {
+func NewJobScheduler(db *sql.DB, jobService *JobService, jobExecutor *JobExecutor, windowService *SessionWindowService, pollingInterval time.Duration) *JobScheduler {
 	ctx, cancel := context.WithCancel(context.Background())
 	
 	return &JobScheduler{
-		jobService:    jobService,
-		jobExecutor:   jobExecutor,
-		windowService: windowService,
-		db:            db,
-		ctx:           ctx,
-		cancel:        cancel,
+		jobService:      jobService,
+		jobExecutor:     jobExecutor,
+		windowService:   windowService,
+		db:              db,
+		pollingInterval: pollingInterval,
+		ctx:             ctx,
+		cancel:          cancel,
 	}
 }
 
 // Start starts the scheduler
 func (js *JobScheduler) Start() {
-	log.Println("Starting job scheduler")
+	log.Printf("Starting job scheduler with polling interval: %v", js.pollingInterval)
 	
-	// Check every minute
-	js.ticker = time.NewTicker(1 * time.Minute)
+	// Use configured polling interval
+	js.ticker = time.NewTicker(js.pollingInterval)
 	
 	js.wg.Add(1)
 	go js.schedulerLoop()
@@ -85,15 +88,44 @@ func (js *JobScheduler) schedulerLoop() {
 
 // checkAndExecuteJobs checks for jobs that need to be executed
 func (js *JobScheduler) checkAndExecuteJobs() {
-	// Check for after_reset jobs
-	if err := js.checkAfterResetJobs(); err != nil {
+	// Check for after_reset jobs with retry
+	if err := js.checkAfterResetJobsWithRetry(); err != nil {
 		log.Printf("Error checking after_reset jobs: %v", err)
 	}
 	
-	// Check for delayed and scheduled jobs
-	if err := js.checkScheduledJobs(); err != nil {
+	// Check for delayed and scheduled jobs with retry
+	if err := js.checkScheduledJobsWithRetry(); err != nil {
 		log.Printf("Error checking scheduled jobs: %v", err)
 	}
+}
+
+// checkAfterResetJobsWithRetry checks for after_reset jobs with retry logic
+func (js *JobScheduler) checkAfterResetJobsWithRetry() error {
+	const maxRetries = 3
+	const retryDelay = 5 * time.Second
+	
+	var lastErr error
+	for i := 0; i < maxRetries; i++ {
+		err := js.checkAfterResetJobs()
+		if err == nil {
+			return nil
+		}
+		
+		lastErr = err
+		log.Printf("Error checking after_reset jobs (attempt %d/%d): %v", i+1, maxRetries, err)
+		
+		// Check if it's a database connection error
+		if isDBConnectionError(err) && i < maxRetries-1 {
+			log.Printf("Database connection error detected, retrying in %v...", retryDelay)
+			time.Sleep(retryDelay)
+			continue
+		}
+		
+		// For non-connection errors, return immediately
+		return err
+	}
+	
+	return fmt.Errorf("failed after %d retries: %w", maxRetries, lastErr)
 }
 
 // checkAfterResetJobs checks for jobs scheduled to run after reset
@@ -154,6 +186,35 @@ func (js *JobScheduler) checkAfterResetJobs() error {
 	}
 	
 	return nil
+}
+
+// checkScheduledJobsWithRetry checks for scheduled jobs with retry logic
+func (js *JobScheduler) checkScheduledJobsWithRetry() error {
+	const maxRetries = 3
+	const retryDelay = 5 * time.Second
+	
+	var lastErr error
+	for i := 0; i < maxRetries; i++ {
+		err := js.checkScheduledJobs()
+		if err == nil {
+			return nil
+		}
+		
+		lastErr = err
+		log.Printf("Error checking scheduled jobs (attempt %d/%d): %v", i+1, maxRetries, err)
+		
+		// Check if it's a database connection error
+		if isDBConnectionError(err) && i < maxRetries-1 {
+			log.Printf("Database connection error detected, retrying in %v...", retryDelay)
+			time.Sleep(retryDelay)
+			continue
+		}
+		
+		// For non-connection errors, return immediately
+		return err
+	}
+	
+	return fmt.Errorf("failed after %d retries: %w", maxRetries, lastErr)
 }
 
 // checkScheduledJobs checks for delayed and scheduled jobs
@@ -223,4 +284,31 @@ func (js *JobScheduler) GetSchedulerStatus() map[string]interface{} {
 	}
 	
 	return status
+}
+
+// isDBConnectionError checks if an error is a database connection error
+func isDBConnectionError(err error) bool {
+	if err == nil {
+		return false
+	}
+	
+	errStr := err.Error()
+	connectionErrors := []string{
+		"database is locked",
+		"connection refused",
+		"no such host",
+		"connection reset",
+		"broken pipe",
+		"bad connection",
+		"driver: bad connection",
+		"sql: database is closed",
+	}
+	
+	for _, connErr := range connectionErrors {
+		if strings.Contains(strings.ToLower(errStr), connErr) {
+			return true
+		}
+	}
+	
+	return false
 }

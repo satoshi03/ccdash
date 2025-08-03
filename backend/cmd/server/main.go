@@ -116,7 +116,7 @@ func main() {
 	p90PredictionService := services.NewP90PredictionService(db)
 	projectService := services.NewProjectService(db) // Phase 3: Add ProjectService
 	jobService := services.NewJobService(db)         // Phase 2: Add JobService
-	jobExecutor := services.NewJobExecutor(jobService, 3) // Phase 2: Add JobExecutor with 3 workers
+	jobExecutor := services.NewJobExecutor(jobService, cfg.JobExecutorWorkerCount) // Phase 2: Add JobExecutor with configurable workers
 
 	// Perform initial log sync if this is a new database (in background)
 	if isNewDatabase {
@@ -159,7 +159,7 @@ func main() {
 	defer jobExecutor.Stop()
 
 	// Start job scheduler
-	jobScheduler := services.NewJobScheduler(db, jobService, jobExecutor, sessionWindowService)
+	jobScheduler := services.NewJobScheduler(db, jobService, jobExecutor, sessionWindowService, cfg.JobSchedulerPollingInterval)
 	jobScheduler.Start()
 	defer jobScheduler.Stop()
 
@@ -273,6 +273,8 @@ func main() {
 	log.Printf("Database path: %s", cfg.DatabasePath)
 	log.Printf("Claude projects directory: %s", cfg.ClaudeProjectsDir)
 	log.Printf("Frontend URL: %s", cfg.FrontendURL)
+	log.Printf("Job Scheduler polling interval: %v", cfg.JobSchedulerPollingInterval)
+	log.Printf("Job Executor worker count: %d", cfg.JobExecutorWorkerCount)
 
 	if err := r.Run(cfg.ServerHost + ":" + cfg.ServerPort); err != nil {
 		log.Fatal("Failed to start server:", err)
