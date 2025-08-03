@@ -206,7 +206,7 @@ export function JobHistory({ onJobSelect, refreshTrigger }: JobHistoryProps) {
                     読み込み中...
                   </TableCell>
                 </TableRow>
-              ) : jobs.length === 0 ? (
+              ) : !jobs || jobs.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
                     ジョブが見つかりません
@@ -281,7 +281,7 @@ export function JobHistory({ onJobSelect, refreshTrigger }: JobHistoryProps) {
         </div>
 
         {/* Pagination Info */}
-        {jobs.length > 0 && (
+        {jobs && jobs.length > 0 && (
           <div className="mt-4 text-sm text-muted-foreground">
             {jobs.length} 件のジョブを表示
           </div>
