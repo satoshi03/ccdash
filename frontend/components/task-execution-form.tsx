@@ -8,9 +8,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, Play, AlertCircle } from 'lucide-react'
+import { Loader2, Play, AlertCircle, Clock } from 'lucide-react'
 import { useProjects, useCreateJob } from '@/hooks/use-job-api'
 import { CreateJobRequest } from '@/lib/api'
+import { Slider } from '@/components/ui/slider'
+import { Input } from '@/components/ui/input'
+import { format } from 'date-fns'
+import { ja } from 'date-fns/locale'
 
 interface TaskExecutionFormProps {
   onJobCreated?: () => void
@@ -24,6 +28,9 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
   const [command, setCommand] = useState('')
   const [yoloMode, setYoloMode] = useState(false)
   const [scheduleType, setScheduleType] = useState('immediate')
+  const [delayHours, setDelayHours] = useState(1)
+  const [scheduledDate, setScheduledDate] = useState('')
+  const [scheduledTime, setScheduledTime] = useState('')
   const [success, setSuccess] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -42,6 +49,18 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
         schedule_type: scheduleType,
       }
 
+      // Add schedule params based on schedule type
+      if (scheduleType === 'delayed') {
+        request.schedule_params = {
+          delay_hours: delayHours
+        }
+      } else if (scheduleType === 'scheduled' && scheduledDate && scheduledTime) {
+        const scheduledDateTime = new Date(`${scheduledDate}T${scheduledTime}:00`)
+        request.schedule_params = {
+          scheduled_time: scheduledDateTime.toISOString()
+        }
+      }
+
       const job = await createJob(request)
       setSuccess(`Job created successfully: ${job.id}`)
       
@@ -49,6 +68,9 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
       setCommand('')
       setYoloMode(false)
       setScheduleType('immediate')
+      setDelayHours(1)
+      setScheduledDate('')
+      setScheduledTime('')
       
       // Notify parent component
       if (onJobCreated) {
@@ -143,10 +165,74 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
               <SelectContent>
                 <SelectItem value="immediate">即座に実行</SelectItem>
                 <SelectItem value="after_reset">次回リセット後</SelectItem>
-                <SelectItem value="custom">カスタム</SelectItem>
+                <SelectItem value="delayed">N時間後に実行</SelectItem>
+                <SelectItem value="scheduled">日時を指定</SelectItem>
               </SelectContent>
             </Select>
           </div>
+
+          {/* Delayed Schedule Options */}
+          {scheduleType === 'delayed' && (
+            <div className="space-y-2">
+              <Label>実行まで: {delayHours}時間後</Label>
+              <Slider
+                value={[delayHours]}
+                onValueChange={([value]) => setDelayHours(value)}
+                min={1}
+                max={72}
+                step={1}
+                className="w-full"
+              />
+              <div className="text-sm text-muted-foreground">
+                実行予定時刻: {format(new Date(Date.now() + delayHours * 60 * 60 * 1000), 'yyyy年MM月dd日 HH:mm', { locale: ja })}
+              </div>
+            </div>
+          )}
+
+          {/* Scheduled Date/Time Options */}
+          {scheduleType === 'scheduled' && (
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="space-y-1">
+                  <Label htmlFor="scheduled-date">実行日</Label>
+                  <Input
+                    id="scheduled-date"
+                    type="date"
+                    value={scheduledDate}
+                    onChange={(e) => setScheduledDate(e.target.value)}
+                    min={format(new Date(), 'yyyy-MM-dd')}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="scheduled-time">実行時刻</Label>
+                  <Input
+                    id="scheduled-time"
+                    type="time"
+                    value={scheduledTime}
+                    onChange={(e) => setScheduledTime(e.target.value)}
+                  />
+                </div>
+              </div>
+              {scheduledDate && scheduledTime && (
+                <div className="text-sm text-muted-foreground">
+                  実行予定: {format(new Date(`${scheduledDate}T${scheduledTime}:00`), 'yyyy年MM月dd日 HH:mm', { locale: ja })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Schedule Preview */}
+          {scheduleType !== 'immediate' && (
+            <Alert>
+              <Clock className="h-4 w-4" />
+              <AlertDescription>
+                {scheduleType === 'after_reset' && 'セッションウィンドウがリセットされた後に実行されます。'}
+                {scheduleType === 'delayed' && `${delayHours}時間後に実行されます。`}
+                {scheduleType === 'scheduled' && scheduledDate && scheduledTime && 
+                  `${format(new Date(`${scheduledDate}T${scheduledTime}:00`), 'yyyy年MM月dd日 HH:mm', { locale: ja })}に実行されます。`}
+              </AlertDescription>
+            </Alert>
+          )}
 
           {/* Error Display */}
           {createError && (
@@ -166,7 +252,8 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
           {/* Submit Button */}
           <Button
             type="submit"
-            disabled={!selectedProjectId || !command.trim() || createLoading}
+            disabled={!selectedProjectId || !command.trim() || createLoading || 
+              (scheduleType === 'scheduled' && (!scheduledDate || !scheduledTime))}
             className="w-full"
           >
             {createLoading ? (

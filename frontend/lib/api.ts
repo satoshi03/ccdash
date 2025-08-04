@@ -139,6 +139,10 @@ export interface CreateJobRequest {
   command: string
   yolo_mode: boolean
   schedule_type: string
+  schedule_params?: {
+    delay_hours?: number
+    scheduled_time?: string
+  }
 }
 
 export interface JobFilters {

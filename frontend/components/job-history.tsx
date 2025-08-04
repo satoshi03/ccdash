@@ -18,7 +18,9 @@ import {
   Square,
   Trash2,
   RefreshCw,
-  Filter
+  Filter,
+  Clock,
+  Calendar
 } from 'lucide-react'
 import { useJobs, useJobActions, useProjects } from '@/hooks/use-job-api'
 import { Job, JobFilters } from '@/lib/api'
@@ -70,6 +72,23 @@ export function JobHistory({ onJobSelect, refreshTrigger }: JobHistoryProps) {
       hour: '2-digit',
       minute: '2-digit',
     })
+  }
+
+  const getScheduleInfo = (job: Job) => {
+    if (!job.schedule_type || job.schedule_type === 'immediate') {
+      return null
+    }
+
+    const scheduleTypeLabel = {
+      after_reset: 'リセット後',
+      delayed: '遅延実行',
+      scheduled: '時刻指定'
+    }
+
+    return {
+      type: scheduleTypeLabel[job.schedule_type as keyof typeof scheduleTypeLabel] || job.schedule_type,
+      scheduledAt: job.scheduled_at
+    }
   }
 
   const formatDuration = (startedAt?: string, completedAt?: string) => {
@@ -194,6 +213,7 @@ export function JobHistory({ onJobSelect, refreshTrigger }: JobHistoryProps) {
                 <TableHead>ステータス</TableHead>
                 <TableHead>プロジェクト</TableHead>
                 <TableHead>コマンド</TableHead>
+                <TableHead>スケジュール</TableHead>
                 <TableHead>実行時間</TableHead>
                 <TableHead>作成日時</TableHead>
                 <TableHead className="text-right">アクション</TableHead>
@@ -202,13 +222,13 @@ export function JobHistory({ onJobSelect, refreshTrigger }: JobHistoryProps) {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8">
+                  <TableCell colSpan={7} className="text-center py-8">
                     読み込み中...
                   </TableCell>
                 </TableRow>
               ) : !jobs || jobs.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     ジョブが見つかりません
                   </TableCell>
                 </TableRow>
@@ -233,6 +253,25 @@ export function JobHistory({ onJobSelect, refreshTrigger }: JobHistoryProps) {
                           YOLO
                         </Badge>
                       )}
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const scheduleInfo = getScheduleInfo(job)
+                        if (!scheduleInfo) return '-'
+                        
+                        return (
+                          <div className="flex items-center gap-1">
+                            {job.schedule_type === 'scheduled' && <Calendar className="h-3 w-3" />}
+                            {job.schedule_type === 'delayed' && <Clock className="h-3 w-3" />}
+                            <span className="text-sm">{scheduleInfo.type}</span>
+                            {scheduleInfo.scheduledAt && (
+                              <div className="text-xs text-muted-foreground">
+                                {formatDateTime(scheduleInfo.scheduledAt)}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })()}
                     </TableCell>
                     <TableCell>
                       {formatDuration(job.started_at, job.completed_at)}
