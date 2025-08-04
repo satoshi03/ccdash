@@ -40,6 +40,51 @@ func setupTestDB(t *testing.T) *sql.DB {
 			output_tokens INTEGER DEFAULT 0,
 			FOREIGN KEY (session_id) REFERENCES sessions(id)
 		);
+
+		CREATE TABLE IF NOT EXISTS projects (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL,
+			path TEXT NOT NULL,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		);
+
+		CREATE TABLE IF NOT EXISTS jobs (
+			id TEXT PRIMARY KEY,
+			project_id TEXT NOT NULL,
+			command TEXT NOT NULL,
+			execution_directory TEXT NOT NULL,
+			yolo_mode BOOLEAN DEFAULT false,
+			status TEXT DEFAULT 'pending',
+			priority INTEGER DEFAULT 0,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			started_at TIMESTAMP,
+			completed_at TIMESTAMP,
+			output_log TEXT,
+			error_log TEXT,
+			exit_code INTEGER,
+			pid INTEGER,
+			scheduled_at TIMESTAMP,
+			schedule_type TEXT,
+			schedule_params TEXT,
+			FOREIGN KEY (project_id) REFERENCES projects(id)
+		);
+
+		CREATE TABLE IF NOT EXISTS session_windows (
+			id TEXT PRIMARY KEY,
+			window_start TIMESTAMP NOT NULL,
+			window_end TIMESTAMP NOT NULL,
+			reset_time TIMESTAMP NOT NULL,
+			total_input_tokens INTEGER DEFAULT 0,
+			total_output_tokens INTEGER DEFAULT 0,
+			total_tokens INTEGER DEFAULT 0,
+			message_count INTEGER DEFAULT 0,
+			session_count INTEGER DEFAULT 0,
+			total_cost DOUBLE DEFAULT 0.0,
+			is_active BOOLEAN DEFAULT false,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+			updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		);
 	`
 
 	_, err = db.Exec(createTables)

@@ -3,6 +3,8 @@ package config
 import (
 	"os"
 	"path/filepath"
+	"strconv"
+	"time"
 )
 
 type Config struct {
@@ -12,6 +14,10 @@ type Config struct {
 	ServerHost       string
 	FrontendURL      string
 	ClaudeProjectsDir string
+	
+	// Job Scheduler configuration
+	JobSchedulerPollingInterval time.Duration
+	JobExecutorWorkerCount      int
 }
 
 // GetConfig returns the application configuration based on environment variables
@@ -59,6 +65,29 @@ func GetConfig() (*Config, error) {
 			return nil, err
 		}
 		config.ClaudeProjectsDir = filepath.Join(homeDir, ".claude", "projects")
+	}
+
+	// Job Scheduler configuration
+	// Polling interval (default: 1 minute)
+	if pollingInterval := os.Getenv("JOB_SCHEDULER_POLLING_INTERVAL"); pollingInterval != "" {
+		duration, err := time.ParseDuration(pollingInterval)
+		if err != nil {
+			return nil, err
+		}
+		config.JobSchedulerPollingInterval = duration
+	} else {
+		config.JobSchedulerPollingInterval = 1 * time.Minute
+	}
+
+	// Worker count (default: 3)
+	if workerCount := os.Getenv("JOB_EXECUTOR_WORKER_COUNT"); workerCount != "" {
+		count, err := strconv.Atoi(workerCount)
+		if err != nil {
+			return nil, err
+		}
+		config.JobExecutorWorkerCount = count
+	} else {
+		config.JobExecutorWorkerCount = 3
 	}
 
 	return config, nil

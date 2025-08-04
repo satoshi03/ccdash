@@ -92,6 +92,31 @@ func (js *JobService) CreateJob(req *models.CreateJobRequest) (*models.Job, erro
 	return job, nil
 }
 
+// GetJob retrieves a single job by ID
+func (js *JobService) GetJob(jobID string) (*models.Job, error) {
+	query := `
+		SELECT j.id, j.project_id, j.command, j.execution_directory, j.yolo_mode,
+			   j.status, j.priority, j.created_at, j.started_at, j.completed_at,
+			   j.output_log, j.error_log, j.exit_code, j.pid,
+			   j.scheduled_at, j.schedule_type, j.schedule_params,
+			   p.name as project_name, p.path as project_path
+		FROM jobs j
+		LEFT JOIN projects p ON j.project_id = p.id
+		WHERE j.id = ?`
+	
+	row := js.db.QueryRow(query, jobID)
+	job := &models.Job{Project: &models.Project{}}
+	
+	if err := js.scanJobRow(row, job); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("job not found: %s", jobID)
+		}
+		return nil, fmt.Errorf("failed to get job: %w", err)
+	}
+	
+	return job, nil
+}
+
 // GetJobs retrieves jobs with filters
 func (js *JobService) GetJobs(filters models.JobFilters) ([]*models.Job, error) {
 	query := `

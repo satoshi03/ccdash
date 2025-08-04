@@ -564,3 +564,43 @@ func (s *SessionWindowService) deactivateWindow(windowID string) error {
 func (s *SessionWindowService) roundToNextHour(t time.Time) time.Time {
 	return t.Truncate(time.Hour)
 }
+
+// GetActiveWindow returns the currently active session window
+func (s *SessionWindowService) GetActiveWindow() (*SessionWindow, error) {
+	query := `
+		SELECT id, window_start, window_end, reset_time, 
+		       total_input_tokens, total_output_tokens, total_tokens,
+		       message_count, session_count, total_cost, is_active,
+		       created_at, updated_at
+		FROM session_windows
+		WHERE is_active = true
+		ORDER BY window_start DESC
+		LIMIT 1
+	`
+	
+	var window SessionWindow
+	err := s.db.QueryRow(query).Scan(
+		&window.ID,
+		&window.WindowStart,
+		&window.WindowEnd,
+		&window.ResetTime,
+		&window.TotalInputTokens,
+		&window.TotalOutputTokens,
+		&window.TotalTokens,
+		&window.MessageCount,
+		&window.SessionCount,
+		&window.TotalCost,
+		&window.IsActive,
+		&window.CreatedAt,
+		&window.UpdatedAt,
+	)
+	
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get active window: %w", err)
+	}
+	
+	return &window, nil
+}
