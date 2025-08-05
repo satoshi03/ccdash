@@ -1,20 +1,22 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { P90ProgressCard } from "@/components/p90-progress-card"
 import { SessionList } from "@/components/session-list"
 import { ProjectOverview } from "@/components/project-overview"
 import { TaskExecutionForm } from "@/components/task-execution-form"
 import { JobHistory } from "@/components/job-history"
-import { JobDetailModal } from "@/components/job-detail-modal"
 import { Header } from "@/components/header"
 import { useTokenUsage, useSessions, useSyncLogs, useP90Predictions } from "@/hooks/use-api"
 import { useI18n } from "@/hooks/use-i18n"
 import { Settings, getSettings } from "@/lib/settings"
-import { Session, Job } from "@/lib/api"
+import { convertSessionsToProjects } from "@/lib/project-utils"
 
 export default function Dashboard() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const { data: tokenUsage, loading: tokenLoading, error: tokenError, refetch: refetchTokens } = useTokenUsage()
   const { data: sessions, loading: sessionsLoading, error: sessionsError, refetch: refetchSessions } = useSessions()
   const { data: p90Predictions, loading: p90Loading, refetch: refetchP90 } = useP90Predictions()
@@ -23,9 +25,10 @@ export default function Dashboard() {
   const [settings, setSettings] = useState<Settings>(() => getSettings())
   
   // Task execution states
-  const [selectedJob, setSelectedJob] = useState<Job | null>(null)
-  const [jobDetailModalOpen, setJobDetailModalOpen] = useState(false)
   const [refreshTrigger, setRefreshTrigger] = useState(0)
+  
+  // Tab state from URL
+  const currentTab = searchParams.get('tab') || 'overview'
   
   const handleSettingsChange = (newSettings: Settings) => {
     setSettings(newSettings)
@@ -36,10 +39,12 @@ export default function Dashboard() {
     setRefreshTrigger(prev => prev + 1)
   }
   
-  const handleJobSelect = (job: Job) => {
-    setSelectedJob(job)
-    setJobDetailModalOpen(true)
+  const handleTabChange = (value: string) => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set('tab', value)
+    router.push(`/?${params.toString()}`)
   }
+  
   
   const { t } = useI18n()
 
@@ -72,55 +77,7 @@ export default function Dashboard() {
     return () => clearInterval(interval)
   }, [isRefreshing, settings.autoRefreshInterval, refreshData])
 
-  const convertSessionsToProjects = (sessions: Session[]) => {
-    const projectMap = new Map()
-    
-    sessions.forEach(session => {
-      const projectPath = session.project_path
-      const projectName = session.project_name
-      
-      if (!projectMap.has(projectPath)) {
-        projectMap.set(projectPath, {
-          id: projectPath, // プロジェクトパスを一意のIDとして使用
-          name: projectName,
-          originalPath: projectPath,
-          sessions: []
-        })
-      }
-      
-      const project = projectMap.get(projectPath)
-      project.sessions.push({
-        id: `${session.id}-${session.start_time}`, // より一意性を高める
-        sessionId: session.id,
-        startTime: new Date(session.start_time),
-        endTime: session.end_time ? new Date(session.end_time) : null,
-        tokenUsage: session.total_tokens,
-        status: session.is_active ? 'running' : 'completed',
-        messageCount: session.message_count,
-        codeGenerated: session.generated_code?.length > 0
-      })
-    })
-    
-    // プロジェクトを最終実行時間でソート
-    const projectsArray = Array.from(projectMap.values())
-    projectsArray.forEach(project => {
-      // 各プロジェクト内のセッションを最終実行時間でソート
-      project.sessions.sort((a: { endTime: Date | null; startTime: Date }, b: { endTime: Date | null; startTime: Date }) => {
-        const aTime = a.endTime || a.startTime
-        const bTime = b.endTime || b.startTime
-        return bTime.getTime() - aTime.getTime()
-      })
-    })
-    
-    // プロジェクト自体も最終実行時間でソート
-    projectsArray.sort((a, b) => {
-      const aLastTime = a.sessions.length > 0 ? (a.sessions[0].endTime || a.sessions[0].startTime) : new Date(0)
-      const bLastTime = b.sessions.length > 0 ? (b.sessions[0].endTime || b.sessions[0].startTime) : new Date(0)
-      return bLastTime.getTime() - aLastTime.getTime()
-    })
-    
-    return projectsArray
-  }
+
 
   const projects = sessions ? convertSessionsToProjects(sessions) : []
   const resetTime = tokenUsage ? new Date(tokenUsage.window_end) : new Date(Date.now() + 5 * 60 * 60 * 1000)
@@ -150,7 +107,7 @@ export default function Dashboard() {
         ) : null}
 
         {/* Main Content */}
-        <Tabs defaultValue="overview" className="space-y-4">
+        <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-4">
           <TabsList>
             <TabsTrigger value="overview">{t('common.overview')}</TabsTrigger>
             <TabsTrigger value="sessions">{t('common.sessions')}</TabsTrigger>
@@ -183,23 +140,17 @@ export default function Dashboard() {
 
           <TabsContent value="tasks" className="space-y-6">
             {/* Task Execution Form */}
-            <TaskExecutionForm onJobCreated={handleJobCreated} />
+            <TaskExecutionForm 
+              onJobCreated={handleJobCreated} 
+            />
             
             {/* Job History */}
             <JobHistory 
-              onJobSelect={handleJobSelect} 
               refreshTrigger={refreshTrigger}
             />
           </TabsContent>
 
         </Tabs>
-        
-        {/* Job Detail Modal */}
-        <JobDetailModal
-          jobId={selectedJob?.id || null}
-          open={jobDetailModalOpen}
-          onOpenChange={setJobDetailModalOpen}
-        />
       </div>
     </div>
   )

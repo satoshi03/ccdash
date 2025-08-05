@@ -158,7 +158,7 @@ func (js *JobScheduler) checkAfterResetJobs() error {
 		query := `
 			SELECT id FROM jobs 
 			WHERE status = ? AND schedule_type = ?
-			ORDER BY priority DESC, created_at ASC`
+			ORDER BY priority DESC, CAST(created_at AS TIMESTAMP) ASC`
 		
 		rows, err := js.db.Query(query, models.JobStatusPending, models.ScheduleTypeAfterReset)
 		if err != nil {
@@ -219,17 +219,18 @@ func (js *JobScheduler) checkScheduledJobsWithRetry() error {
 
 // checkScheduledJobs checks for delayed and scheduled jobs
 func (js *JobScheduler) checkScheduledJobs() error {
-	now := time.Now()
+	now := time.Now().UTC()
+	
 	
 	// Get all pending jobs with scheduled_at <= now
 	query := `
-		SELECT id, schedule_type, schedule_params 
+		SELECT id, schedule_type, schedule_params, scheduled_at 
 		FROM jobs 
 		WHERE status = ? 
 		AND scheduled_at IS NOT NULL 
 		AND scheduled_at <= ?
 		AND schedule_type IN (?, ?)
-		ORDER BY priority DESC, scheduled_at ASC`
+		ORDER BY priority DESC, CAST(scheduled_at AS TIMESTAMP) ASC`
 	
 	rows, err := js.db.Query(query, 
 		models.JobStatusPending, 
@@ -245,16 +246,18 @@ func (js *JobScheduler) checkScheduledJobs() error {
 		ID             string
 		ScheduleType   string
 		ScheduleParams *string
+		ScheduledAt    string
 	}
 	
 	var jobs []scheduledJob
 	for rows.Next() {
 		var job scheduledJob
-		if err := rows.Scan(&job.ID, &job.ScheduleType, &job.ScheduleParams); err != nil {
+		if err := rows.Scan(&job.ID, &job.ScheduleType, &job.ScheduleParams, &job.ScheduledAt); err != nil {
 			return fmt.Errorf("failed to scan scheduled job: %w", err)
 		}
 		jobs = append(jobs, job)
 	}
+	
 	
 	// Queue jobs for execution
 	for _, job := range jobs {

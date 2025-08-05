@@ -275,7 +275,7 @@ function SessionDetailContent() {
       <div className="container mx-auto max-w-7xl p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center gap-4">
-          <Button variant="outline" size="sm" onClick={() => router.push('/')}>
+          <Button variant="outline" size="sm" onClick={() => router.push('/?tab=sessions')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
 {t('common.back')}
           </Button>

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"database/sql"
+	"encoding/json"
 	"log"
 	"net/http"
 	"strconv"
@@ -619,6 +620,10 @@ func (h *Handler) CreateJob(c *gin.Context) {
 		return
 	}
 	
+	// Log incoming request for debugging
+	reqJSON, _ := json.Marshal(req)
+	log.Printf("CreateJob request: %s", string(reqJSON))
+	
 	// Validate schedule type
 	if req.ScheduleType == "" {
 		req.ScheduleType = models.ScheduleTypeImmediate
@@ -646,6 +651,20 @@ func (h *Handler) CreateJob(c *gin.Context) {
 	
 	job, err := h.jobService.CreateJob(&req)
 	if err != nil {
+		// Check if it's a validation error
+		errStr := err.Error()
+		if strings.Contains(errStr, "invalid schedule parameters") ||
+			strings.Contains(errStr, "must be in the future") ||
+			strings.Contains(errStr, "is required for") ||
+			strings.Contains(errStr, "must be between") ||
+			strings.Contains(errStr, "project not found") {
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": "Invalid request",
+				"details": err.Error(),
+			})
+			return
+		}
+		
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error": "Failed to create job",
 			"details": err.Error(),
@@ -653,12 +672,19 @@ func (h *Handler) CreateJob(c *gin.Context) {
 		return
 	}
 	
-	// Queue job for immediate execution
+	// Log created job details
+	jobJSON, _ := json.Marshal(job)
+	log.Printf("Created job: %s", string(jobJSON))
+	
+	// Queue job for immediate execution only
 	if req.ScheduleType == models.ScheduleTypeImmediate {
+		log.Printf("Queueing immediate job %s for execution", job.ID)
 		if err := h.jobExecutor.QueueJob(job.ID); err != nil {
 			// Job was created but couldn't be queued - log warning but don't fail
 			log.Printf("Warning: Job %s created but couldn't be queued: %v", job.ID, err)
 		}
+	} else {
+		log.Printf("Job %s has schedule type %s, will be executed by scheduler", job.ID, req.ScheduleType)
 	}
 	
 	c.JSON(http.StatusCreated, gin.H{

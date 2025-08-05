@@ -15,6 +15,7 @@ import {
   XCircle, 
   StopCircle, 
   Copy,
+  Check,
   RefreshCw,
   Terminal,
   FileText,
@@ -33,6 +34,7 @@ interface JobDetailModalProps {
 export function JobDetailModal({ jobId, open, onOpenChange }: JobDetailModalProps) {
   const { job, loading, error, isRunning, refetch } = useJob(jobId)
   const [autoRefresh, setAutoRefresh] = useState(true)
+  const [copiedField, setCopiedField] = useState<string | null>(null)
 
   // Auto-refresh for running jobs
   useEffect(() => {
@@ -94,17 +96,33 @@ export function JobDetailModal({ jobId, open, onOpenChange }: JobDetailModalProp
     return `${hours}時間${minutes % 60}分`
   }
 
-  const copyToClipboard = async (text: string) => {
+  const copyToClipboard = async (text: string, fieldName: string) => {
+    console.log('copyToClipboard called with:', { text, fieldName, textLength: text?.length })
+    
+    if (!text || text.trim().length === 0) {
+      console.error('Empty text provided to copyToClipboard')
+      alert('コピーするテキストが空です')
+      return
+    }
+    
     try {
-      await navigator.clipboard.writeText(text)
-    } catch {
-      // Fallback for older browsers
-      const textArea = document.createElement('textarea')
-      textArea.value = text
-      document.body.appendChild(textArea)
-      textArea.select()
-      document.execCommand('copy')
-      document.body.removeChild(textArea)
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text)
+        console.log('Successfully copied using Clipboard API')
+      } else {
+        // Fallback for older browsers or non-HTTPS contexts - exact same as session detail
+        const textArea = document.createElement('textarea')
+        textArea.value = text
+        document.body.appendChild(textArea)
+        textArea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textArea)
+        console.log('Successfully copied using execCommand fallback')
+      }
+      setCopiedField(fieldName)
+      setTimeout(() => setCopiedField(null), 2000)
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error)
     }
   }
 
@@ -112,7 +130,7 @@ export function JobDetailModal({ jobId, open, onOpenChange }: JobDetailModalProp
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-scroll flex flex-col">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto flex flex-col">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Terminal className="h-5 w-5" />
@@ -247,11 +265,19 @@ export function JobDetailModal({ jobId, open, onOpenChange }: JobDetailModalProp
                     コマンド
                   </CardTitle>
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    onClick={() => copyToClipboard(job.command)}
+                    onClick={async () => {
+                      console.log('Command copy button clicked, job.command:', job.command)
+                      await copyToClipboard(job.command, 'command')
+                    }}
+                    className="h-6 w-6 p-0"
                   >
-                    <Copy className="h-4 w-4" />
+                    {copiedField === 'command' ? (
+                      <Check className="w-3 h-3" />
+                    ) : (
+                      <Copy className="w-3 h-3" />
+                    )}
                   </Button>
                 </div>
               </CardHeader>
@@ -282,11 +308,23 @@ export function JobDetailModal({ jobId, open, onOpenChange }: JobDetailModalProp
                       <CardTitle className="text-sm">標準出力</CardTitle>
                       {job.output_log && (
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
-                          onClick={() => copyToClipboard(job.output_log || '')}
+                          onClick={async () => {
+                            console.log('Output log copy button clicked, job.output_log:', job.output_log)
+                            if (job.output_log) {
+                              await copyToClipboard(job.output_log, 'output')
+                            } else {
+                              alert('出力ログがありません')
+                            }
+                          }}
+                          className="h-6 w-6 p-0"
                         >
-                          <Copy className="h-4 w-4" />
+                          {copiedField === 'output' ? (
+                            <Check className="w-3 h-3" />
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
                         </Button>
                       )}
                     </div>
@@ -316,11 +354,23 @@ export function JobDetailModal({ jobId, open, onOpenChange }: JobDetailModalProp
                       <CardTitle className="text-sm">標準エラー出力</CardTitle>
                       {job.error_log && (
                         <Button
-                          variant="ghost"
+                          variant="outline"
                           size="sm"
-                          onClick={() => copyToClipboard(job.error_log || '')}
+                          onClick={async () => {
+                            console.log('Error log copy button clicked, job.error_log:', job.error_log)
+                            if (job.error_log) {
+                              await copyToClipboard(job.error_log, 'error')
+                            } else {
+                              alert('エラーログがありません')
+                            }
+                          }}
+                          className="h-6 w-6 p-0"
                         >
-                          <Copy className="h-4 w-4" />
+                          {copiedField === 'error' ? (
+                            <Check className="w-3 h-3" />
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
                         </Button>
                       )}
                     </div>

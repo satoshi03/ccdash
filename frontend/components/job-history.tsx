@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,7 +15,6 @@ import {
   CheckCircle, 
   XCircle, 
   StopCircle, 
-  Eye, 
   Square,
   Trash2,
   RefreshCw,
@@ -26,11 +26,11 @@ import { useJobs, useJobActions, useProjects } from '@/hooks/use-job-api'
 import { Job, JobFilters } from '@/lib/api'
 
 interface JobHistoryProps {
-  onJobSelect?: (job: Job) => void
   refreshTrigger?: number
 }
 
-export function JobHistory({ onJobSelect, refreshTrigger }: JobHistoryProps) {
+export function JobHistory({ refreshTrigger }: JobHistoryProps) {
+  const router = useRouter()
   const [filters, setFilters] = useState<JobFilters>({ limit: 20 })
   const { projects } = useProjects()
   const { jobs, loading, error, refetch } = useJobs(filters)
@@ -75,11 +75,12 @@ export function JobHistory({ onJobSelect, refreshTrigger }: JobHistoryProps) {
   }
 
   const getScheduleInfo = (job: Job) => {
-    if (!job.schedule_type || job.schedule_type === 'immediate') {
+    if (!job.schedule_type) {
       return null
     }
 
     const scheduleTypeLabel = {
+      immediate: '即時実行',
       after_reset: 'リセット後',
       delayed: '遅延実行',
       scheduled: '時刻指定'
@@ -104,6 +105,23 @@ export function JobHistory({ onJobSelect, refreshTrigger }: JobHistoryProps) {
     if (minutes < 60) return `${minutes}分`
     const hours = Math.floor(minutes / 60)
     return `${hours}時間${minutes % 60}分`
+  }
+
+  const formatTimeUntilExecution = (scheduledAt: string) => {
+    const scheduled = new Date(scheduledAt)
+    const now = new Date()
+    const diffMs = scheduled.getTime() - now.getTime()
+    
+    if (diffMs <= 0) return '実行待機中'
+    
+    const diffMinutes = Math.floor(diffMs / (1000 * 60))
+    const diffHours = Math.floor(diffMinutes / 60)
+    const diffDays = Math.floor(diffHours / 24)
+    
+    if (diffDays > 0) return `${diffDays}日後`
+    if (diffHours > 0) return `${diffHours}時間${diffMinutes % 60}分後`
+    if (diffMinutes > 0) return `${diffMinutes}分後`
+    return '間もなく実行'
   }
 
   const handleCancel = async (jobId: string) => {
@@ -234,7 +252,11 @@ export function JobHistory({ onJobSelect, refreshTrigger }: JobHistoryProps) {
                 </TableRow>
               ) : (
                 jobs.map((job) => (
-                  <TableRow key={job.id}>
+                  <TableRow 
+                    key={job.id} 
+                    className="cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => router.push(`/jobs/${job.id}`)}
+                  >
                     <TableCell>
                       {getStatusBadge(job.status)}
                     </TableCell>
@@ -260,14 +282,32 @@ export function JobHistory({ onJobSelect, refreshTrigger }: JobHistoryProps) {
                         if (!scheduleInfo) return '-'
                         
                         return (
-                          <div className="flex items-center gap-1">
-                            {job.schedule_type === 'scheduled' && <Calendar className="h-3 w-3" />}
-                            {job.schedule_type === 'delayed' && <Clock className="h-3 w-3" />}
-                            <span className="text-sm">{scheduleInfo.type}</span>
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1">
+                              {job.schedule_type === 'immediate' && <Play className="h-3 w-3" />}
+                              {job.schedule_type === 'after_reset' && <RefreshCw className="h-3 w-3" />}
+                              {job.schedule_type === 'scheduled' && <Calendar className="h-3 w-3" />}
+                              {job.schedule_type === 'delayed' && <Clock className="h-3 w-3" />}
+                              <span className="text-sm">{scheduleInfo.type}</span>
+                            </div>
                             {scheduleInfo.scheduledAt && (
-                              <div className="text-xs text-muted-foreground">
-                                {formatDateTime(scheduleInfo.scheduledAt)}
-                              </div>
+                              <>
+                                <div className={`text-xs ${
+                                  job.status === 'pending' && (job.schedule_type === 'scheduled' || job.schedule_type === 'delayed')
+                                    ? 'text-blue-600 font-medium' 
+                                    : 'text-muted-foreground'
+                                }`}>
+                                  {job.status === 'pending' && (job.schedule_type === 'scheduled' || job.schedule_type === 'delayed') 
+                                    ? `実行予定: ${formatDateTime(scheduleInfo.scheduledAt)}`
+                                    : formatDateTime(scheduleInfo.scheduledAt)
+                                  }
+                                </div>
+                                {job.status === 'pending' && (job.schedule_type === 'scheduled' || job.schedule_type === 'delayed') && (
+                                  <div className="text-xs text-orange-600">
+                                    {formatTimeUntilExecution(scheduleInfo.scheduledAt)}
+                                  </div>
+                                )}
+                              </>
                             )}
                           </div>
                         )
@@ -281,20 +321,15 @@ export function JobHistory({ onJobSelect, refreshTrigger }: JobHistoryProps) {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onJobSelect?.(job)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        
                         {job.status === 'running' && (
                           <Button
                             variant="ghost"
                             size="sm"
                             disabled={actionLoading}
-                            onClick={() => handleCancel(job.id)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleCancel(job.id)
+                            }}
                           >
                             <Square className="h-4 w-4" />
                           </Button>
@@ -305,7 +340,10 @@ export function JobHistory({ onJobSelect, refreshTrigger }: JobHistoryProps) {
                             variant="ghost"
                             size="sm"
                             disabled={actionLoading}
-                            onClick={() => handleDelete(job.id)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDelete(job.id)
+                            }}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>

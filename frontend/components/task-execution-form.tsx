@@ -9,20 +9,19 @@ import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, Play, AlertCircle, Clock } from 'lucide-react'
-import { useProjects, useCreateJob } from '@/hooks/use-job-api'
+import { useCreateJob, useProjects } from '@/hooks/use-job-api'
 import { CreateJobRequest } from '@/lib/api'
 import { Slider } from '@/components/ui/slider'
 import { Input } from '@/components/ui/input'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
-
 interface TaskExecutionFormProps {
   onJobCreated?: () => void
 }
 
 export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
-  const { projects, loading: projectsLoading } = useProjects()
   const { createJob, loading: createLoading, error: createError } = useCreateJob()
+  const { projects, loading: projectsLoading, error: projectsError } = useProjects()
   
   const [selectedProjectId, setSelectedProjectId] = useState<string>('')
   const [command, setCommand] = useState('')
@@ -32,11 +31,47 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
   const [scheduledDate, setScheduledDate] = useState('')
   const [scheduledTime, setScheduledTime] = useState('')
   const [success, setSuccess] = useState<string | null>(null)
+  const [validationError, setValidationError] = useState<string | null>(null)
+
+  const validateScheduledDateTime = (): boolean => {
+    if (scheduleType !== 'scheduled') return true
+    
+    if (!scheduledDate || !scheduledTime) {
+      setValidationError('日付と時刻を両方指定してください')
+      return false
+    }
+    
+    const scheduledDateTime = new Date(`${scheduledDate}T${scheduledTime}:00`)
+    const now = new Date()
+    
+    if (scheduledDateTime <= now) {
+      setValidationError('スケジュール日時は現在時刻より後に設定してください')
+      return false
+    }
+    
+    // 1年以上先の日時は許可しない
+    const oneYearFromNow = new Date()
+    oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1)
+    if (scheduledDateTime > oneYearFromNow) {
+      setValidationError('スケジュール日時は1年以内に設定してください')
+      return false
+    }
+    
+    return true
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     if (!selectedProjectId || !command.trim()) {
+      return
+    }
+
+    // Clear previous errors
+    setValidationError(null)
+    
+    // Validate scheduled date/time
+    if (!validateScheduledDateTime()) {
       return
     }
 
@@ -62,7 +97,7 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
       }
 
       const job = await createJob(request)
-      setSuccess(`Job created successfully: ${job.id}`)
+      setSuccess(`ジョブが正常に作成されました: ${job.id}`)
       
       // Reset form
       setCommand('')
@@ -71,6 +106,7 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
       setDelayHours(1)
       setScheduledDate('')
       setScheduledTime('')
+      setValidationError(null)
       
       // Notify parent component
       if (onJobCreated) {
@@ -81,7 +117,7 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
     }
   }
 
-  const selectedProject = projects.find(p => p.id === selectedProjectId)
+  const selectedProject = projects?.find(p => p.id === selectedProjectId)
 
   return (
     <Card>
@@ -108,6 +144,14 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
                   <SelectItem value="loading" disabled>
                     読み込み中...
                   </SelectItem>
+                ) : projectsError ? (
+                  <SelectItem value="error" disabled>
+                    エラー: {projectsError}
+                  </SelectItem>
+                ) : !projects || projects.length === 0 ? (
+                  <SelectItem value="no-projects" disabled>
+                    プロジェクトがありません
+                  </SelectItem>
                 ) : (
                   projects.map((project) => (
                     <SelectItem key={project.id} value={project.id}>
@@ -129,7 +173,7 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
             <Label htmlFor="command">コマンド</Label>
             <Textarea
               id="command"
-              placeholder="例: implement a new feature to..."
+              placeholder="例: 新しい機能を実装して..."
               value={command}
               onChange={(e) => setCommand(e.target.value)}
               rows={6}
@@ -158,7 +202,16 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
           {/* Schedule Type */}
           <div className="space-y-2">
             <Label htmlFor="schedule-type">実行タイミング</Label>
-            <Select value={scheduleType} onValueChange={setScheduleType}>
+            <Select value={scheduleType} onValueChange={(value) => {
+              setScheduleType(value)
+              setValidationError(null)
+              // カスタム日時指定の場合、デフォルトで現在時刻を設定
+              if (value === 'scheduled') {
+                const now = new Date()
+                setScheduledDate(format(now, 'yyyy-MM-dd'))
+                setScheduledTime(format(now, 'HH:mm'))
+              }
+            }}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -199,8 +252,12 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
                     id="scheduled-date"
                     type="date"
                     value={scheduledDate}
-                    onChange={(e) => setScheduledDate(e.target.value)}
+                    onChange={(e) => {
+                      setScheduledDate(e.target.value)
+                      setValidationError(null)
+                    }}
                     min={format(new Date(), 'yyyy-MM-dd')}
+                    max={format(new Date(new Date().setFullYear(new Date().getFullYear() + 1)), 'yyyy-MM-dd')}
                   />
                 </div>
                 <div className="space-y-1">
@@ -209,7 +266,10 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
                     id="scheduled-time"
                     type="time"
                     value={scheduledTime}
-                    onChange={(e) => setScheduledTime(e.target.value)}
+                    onChange={(e) => {
+                      setScheduledTime(e.target.value)
+                      setValidationError(null)
+                    }}
                   />
                 </div>
               </div>
@@ -231,6 +291,14 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
                 {scheduleType === 'scheduled' && scheduledDate && scheduledTime && 
                   `${format(new Date(`${scheduledDate}T${scheduledTime}:00`), 'yyyy年MM月dd日 HH:mm', { locale: ja })}に実行されます。`}
               </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Validation Error Display */}
+          {validationError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{validationError}</AlertDescription>
             </Alert>
           )}
 
