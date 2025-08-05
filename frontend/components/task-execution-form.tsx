@@ -10,6 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, Play, AlertCircle, Clock } from 'lucide-react'
 import { useCreateJob, useProjects } from '@/hooks/use-job-api'
+import { useI18n } from '@/hooks/use-i18n'
 import { CreateJobRequest } from '@/lib/api'
 import { Slider } from '@/components/ui/slider'
 import { Input } from '@/components/ui/input'
@@ -22,6 +23,7 @@ interface TaskExecutionFormProps {
 export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
   const { createJob, loading: createLoading, error: createError } = useCreateJob()
   const { projects, loading: projectsLoading, error: projectsError } = useProjects()
+  const { t } = useI18n()
   
   const [selectedProjectId, setSelectedProjectId] = useState<string>('')
   const [command, setCommand] = useState('')

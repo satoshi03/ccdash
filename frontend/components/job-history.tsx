@@ -23,6 +23,7 @@ import {
   Calendar
 } from 'lucide-react'
 import { useJobs, useJobActions, useProjects } from '@/hooks/use-job-api'
+import { useI18n } from '@/hooks/use-i18n'
 import { Job, JobFilters } from '@/lib/api'
 
 interface JobHistoryProps {
@@ -31,6 +32,7 @@ interface JobHistoryProps {
 
 export function JobHistory({ refreshTrigger }: JobHistoryProps) {
   const router = useRouter()
+  const { t } = useI18n()
   const [filters, setFilters] = useState<JobFilters>({ limit: 20 })
   const { projects } = useProjects()
   const { jobs, loading, error, refetch } = useJobs(filters)
@@ -231,7 +233,7 @@ export function JobHistory({ refreshTrigger }: JobHistoryProps) {
                 <TableHead>{t('session.status')}</TableHead>
                 <TableHead>{t('session.project')}</TableHead>
                 <TableHead>{t('job.command')}</TableHead>
-                <TableHead>{t('job.schedule')}</TableHead>
+                <TableHead>{t('job.scheduleHeader')}</TableHead>
                 <TableHead>{t('job.duration')}</TableHead>
                 <TableHead>{t('job.createdAt')}</TableHead>
                 <TableHead className="text-right">{t('job.actions')}</TableHead>

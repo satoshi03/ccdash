@@ -192,7 +192,7 @@ export const translations: Record<Language, Translations> = {
       totalJobs: '件のジョブを表示',
       
       // Table headers
-      schedule: 'スケジュール',
+      scheduleHeader: 'スケジュール',
       createdAt: '作成日時',
       actions: 'アクション',
     },
@@ -430,7 +430,7 @@ export const translations: Record<Language, Translations> = {
       totalJobs: 'jobs displayed',
       
       // Table headers
-      schedule: 'Schedule',
+      scheduleHeader: 'Schedule',
       createdAt: 'Created At',
       actions: 'Actions',
     },

@@ -23,6 +23,7 @@ import {
   Folder
 } from 'lucide-react'
 import { useJob } from '@/hooks/use-job-api'
+import { useI18n } from '@/hooks/use-i18n'
 import { Job } from '@/lib/api'
 
 interface JobDetailModalProps {
@@ -33,6 +34,7 @@ interface JobDetailModalProps {
 
 export function JobDetailModal({ jobId, open, onOpenChange }: JobDetailModalProps) {
   const { job, loading, error, isRunning, refetch } = useJob(jobId)
+  const { t } = useI18n()
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [copiedField, setCopiedField] = useState<string | null>(null)
 
