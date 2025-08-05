@@ -89,7 +89,7 @@ func (p *JSONLParser) parseJSONLFile(filePath, projectName string) error {
 	}
 	defer file.Close()
 	
-	fileName := filepath.Base(filePath)
+	_ = filepath.Base(filePath) // fileName not used currently, but may be needed for future logging
 	scanner := bufio.NewScanner(file)
 	
 	// Increase buffer size to handle very long lines (up to 10MB)

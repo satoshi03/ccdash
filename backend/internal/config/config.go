@@ -1,6 +1,8 @@
 package config
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -18,6 +20,10 @@ type Config struct {
 	// Job Scheduler configuration
 	JobSchedulerPollingInterval time.Duration
 	JobExecutorWorkerCount      int
+	
+	// Authentication configuration
+	JWTSecret                   string
+	AuthEnabled                 bool
 }
 
 // GetConfig returns the application configuration based on environment variables
@@ -90,6 +96,20 @@ func GetConfig() (*Config, error) {
 		config.JobExecutorWorkerCount = 3
 	}
 
+	// Authentication configuration
+	config.JWTSecret = os.Getenv("JWT_SECRET")
+	if config.JWTSecret == "" {
+		// Generate a random JWT secret if not provided
+		secret, err := generateRandomSecret(32)
+		if err != nil {
+			return nil, err
+		}
+		config.JWTSecret = secret
+	}
+
+	// Auth enabled flag (default: false for backward compatibility)
+	config.AuthEnabled = os.Getenv("AUTH_ENABLED") == "true"
+
 	return config, nil
 }
 
@@ -102,4 +122,13 @@ func (c *Config) EnsureDatabaseDir() error {
 func (c *Config) DatabaseExists() bool {
 	_, err := os.Stat(c.DatabasePath)
 	return !os.IsNotExist(err)
+}
+
+// generateRandomSecret generates a random hex-encoded secret
+func generateRandomSecret(length int) (string, error) {
+	bytes := make([]byte, length)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(bytes), nil
 }
