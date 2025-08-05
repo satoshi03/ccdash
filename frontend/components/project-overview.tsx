@@ -29,35 +29,7 @@ interface ProjectOverviewProps {
 export function ProjectOverview({ projects }: ProjectOverviewProps) {
   const { t, formatDate } = useI18n()
   
-  const getStatusColor = (status: Session["status"]) => {
-    switch (status) {
-      case "completed":
-        return "bg-green-100 text-green-800"
-      case "running":
-        return "bg-blue-100 text-blue-800"
-      case "paused":
-        return "bg-yellow-100 text-yellow-800"
-      case "failed":
-        return "bg-red-100 text-red-800"
-      default:
-        return "bg-gray-100 text-gray-800"
-    }
-  }
 
-  const getStatusText = (status: Session["status"]) => {
-    switch (status) {
-      case "completed":
-        return t('session.completed')
-      case "running":
-        return t('session.active')
-      case "paused":
-        return t('session.paused')
-      case "failed":
-        return t('session.failed')
-      default:
-        return t('session.unknown')
-    }
-  }
 
   if (projects.length === 0) {
     return (
@@ -116,9 +88,6 @@ export function ProjectOverview({ projects }: ProjectOverviewProps) {
                   >
                     <div className="flex items-center justify-between p-2 bg-muted/50 rounded-sm hover:bg-muted transition-colors cursor-pointer group">
                       <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className={`text-xs ${getStatusColor(session.status)}`}>
-                          {getStatusText(session.status)}
-                        </Badge>
                         <span className="text-xs text-muted-foreground">
                           {session.tokenUsage.toLocaleString()} {t('project.tokensLabel')}
                         </span>
