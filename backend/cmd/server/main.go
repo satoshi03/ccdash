@@ -13,6 +13,7 @@ import (
 	"ccdash-backend/internal/config"
 	"ccdash-backend/internal/database"
 	"ccdash-backend/internal/handlers"
+	"ccdash-backend/internal/middleware"
 	"ccdash-backend/internal/services"
 
 	"github.com/gin-contrib/cors"
@@ -165,6 +166,9 @@ func main() {
 
 	handler := handlers.NewHandler(tokenService, sessionService, sessionWindowService, p90PredictionService, projectService, jobService, jobExecutor) // Phase 2: Add JobService and JobExecutor
 
+	// Initialize authentication middleware
+	authMiddleware := middleware.NewAuthMiddleware()
+
 	r := gin.Default()
 
 	// Check for permissive CORS mode (useful for development)
@@ -229,6 +233,8 @@ func main() {
 	})
 
 	api := r.Group("/api")
+	// Apply authentication middleware to all API routes
+	api.Use(authMiddleware.Authenticate())
 	{
 		api.GET("/health", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{
@@ -275,6 +281,13 @@ func main() {
 	log.Printf("Frontend URL: %s", cfg.FrontendURL)
 	log.Printf("Job Scheduler polling interval: %v", cfg.JobSchedulerPollingInterval)
 	log.Printf("Job Executor worker count: %d", cfg.JobExecutorWorkerCount)
+	
+	// Log authentication status
+	if authMiddleware.IsAuthEnabled() {
+		log.Println("API Key authentication: ENABLED")
+	} else {
+		log.Println("API Key authentication: DISABLED (development mode)")
+	}
 
 	if err := r.Run(cfg.ServerHost + ":" + cfg.ServerPort); err != nil {
 		log.Fatal("Failed to start server:", err)

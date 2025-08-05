@@ -164,12 +164,21 @@ class ApiClient {
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseURL}${endpoint}`
     
+    // Get API key from environment variable
+    const apiKey = process.env.NEXT_PUBLIC_API_KEY
+    
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    }
+    
+    // Add API key header if available
+    if (apiKey) {
+      headers['X-API-Key'] = apiKey
+    }
     
     const response = await fetch(url, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+      headers,
       ...options,
     })
 

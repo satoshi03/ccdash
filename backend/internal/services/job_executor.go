@@ -18,14 +18,15 @@ import (
 
 // JobExecutor manages the execution of jobs
 type JobExecutor struct {
-	jobService   *JobService
-	workerCount  int
-	jobQueue     chan string
-	cancelMap    map[string]context.CancelFunc
-	cancelMutex  sync.RWMutex
-	ctx          context.Context
-	cancel       context.CancelFunc
-	wg           sync.WaitGroup
+	jobService      *JobService
+	workerCount     int
+	jobQueue        chan string
+	cancelMap       map[string]context.CancelFunc
+	cancelMutex     sync.RWMutex
+	ctx             context.Context
+	cancel          context.CancelFunc
+	wg              sync.WaitGroup
+	commandWhitelist *CommandWhitelist
 }
 
 // NewJobExecutor creates a new job executor
@@ -33,12 +34,13 @@ func NewJobExecutor(jobService *JobService, workerCount int) *JobExecutor {
 	ctx, cancel := context.WithCancel(context.Background())
 	
 	return &JobExecutor{
-		jobService:  jobService,
-		workerCount: workerCount,
-		jobQueue:    make(chan string, 100), // Buffer for pending jobs
-		cancelMap:   make(map[string]context.CancelFunc),
-		ctx:         ctx,
-		cancel:      cancel,
+		jobService:      jobService,
+		workerCount:     workerCount,
+		jobQueue:        make(chan string, 100), // Buffer for pending jobs
+		cancelMap:       make(map[string]context.CancelFunc),
+		ctx:             ctx,
+		cancel:          cancel,
+		commandWhitelist: NewCommandWhitelist(),
 	}
 }
 
@@ -517,7 +519,12 @@ func (je *JobExecutor) validateCommand(command string) error {
 		return fmt.Errorf("command cannot be empty")
 	}
 	
-	// Check for extremely dangerous patterns only (since commands go through Claude Code CLI)
+	// First check whitelist
+	if err := je.commandWhitelist.ValidateCommand(command); err != nil {
+		return err
+	}
+	
+	// Additional safety checks for extremely dangerous patterns
 	dangerousPatterns := []string{
 		`rm -rf /`, `del /`, `format c:`, `shutdown -h`, `reboot`, 
 		`mkfs`, `fdisk`, `parted`, `sudo rm -rf`, `chmod 777 /`,
@@ -591,9 +598,10 @@ func (je *JobExecutor) GetQueueStatus() map[string]interface{} {
 	je.cancelMutex.RUnlock()
 	
 	return map[string]interface{}{
-		"running_jobs":  runningCount,
-		"queued_jobs":   len(je.jobQueue),
-		"worker_count":  je.workerCount,
-		"claude_available": je.isClaudeCodeAvailable(),
+		"running_jobs":      runningCount,
+		"queued_jobs":       len(je.jobQueue),
+		"worker_count":      je.workerCount,
+		"claude_available":  je.isClaudeCodeAvailable(),
+		"whitelist_enabled": je.commandWhitelist.IsEnabled(),
 	}
 }

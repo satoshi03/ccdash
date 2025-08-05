@@ -100,6 +100,62 @@ cd frontend && npm install --legacy-peer-deps
 **CORS Error**  
 Use nginx reverse proxy (see `nginx/README.md`) or use localhost with custom ports.
 
+## Security Configuration (Phase 0)
+
+CCDash now includes basic security features to protect your deployment:
+
+### API Key Authentication
+
+Protect your API endpoints with API key authentication:
+
+```bash
+# Backend
+export CCDASH_API_KEY=your-secret-key-here
+
+# Frontend
+export NEXT_PUBLIC_API_KEY=your-secret-key-here
+```
+
+In development mode (default), authentication is disabled. For production:
+- Set `GIN_MODE=release` to enforce authentication
+- Generate a strong API key (e.g., `openssl rand -hex 32`)
+
+### Command Whitelist
+
+The job execution feature includes a command whitelist to prevent dangerous operations:
+
+**Allowed by default:**
+- Git read-only commands (`git status`, `git diff`, `git log`)
+- Package managers read-only (`npm list`, `yarn list`, `go list`)
+- Testing commands (`npm test`, `go test`, `pytest`)
+- Linting and formatting (`eslint`, `prettier`, `go fmt`)
+- Development servers (`npm run dev`, `yarn dev`)
+
+**Configuration:**
+```bash
+# Add custom commands
+export CCDASH_ALLOWED_COMMANDS=custom-tool,another-tool
+
+# Disable whitelist (NOT recommended)
+export CCDASH_DISABLE_COMMAND_WHITELIST=true
+```
+
+### HTTPS Setup
+
+For production deployments, use HTTPS to encrypt all communications:
+
+See [docs/https-setup.md](docs/https-setup.md) for nginx/Apache configuration examples.
+
+### Environment Variables
+
+Copy the example files and configure:
+```bash
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env.local
+```
+
+See the `.env.example` files for all available options.
+
 ## License
 
 MIT License
