@@ -23,6 +23,7 @@ import {
   Folder
 } from "lucide-react"
 import { useJob } from "@/hooks/use-job-api"
+import { useI18n } from "@/hooks/use-i18n"
 import { Job } from "@/lib/api"
 import { Header } from "@/components/header"
 
@@ -30,6 +31,7 @@ function JobDetailContent() {
   const params = useParams()
   const router = useRouter()
   const jobId = params.id as string
+  const { t } = useI18n()
 
   const { job, loading, error, isRunning, refetch } = useJob(jobId)
   const [autoRefresh, setAutoRefresh] = useState(true)
