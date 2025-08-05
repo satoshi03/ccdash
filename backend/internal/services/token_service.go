@@ -77,8 +77,7 @@ func (s *TokenService) GetCurrentTokenUsage() (*models.TokenUsage, error) {
 	// ウィンドウ内のメッセージのコストを計算
 	totalCost, err := s.calculateWindowCost(currentWindow.ID)
 	if err != nil {
-		// エラーが発生した場合はログに記録してコストを0にする
-		fmt.Printf("Warning: failed to calculate window cost: %v\n", err)
+		// エラーが発生した場合はコストを0にする
 		totalCost = 0.0
 	}
 	

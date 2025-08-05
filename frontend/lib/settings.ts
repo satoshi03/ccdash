@@ -72,8 +72,8 @@ export function getSettings(): Settings {
     if (stored) {
       return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) }
     }
-  } catch (error) {
-    console.error('Failed to load settings:', error)
+  } catch {
+    // Error loading settings - use defaults
   }
 
   return DEFAULT_SETTINGS
@@ -86,7 +86,7 @@ export function saveSettings(settings: Settings): void {
 
   try {
     localStorage.setItem('ccdash-settings', JSON.stringify(settings))
-  } catch (error) {
-    console.error('Failed to save settings:', error)
+  } catch {
+    // Error saving settings - fail silently
   }
 }

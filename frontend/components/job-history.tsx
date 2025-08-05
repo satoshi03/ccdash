@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,7 +15,6 @@ import {
   CheckCircle, 
   XCircle, 
   StopCircle, 
-  Eye, 
   Square,
   Trash2,
   RefreshCw,
@@ -23,14 +23,16 @@ import {
   Calendar
 } from 'lucide-react'
 import { useJobs, useJobActions, useProjects } from '@/hooks/use-job-api'
+import { useI18n } from '@/hooks/use-i18n'
 import { Job, JobFilters } from '@/lib/api'
 
 interface JobHistoryProps {
-  onJobSelect?: (job: Job) => void
   refreshTrigger?: number
 }
 
-export function JobHistory({ onJobSelect, refreshTrigger }: JobHistoryProps) {
+export function JobHistory({ refreshTrigger }: JobHistoryProps) {
+  const router = useRouter()
+  const { t } = useI18n()
   const [filters, setFilters] = useState<JobFilters>({ limit: 20 })
   const { projects } = useProjects()
   const { jobs, loading, error, refetch } = useJobs(filters)
@@ -75,14 +77,15 @@ export function JobHistory({ onJobSelect, refreshTrigger }: JobHistoryProps) {
   }
 
   const getScheduleInfo = (job: Job) => {
-    if (!job.schedule_type || job.schedule_type === 'immediate') {
+    if (!job.schedule_type) {
       return null
     }
 
     const scheduleTypeLabel = {
-      after_reset: 'リセット後',
-      delayed: '遅延実行',
-      scheduled: '時刻指定'
+      immediate: t('job.schedule.immediate'),
+      after_reset: t('job.schedule.afterReset'),
+      delayed: t('job.schedule.delayed'),
+      scheduled: t('job.schedule.scheduled')
     }
 
     return {
@@ -106,6 +109,23 @@ export function JobHistory({ onJobSelect, refreshTrigger }: JobHistoryProps) {
     return `${hours}時間${minutes % 60}分`
   }
 
+  const formatTimeUntilExecution = (scheduledAt: string) => {
+    const scheduled = new Date(scheduledAt)
+    const now = new Date()
+    const diffMs = scheduled.getTime() - now.getTime()
+    
+    if (diffMs <= 0) return '実行待機中'
+    
+    const diffMinutes = Math.floor(diffMs / (1000 * 60))
+    const diffHours = Math.floor(diffMinutes / 60)
+    const diffDays = Math.floor(diffHours / 24)
+    
+    if (diffDays > 0) return `${diffDays}${t('job.daysAfter')}`
+    if (diffHours > 0) return `${diffHours}${t('tokenUsage.hours')}${diffMinutes % 60}${t('job.minutesAfter')}`
+    if (diffMinutes > 0) return `${diffMinutes}${t('job.minutesAfter')}`
+    return '間もなく実行'
+  }
+
   const handleCancel = async (jobId: string) => {
     try {
       await cancelJob(jobId)
@@ -116,7 +136,7 @@ export function JobHistory({ onJobSelect, refreshTrigger }: JobHistoryProps) {
   }
 
   const handleDelete = async (jobId: string) => {
-    if (!confirm('このジョブを削除しますか？')) return
+    if (!confirm(t('job.confirmDelete'))) return
     
     try {
       await deleteJob(jobId)
@@ -140,7 +160,7 @@ export function JobHistory({ onJobSelect, refreshTrigger }: JobHistoryProps) {
           <div>
             <CardTitle className="flex items-center gap-2">
               <History className="h-5 w-5" />
-              ジョブ履歴
+{t('job.history')}
             </CardTitle>
             <CardDescription>
               実行されたタスクの履歴と状態を確認できます。
@@ -210,13 +230,13 @@ export function JobHistory({ onJobSelect, refreshTrigger }: JobHistoryProps) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ステータス</TableHead>
-                <TableHead>プロジェクト</TableHead>
-                <TableHead>コマンド</TableHead>
-                <TableHead>スケジュール</TableHead>
-                <TableHead>実行時間</TableHead>
-                <TableHead>作成日時</TableHead>
-                <TableHead className="text-right">アクション</TableHead>
+                <TableHead>{t('session.status')}</TableHead>
+                <TableHead>{t('session.project')}</TableHead>
+                <TableHead>{t('job.command')}</TableHead>
+                <TableHead>{t('job.scheduleHeader')}</TableHead>
+                <TableHead>{t('job.duration')}</TableHead>
+                <TableHead>{t('job.createdAt')}</TableHead>
+                <TableHead className="text-right">{t('job.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -229,12 +249,16 @@ export function JobHistory({ onJobSelect, refreshTrigger }: JobHistoryProps) {
               ) : !jobs || jobs.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    ジョブが見つかりません
+{t('job.notFound')}
                   </TableCell>
                 </TableRow>
               ) : (
                 jobs.map((job) => (
-                  <TableRow key={job.id}>
+                  <TableRow 
+                    key={job.id} 
+                    className="cursor-pointer hover:bg-muted/50 transition-colors"
+                    onClick={() => router.push(`/jobs/${job.id}`)}
+                  >
                     <TableCell>
                       {getStatusBadge(job.status)}
                     </TableCell>
@@ -260,14 +284,32 @@ export function JobHistory({ onJobSelect, refreshTrigger }: JobHistoryProps) {
                         if (!scheduleInfo) return '-'
                         
                         return (
-                          <div className="flex items-center gap-1">
-                            {job.schedule_type === 'scheduled' && <Calendar className="h-3 w-3" />}
-                            {job.schedule_type === 'delayed' && <Clock className="h-3 w-3" />}
-                            <span className="text-sm">{scheduleInfo.type}</span>
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center gap-1">
+                              {job.schedule_type === 'immediate' && <Play className="h-3 w-3" />}
+                              {job.schedule_type === 'after_reset' && <RefreshCw className="h-3 w-3" />}
+                              {job.schedule_type === 'scheduled' && <Calendar className="h-3 w-3" />}
+                              {job.schedule_type === 'delayed' && <Clock className="h-3 w-3" />}
+                              <span className="text-sm">{scheduleInfo.type}</span>
+                            </div>
                             {scheduleInfo.scheduledAt && (
-                              <div className="text-xs text-muted-foreground">
-                                {formatDateTime(scheduleInfo.scheduledAt)}
-                              </div>
+                              <>
+                                <div className={`text-xs ${
+                                  job.status === 'pending' && (job.schedule_type === 'scheduled' || job.schedule_type === 'delayed')
+                                    ? 'text-blue-600 font-medium' 
+                                    : 'text-muted-foreground'
+                                }`}>
+                                  {job.status === 'pending' && (job.schedule_type === 'scheduled' || job.schedule_type === 'delayed') 
+                                    ? `実行予定: ${formatDateTime(scheduleInfo.scheduledAt)}`
+                                    : formatDateTime(scheduleInfo.scheduledAt)
+                                  }
+                                </div>
+                                {job.status === 'pending' && (job.schedule_type === 'scheduled' || job.schedule_type === 'delayed') && (
+                                  <div className="text-xs text-orange-600">
+                                    {formatTimeUntilExecution(scheduleInfo.scheduledAt)}
+                                  </div>
+                                )}
+                              </>
                             )}
                           </div>
                         )
@@ -281,20 +323,15 @@ export function JobHistory({ onJobSelect, refreshTrigger }: JobHistoryProps) {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => onJobSelect?.(job)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
-                        
                         {job.status === 'running' && (
                           <Button
                             variant="ghost"
                             size="sm"
                             disabled={actionLoading}
-                            onClick={() => handleCancel(job.id)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleCancel(job.id)
+                            }}
                           >
                             <Square className="h-4 w-4" />
                           </Button>
@@ -305,7 +342,10 @@ export function JobHistory({ onJobSelect, refreshTrigger }: JobHistoryProps) {
                             variant="ghost"
                             size="sm"
                             disabled={actionLoading}
-                            onClick={() => handleDelete(job.id)}
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDelete(job.id)
+                            }}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -322,7 +362,7 @@ export function JobHistory({ onJobSelect, refreshTrigger }: JobHistoryProps) {
         {/* Pagination Info */}
         {jobs && jobs.length > 0 && (
           <div className="mt-4 text-sm text-muted-foreground">
-            {jobs.length} 件のジョブを表示
+            {jobs.length} {t('job.totalJobs')}
           </div>
         )}
       </CardContent>

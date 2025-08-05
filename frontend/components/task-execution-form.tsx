@@ -9,20 +9,21 @@ import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, Play, AlertCircle, Clock } from 'lucide-react'
-import { useProjects, useCreateJob } from '@/hooks/use-job-api'
+import { useCreateJob, useProjects } from '@/hooks/use-job-api'
+import { useI18n } from '@/hooks/use-i18n'
 import { CreateJobRequest } from '@/lib/api'
 import { Slider } from '@/components/ui/slider'
 import { Input } from '@/components/ui/input'
 import { format } from 'date-fns'
 import { ja } from 'date-fns/locale'
-
 interface TaskExecutionFormProps {
   onJobCreated?: () => void
 }
 
 export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
-  const { projects, loading: projectsLoading } = useProjects()
   const { createJob, loading: createLoading, error: createError } = useCreateJob()
+  const { projects, loading: projectsLoading, error: projectsError } = useProjects()
+  const { t } = useI18n()
   
   const [selectedProjectId, setSelectedProjectId] = useState<string>('')
   const [command, setCommand] = useState('')
@@ -32,11 +33,47 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
   const [scheduledDate, setScheduledDate] = useState('')
   const [scheduledTime, setScheduledTime] = useState('')
   const [success, setSuccess] = useState<string | null>(null)
+  const [validationError, setValidationError] = useState<string | null>(null)
+
+  const validateScheduledDateTime = (): boolean => {
+    if (scheduleType !== 'scheduled') return true
+    
+    if (!scheduledDate || !scheduledTime) {
+      setValidationError('日付と時刻を両方指定してください')
+      return false
+    }
+    
+    const scheduledDateTime = new Date(`${scheduledDate}T${scheduledTime}:00`)
+    const now = new Date()
+    
+    if (scheduledDateTime <= now) {
+      setValidationError(t('job.validation.futureTime'))
+      return false
+    }
+    
+    // 1年以上先の日時は許可しない
+    const oneYearFromNow = new Date()
+    oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1)
+    if (scheduledDateTime > oneYearFromNow) {
+      setValidationError(t('job.validation.withinYear'))
+      return false
+    }
+    
+    return true
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     if (!selectedProjectId || !command.trim()) {
+      return
+    }
+
+    // Clear previous errors
+    setValidationError(null)
+    
+    // Validate scheduled date/time
+    if (!validateScheduledDateTime()) {
       return
     }
 
@@ -62,7 +99,7 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
       }
 
       const job = await createJob(request)
-      setSuccess(`Job created successfully: ${job.id}`)
+      setSuccess(`${t('job.created')}: ${job.id}`)
       
       // Reset form
       setCommand('')
@@ -71,6 +108,7 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
       setDelayHours(1)
       setScheduledDate('')
       setScheduledTime('')
+      setValidationError(null)
       
       // Notify parent component
       if (onJobCreated) {
@@ -81,24 +119,24 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
     }
   }
 
-  const selectedProject = projects.find(p => p.id === selectedProjectId)
+  const selectedProject = projects?.find(p => p.id === selectedProjectId)
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Play className="h-5 w-5" />
-          タスク実行
+{t('job.execution')}
         </CardTitle>
         <CardDescription>
-          Claude Codeタスクを実行します。プロジェクトを選択してコマンドを入力してください。
+          {t('job.description')}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Project Selection */}
           <div className="space-y-2">
-            <Label htmlFor="project">プロジェクト</Label>
+            <Label htmlFor="project">{t('session.project')}</Label>
             <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
               <SelectTrigger>
                 <SelectValue placeholder="プロジェクトを選択してください" />
@@ -107,6 +145,14 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
                 {projectsLoading ? (
                   <SelectItem value="loading" disabled>
                     読み込み中...
+                  </SelectItem>
+                ) : projectsError ? (
+                  <SelectItem value="error" disabled>
+                    エラー: {projectsError}
+                  </SelectItem>
+                ) : !projects || projects.length === 0 ? (
+                  <SelectItem value="no-projects" disabled>
+                    プロジェクトがありません
                   </SelectItem>
                 ) : (
                   projects.map((project) => (
@@ -126,10 +172,10 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
 
           {/* Command Input */}
           <div className="space-y-2">
-            <Label htmlFor="command">コマンド</Label>
+            <Label htmlFor="command">{t('job.command')}</Label>
             <Textarea
               id="command"
-              placeholder="例: implement a new feature to..."
+              placeholder="例: 新しい機能を実装して..."
               value={command}
               onChange={(e) => setCommand(e.target.value)}
               rows={6}
@@ -158,15 +204,24 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
           {/* Schedule Type */}
           <div className="space-y-2">
             <Label htmlFor="schedule-type">実行タイミング</Label>
-            <Select value={scheduleType} onValueChange={setScheduleType}>
+            <Select value={scheduleType} onValueChange={(value) => {
+              setScheduleType(value)
+              setValidationError(null)
+              // カスタム日時指定の場合、デフォルトで現在時刻を設定
+              if (value === 'scheduled') {
+                const now = new Date()
+                setScheduledDate(format(now, 'yyyy-MM-dd'))
+                setScheduledTime(format(now, 'HH:mm'))
+              }
+            }}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="immediate">即座に実行</SelectItem>
-                <SelectItem value="after_reset">次回リセット後</SelectItem>
-                <SelectItem value="delayed">N時間後に実行</SelectItem>
-                <SelectItem value="scheduled">日時を指定</SelectItem>
+                <SelectItem value="immediate">{t('job.schedule.immediate')}</SelectItem>
+                <SelectItem value="after_reset">{t('job.schedule.afterReset')}</SelectItem>
+                <SelectItem value="delayed">{t('job.schedule.delayed')}</SelectItem>
+                <SelectItem value="scheduled">{t('job.schedule.scheduled')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -174,7 +229,7 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
           {/* Delayed Schedule Options */}
           {scheduleType === 'delayed' && (
             <div className="space-y-2">
-              <Label>実行まで: {delayHours}時間後</Label>
+              <Label>{t('job.timeUntil')}: {delayHours}{t('job.hoursAfter')}</Label>
               <Slider
                 value={[delayHours]}
                 onValueChange={([value]) => setDelayHours(value)}
@@ -199,8 +254,12 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
                     id="scheduled-date"
                     type="date"
                     value={scheduledDate}
-                    onChange={(e) => setScheduledDate(e.target.value)}
+                    onChange={(e) => {
+                      setScheduledDate(e.target.value)
+                      setValidationError(null)
+                    }}
                     min={format(new Date(), 'yyyy-MM-dd')}
+                    max={format(new Date(new Date().setFullYear(new Date().getFullYear() + 1)), 'yyyy-MM-dd')}
                   />
                 </div>
                 <div className="space-y-1">
@@ -209,7 +268,10 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
                     id="scheduled-time"
                     type="time"
                     value={scheduledTime}
-                    onChange={(e) => setScheduledTime(e.target.value)}
+                    onChange={(e) => {
+                      setScheduledTime(e.target.value)
+                      setValidationError(null)
+                    }}
                   />
                 </div>
               </div>
@@ -226,11 +288,19 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
             <Alert>
               <Clock className="h-4 w-4" />
               <AlertDescription>
-                {scheduleType === 'after_reset' && 'セッションウィンドウがリセットされた後に実行されます。'}
-                {scheduleType === 'delayed' && `${delayHours}時間後に実行されます。`}
+                {scheduleType === 'after_reset' && t('job.resetDescription')}
+                {scheduleType === 'delayed' && `${delayHours}${t('job.delayDescription')}`}
                 {scheduleType === 'scheduled' && scheduledDate && scheduledTime && 
                   `${format(new Date(`${scheduledDate}T${scheduledTime}:00`), 'yyyy年MM月dd日 HH:mm', { locale: ja })}に実行されます。`}
               </AlertDescription>
+            </Alert>
+          )}
+
+          {/* Validation Error Display */}
+          {validationError && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{validationError}</AlertDescription>
             </Alert>
           )}
 
@@ -259,12 +329,12 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
             {createLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                実行中...
+{t('job.executing')}
               </>
             ) : (
               <>
                 <Play className="mr-2 h-4 w-4" />
-                タスクを実行
+{t('job.create')}
               </>
             )}
           </Button>

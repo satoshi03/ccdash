@@ -39,8 +39,8 @@ export function Header({ onSettingsChange }: HeaderProps) {
       await syncLogs()
       // ページをリロードしてデータを更新
       window.location.reload()
-    } catch (error) {
-      console.error('Error syncing data:', error)
+    } catch {
+      // Error syncing data
     } finally {
       setIsRefreshing(false)
     }

@@ -49,8 +49,11 @@ func (js *JobService) CreateJob(req *models.CreateJobRequest) (*models.Job, erro
 	// スケジュールタイプに応じてscheduled_atを設定
 	switch req.ScheduleType {
 	case models.ScheduleTypeImmediate:
-		now := time.Now()
-		job.ScheduledAt = &now
+		// immediateタイプはscheduled_atをnullにする（スケジューラーで処理しないため）
+		job.ScheduledAt = nil
+	case models.ScheduleTypeAfterReset:
+		// after_resetタイプもscheduled_atをnullにする（リセット時に処理するため）
+		job.ScheduledAt = nil
 	case models.ScheduleTypeDelayed:
 		if req.ScheduleParams != nil && req.ScheduleParams.DelayHours != nil {
 			scheduledTime := time.Now().Add(time.Duration(*req.ScheduleParams.DelayHours) * time.Hour)
@@ -82,7 +85,7 @@ func (js *JobService) CreateJob(req *models.CreateJobRequest) (*models.Job, erro
 	
 	_, err = js.db.Exec(query,
 		job.ID, job.ProjectID, job.Command, job.ExecutionDirectory,
-		job.YoloMode, job.Status, job.Priority, job.CreatedAt.Format(time.RFC3339),
+		job.YoloMode, job.Status, job.Priority, job.CreatedAt.UTC().Format(time.RFC3339),
 		formatTimePtr(job.ScheduledAt), job.ScheduleType, scheduleParamsJSON)
 	
 	if err != nil {
@@ -153,6 +156,7 @@ func (js *JobService) GetJobs(filters models.JobFilters) ([]*models.Job, error) 
 		args = append(args, filters.Offset)
 	}
 	
+	
 	rows, err := js.db.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to query jobs: %w", err)
@@ -168,6 +172,7 @@ func (js *JobService) GetJobs(filters models.JobFilters) ([]*models.Job, error) 
 		}
 		jobs = append(jobs, job)
 	}
+	
 	
 	return jobs, nil
 }
@@ -210,7 +215,7 @@ func (js *JobService) UpdateJobStatus(id string, status string, pid *int) error 
 		return fmt.Errorf("job not found: %s", id)
 	}
 
-	now := time.Now()
+	now := time.Now().UTC()
 
 	// Delete the existing job record
 	_, err = js.db.Exec("DELETE FROM jobs WHERE id = ?", id)
@@ -229,13 +234,13 @@ func (js *JobService) UpdateJobStatus(id string, status string, pid *int) error 
 
 	// Handle timestamps - convert *time.Time to string or nil
 	if job.StartedAt != nil {
-		startedAt = job.StartedAt.Format(time.RFC3339)
+		startedAt = job.StartedAt.UTC().Format(time.RFC3339)
 	} else {
 		startedAt = nil
 	}
 
 	if job.CompletedAt != nil {
-		completedAt = job.CompletedAt.Format(time.RFC3339)
+		completedAt = job.CompletedAt.UTC().Format(time.RFC3339)
 	} else {
 		completedAt = nil
 	}
@@ -257,14 +262,14 @@ func (js *JobService) UpdateJobStatus(id string, status string, pid *int) error 
 
 	var scheduledAt interface{}
 	if job.ScheduledAt != nil {
-		scheduledAt = job.ScheduledAt.Format(time.RFC3339)
+		scheduledAt = job.ScheduledAt.UTC().Format(time.RFC3339)
 	} else {
 		scheduledAt = nil
 	}
 
 	_, err = js.db.Exec(query,
 		job.ID, job.ProjectID, job.Command, job.ExecutionDirectory, job.YoloMode,
-		status, job.Priority, job.CreatedAt.Format(time.RFC3339), startedAt, completedAt,
+		status, job.Priority, job.CreatedAt.UTC().Format(time.RFC3339), startedAt, completedAt,
 		job.OutputLog, job.ErrorLog, job.ExitCode, pidValue, scheduledAt, job.ScheduleType, job.ScheduleParams,
 	)
 	if err != nil {
@@ -301,28 +306,28 @@ func (js *JobService) UpdateJobLogs(id string, outputLog, errorLog *string, exit
 
 	var startedAtStr interface{}
 	if job.StartedAt != nil {
-		startedAtStr = job.StartedAt.Format(time.RFC3339)
+		startedAtStr = job.StartedAt.UTC().Format(time.RFC3339)
 	} else {
 		startedAtStr = nil
 	}
 
 	var completedAtStr interface{}
 	if job.CompletedAt != nil {
-		completedAtStr = job.CompletedAt.Format(time.RFC3339)
+		completedAtStr = job.CompletedAt.UTC().Format(time.RFC3339)
 	} else {
 		completedAtStr = nil
 	}
 
 	var scheduledAtStr interface{}
 	if job.ScheduledAt != nil {
-		scheduledAtStr = job.ScheduledAt.Format(time.RFC3339)
+		scheduledAtStr = job.ScheduledAt.UTC().Format(time.RFC3339)
 	} else {
 		scheduledAtStr = nil
 	}
 
 	_, err = js.db.Exec(query,
 		job.ID, job.ProjectID, job.Command, job.ExecutionDirectory, job.YoloMode,
-		job.Status, job.Priority, job.CreatedAt.Format(time.RFC3339), startedAtStr, completedAtStr,
+		job.Status, job.Priority, job.CreatedAt.UTC().Format(time.RFC3339), startedAtStr, completedAtStr,
 		outputLog, errorLog, exitCode, job.PID, scheduledAtStr, job.ScheduleType, job.ScheduleParams,
 	)
 	if err != nil {
@@ -362,6 +367,41 @@ func (js *JobService) GetPendingJobs(limit int) ([]*models.Job, error) {
 		Limit:  limit,
 	}
 	return js.GetJobs(filters)
+}
+
+// GetPendingImmediateJobs retrieves pending jobs with immediate schedule type
+func (js *JobService) GetPendingImmediateJobs(limit int) ([]*models.Job, error) {
+	query := `
+		SELECT j.id, j.project_id, j.command, j.execution_directory, j.yolo_mode,
+			   j.status, j.priority, j.created_at, j.started_at, j.completed_at,
+			   j.output_log, j.error_log, j.exit_code, j.pid,
+			   j.scheduled_at, j.schedule_type, j.schedule_params,
+			   p.name as project_name, p.path as project_path
+		FROM jobs j
+		JOIN projects p ON j.project_id = p.id
+		WHERE j.status = ? 
+		AND (j.schedule_type = ? OR j.schedule_type IS NULL)
+		ORDER BY j.priority DESC, j.created_at ASC
+		LIMIT ?`
+	
+	rows, err := js.db.Query(query, models.JobStatusPending, models.ScheduleTypeImmediate, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query immediate pending jobs: %w", err)
+	}
+	defer rows.Close()
+	
+	var jobs []*models.Job
+	for rows.Next() {
+		job := &models.Job{
+			Project: &models.Project{},
+		}
+		if err := js.scanJobRow(rows, job); err != nil {
+			return nil, fmt.Errorf("failed to scan job row: %w", err)
+		}
+		jobs = append(jobs, job)
+	}
+	
+	return jobs, nil
 }
 
 // Helper methods
@@ -453,7 +493,7 @@ func formatTimePtr(t *time.Time) interface{} {
 	if t == nil {
 		return nil
 	}
-	return t.Format(time.RFC3339)
+	return t.UTC().Format(time.RFC3339)
 }
 
 // validateScheduleParams validates schedule parameters based on schedule type

@@ -135,14 +135,16 @@ func (p *ProjectService) GetProjectByID(id string) (*models.Project, error) {
 	return &project, nil
 }
 
-// GetAllProjects gets all projects
+// GetAllProjects gets all projects that have sessions
 func (p *ProjectService) GetAllProjects() ([]models.Project, error) {
+	// Only return projects that have sessions associated with them
 	query := `
-		SELECT id, name, path, description, repository_url, language, framework,
-			   is_active, created_at, updated_at
-		FROM projects
-		WHERE is_active = true
-		ORDER BY name ASC
+		SELECT DISTINCT p.id, p.name, p.path, p.description, p.repository_url, 
+		       p.language, p.framework, p.is_active, p.created_at, p.updated_at
+		FROM projects p
+		INNER JOIN sessions s ON p.id = s.project_id
+		WHERE p.is_active = true
+		ORDER BY p.name ASC
 	`
 	
 	rows, err := p.db.Query(query)
@@ -273,6 +275,6 @@ func (p *ProjectService) MigrateExistingSessionsToProjects() error {
 		}
 	}
 	
-	fmt.Printf("Migration completed: created %d projects\n", projectCount)
+	// Migration completed
 	return nil
 }

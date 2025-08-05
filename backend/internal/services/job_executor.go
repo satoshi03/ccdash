@@ -151,15 +151,15 @@ func (je *JobExecutor) queueMonitor() {
 	}
 }
 
-// checkPendingJobs looks for pending jobs and queues them, also checks for stale running jobs
+// checkPendingJobs looks for pending immediate jobs and queues them, also checks for stale running jobs
 func (je *JobExecutor) checkPendingJobs() {
 	// First, check for stale running jobs
 	je.checkStaleRunningJobs()
 	
-	// Then check for pending jobs
-	pendingJobs, err := je.jobService.GetPendingJobs(10)
+	// Then check for pending immediate jobs only
+	pendingJobs, err := je.jobService.GetPendingImmediateJobs(10)
 	if err != nil {
-		log.Printf("Error getting pending jobs: %v", err)
+		log.Printf("Error getting pending immediate jobs: %v", err)
 		return
 	}
 	
@@ -176,7 +176,7 @@ func (je *JobExecutor) checkPendingJobs() {
 		// Queue the job
 		select {
 		case je.jobQueue <- job.ID:
-			log.Printf("Queued pending job %s", job.ID)
+			log.Printf("Queued pending immediate job %s", job.ID)
 		default:
 			log.Printf("Job queue full, skipping job %s", job.ID)
 		}

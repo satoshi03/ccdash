@@ -41,7 +41,6 @@ func (p *JSONLParser) SyncAllLogs() error {
 	}
 	
 	claudeDir := filepath.Join(homeDir, ".claude", "projects")
-	fmt.Printf("Looking for Claude projects in: %s\n", claudeDir)
 	
 	if _, err := os.Stat(claudeDir); os.IsNotExist(err) {
 		return fmt.Errorf("claude projects directory not found: %s", claudeDir)
@@ -52,14 +51,13 @@ func (p *JSONLParser) SyncAllLogs() error {
 		return fmt.Errorf("failed to read claude projects directory: %w", err)
 	}
 	
-	fmt.Printf("Found %d projects\n", len(entries))
+	// Found projects: process each directory
 	
 	for _, entry := range entries {
 		if entry.IsDir() {
 			projectPath := filepath.Join(claudeDir, entry.Name())
-			fmt.Printf("Syncing project: %s\n", entry.Name())
 			if err := p.syncProjectLogs(projectPath, entry.Name()); err != nil {
-				fmt.Printf("Error syncing project %s: %v\n", entry.Name(), err)
+				// Error syncing project
 			}
 		}
 	}
@@ -73,12 +71,11 @@ func (p *JSONLParser) syncProjectLogs(projectPath, projectName string) error {
 		return fmt.Errorf("failed to glob jsonl files: %w", err)
 	}
 	
-	fmt.Printf("Found %d JSONL files in %s\n", len(files), projectPath)
+	// Process JSONL files in the project directory
 	
 	for _, file := range files {
-		fmt.Printf("Processing file: %s\n", file)
 		if err := p.parseJSONLFile(file, projectName); err != nil {
-			fmt.Printf("Error parsing file %s: %v\n", file, err)
+			// Error parsing file
 		}
 	}
 	
@@ -112,20 +109,16 @@ func (p *JSONLParser) parseJSONLFile(filePath, projectName string) error {
 		
 		var entry models.LogEntry
 		if err := json.Unmarshal([]byte(line), &entry); err != nil {
-			fmt.Printf("Error unmarshaling line %d in file %s: %v\n", lineCount, fileName, err)
-			fmt.Printf("Problematic JSON line: %s\n", line)
 			continue
 		}
 		
 		if err := p.processLogEntry(&entry, projectName); err != nil {
-			fmt.Printf("Error processing log entry %d in file %s (UUID: %s, SessionID: %s): %v\n", lineCount, fileName, entry.UUID, entry.SessionID, err)
-			fmt.Printf("Entry details: %+v\n", entry)
 			continue
 		}
 		processedCount++
 	}
 	
-	fmt.Printf("Processed %d/%d lines from %s\n", processedCount, lineCount, filePath)
+	// Processing completed
 	return scanner.Err()
 }
 
@@ -234,8 +227,7 @@ func (p *JSONLParser) insertMessage(message *models.Message) error {
 	
 	// Log successful upsert for debugging
 	if message.MessageRole != nil && *message.MessageRole == "assistant" {
-		fmt.Printf("Upserted assistant message: ID=%s, SessionID=%s, Timestamp=%s, Tokens=%d\n", 
-			message.ID, message.SessionID, message.Timestamp.Format(time.RFC3339), message.InputTokens+message.OutputTokens)
+		// Assistant message upserted successfully
 	}
 	return nil
 }
