@@ -59,8 +59,8 @@ export default function Dashboard() {
         refetchSessions(),
         refetchP90()
       ])
-    } catch (error) {
-      console.error('Error refreshing data:', error)
+    } catch {
+      // Error refreshing data
     } finally {
       setIsRefreshing(false)
     }

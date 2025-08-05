@@ -275,6 +275,6 @@ func (p *ProjectService) MigrateExistingSessionsToProjects() error {
 		}
 	}
 	
-	fmt.Printf("Migration completed: created %d projects\n", projectCount)
+	// Migration completed
 	return nil
 }

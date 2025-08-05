@@ -15,7 +15,6 @@ export function useTokenUsage() {
       const tokenUsage = await api.tokenUsage.getCurrent()
       setData(tokenUsage)
     } catch (err) {
-      console.error('Error fetching token usage:', err)
       setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
       setLoading(false)
@@ -41,7 +40,6 @@ export function useSessions() {
       const result = await api.sessions.getAll()
       setData(result.sessions)
     } catch (err) {
-      console.error('Error fetching sessions:', err)
       setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
       setLoading(false)
@@ -67,7 +65,6 @@ export function useSyncLogs() {
       await api.sync.logs()
       return true
     } catch (err) {
-      console.error('Error syncing logs:', err)
       setError(err instanceof Error ? err.message : 'Unknown error')
       return false
     } finally {
@@ -90,7 +87,6 @@ export function useP90Predictions() {
       const prediction = await api.predictions.getP90()
       setData(prediction)
     } catch (err) {
-      console.error('Error fetching P90 predictions:', err)
       setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
       setLoading(false)
@@ -118,7 +114,6 @@ export function useP90PredictionsByProject(projectName: string) {
       const prediction = await api.predictions.getP90ByProject(projectName)
       setData(prediction)
     } catch (err) {
-      console.error('Error fetching P90 predictions by project:', err)
       setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
       setLoading(false)
@@ -144,7 +139,6 @@ export function useBurnRateHistory(hours: number = 24) {
       const result = await api.predictions.getBurnRateHistory(hours)
       setData(result.burn_rate_history)
     } catch (err) {
-      console.error('Error fetching burn rate history:', err)
       setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
       setLoading(false)

@@ -99,10 +99,7 @@ export function JobDetailModal({ jobId, open, onOpenChange }: JobDetailModalProp
   }
 
   const copyToClipboard = async (text: string, fieldName: string) => {
-    console.log('copyToClipboard called with:', { text, fieldName, textLength: text?.length })
-    
     if (!text || text.trim().length === 0) {
-      console.error('Empty text provided to copyToClipboard')
       alert('コピーするテキストが空です')
       return
     }
@@ -110,7 +107,6 @@ export function JobDetailModal({ jobId, open, onOpenChange }: JobDetailModalProp
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(text)
-        console.log('Successfully copied using Clipboard API')
       } else {
         // Fallback for older browsers or non-HTTPS contexts - exact same as session detail
         const textArea = document.createElement('textarea')
@@ -119,12 +115,11 @@ export function JobDetailModal({ jobId, open, onOpenChange }: JobDetailModalProp
         textArea.select()
         document.execCommand('copy')
         document.body.removeChild(textArea)
-        console.log('Successfully copied using execCommand fallback')
       }
       setCopiedField(fieldName)
       setTimeout(() => setCopiedField(null), 2000)
-    } catch (error) {
-      console.error('Failed to copy to clipboard:', error)
+    } catch {
+      // Error handled silently
     }
   }
 
@@ -270,7 +265,6 @@ export function JobDetailModal({ jobId, open, onOpenChange }: JobDetailModalProp
                     variant="outline"
                     size="sm"
                     onClick={async () => {
-                      console.log('Command copy button clicked, job.command:', job.command)
                       await copyToClipboard(job.command, 'command')
                     }}
                     className="h-6 w-6 p-0"
@@ -313,7 +307,6 @@ export function JobDetailModal({ jobId, open, onOpenChange }: JobDetailModalProp
                           variant="outline"
                           size="sm"
                           onClick={async () => {
-                            console.log('Output log copy button clicked, job.output_log:', job.output_log)
                             if (job.output_log) {
                               await copyToClipboard(job.output_log, 'output')
                             } else {
@@ -359,7 +352,6 @@ export function JobDetailModal({ jobId, open, onOpenChange }: JobDetailModalProp
                           variant="outline"
                           size="sm"
                           onClick={async () => {
-                            console.log('Error log copy button clicked, job.error_log:', job.error_log)
                             if (job.error_log) {
                               await copyToClipboard(job.error_log, 'error')
                             } else {

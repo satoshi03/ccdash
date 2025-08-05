@@ -244,7 +244,7 @@ func (f *FileSyncStateManager) CleanupOldStates() error {
 		WHERE sync_status = 'processing' AND last_sync_time < ?
 	`, fiveMinutesAgo)
 	if err != nil {
-		fmt.Printf("Warning: failed to reset stuck processing states: %v\n", err)
+		// Warning: failed to reset stuck processing states
 	}
 
 	states, err := f.GetAllFileStates()
@@ -257,9 +257,7 @@ func (f *FileSyncStateManager) CleanupOldStates() error {
 			// File no longer exists, remove from state table
 			_, err := f.db.Exec("DELETE FROM file_sync_state WHERE file_path = ?", state.FilePath)
 			if err != nil {
-				fmt.Printf("Warning: failed to remove old state for %s: %v\n", state.FilePath, err)
-			} else {
-				fmt.Printf("Removed old state for deleted file: %s\n", state.FilePath)
+				// Warning: failed to remove old state
 			}
 		}
 	}

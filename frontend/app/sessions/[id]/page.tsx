@@ -68,7 +68,6 @@ function SessionDetailContent() {
         const result = await api.sessions.getById(sessionId, currentPage, pageSize)
         setSessionDetail(result)
       } catch (err) {
-        console.error('Error fetching session detail:', err)
         setError(err instanceof Error ? err.message : 'Unknown error')
       } finally {
         setLoading(false)
@@ -187,8 +186,6 @@ function SessionDetailContent() {
         }
       } catch {
         // If parsing fails, fall through to plain text processing
-        // Only log if it looks like it should be JSON but isn't
-        console.debug('Content looks like JSON but failed to parse:', message.content.substring(0, 50) + '...')
       }
     }
 
@@ -317,8 +314,8 @@ function SessionDetailContent() {
                           }
                           setCopiedSessionId(true)
                           setTimeout(() => setCopiedSessionId(false), 2000)
-                        } catch (error) {
-                          console.error('Failed to copy session ID:', error)
+                        } catch {
+                          // Error copying session ID
                         }
                       }}
                       className="h-6 w-6 p-0"

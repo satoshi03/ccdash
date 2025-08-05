@@ -19,7 +19,6 @@ export function useInitialization() {
         setTimeout(() => checkStatus(), 2000) // Poll every 2 seconds
       }
     } catch (err) {
-      console.error('Failed to check initialization status:', err)
       setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
       setIsLoading(false)
