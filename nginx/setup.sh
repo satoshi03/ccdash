@@ -135,22 +135,93 @@ check_services() {
     fi
 }
 
+setup_https_config() {
+    print_info "Setting up HTTPS configuration..."
+    
+    HTTPS_CONF_NAME="ccdash-https.conf"
+    HTTPS_TEMPLATE_NAME="ccdash-https.conf.template"
+    
+    # Check if personal HTTPS config exists
+    if [ ! -f "$SCRIPT_DIR/$HTTPS_CONF_NAME" ]; then
+        if [ -f "$SCRIPT_DIR/$HTTPS_TEMPLATE_NAME" ]; then
+            print_info "Creating HTTPS config from template..."
+            cp "$SCRIPT_DIR/$HTTPS_TEMPLATE_NAME" "$SCRIPT_DIR/$HTTPS_CONF_NAME"
+            print_success "Created $HTTPS_CONF_NAME from template"
+            print_warning "Remember to edit $HTTPS_CONF_NAME with your domain and certificate paths"
+        else
+            print_error "HTTPS template file $HTTPS_TEMPLATE_NAME not found"
+            return 1
+        fi
+    else
+        print_success "HTTPS config $HTTPS_CONF_NAME already exists"
+    fi
+}
+
+show_https_steps() {
+    print_info "HTTPS Setup Steps:"
+    echo
+    echo "1. Set up SSL certificate:"
+    echo "   # Option A: Let's Encrypt"
+    echo "   sudo certbot certonly --nginx -d your-domain.com"
+    echo
+    echo "   # Option B: Self-signed (testing only)"
+    echo "   sudo mkdir -p /etc/nginx/ssl"
+    echo "   sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \"
+    echo "     -keyout /etc/nginx/ssl/ccdash.key \"
+    echo "     -out /etc/nginx/ssl/ccdash.crt"
+    echo
+    echo "2. Update HTTPS config:"
+    echo "   sed -i 's/ccdash.example.com/your-domain.com/g' $SCRIPT_DIR/ccdash-https.conf"
+    echo
+    echo "3. Install HTTPS configuration:"
+    if [ -n "$NGINX_SERVERS_DIR" ]; then
+        echo "   sudo cp $SCRIPT_DIR/ccdash-https.conf $NGINX_SERVERS_DIR/"
+    else
+        echo "   sudo cp $SCRIPT_DIR/ccdash-https.conf $NGINX_SITES_AVAILABLE/"
+        echo "   sudo ln -sf $NGINX_SITES_AVAILABLE/ccdash-https.conf $NGINX_SITES_ENABLED/"
+    fi
+    echo
+    echo "4. Configure environment variables:"
+    echo "   # Backend (.env)"
+    echo "   GIN_MODE=release"
+    echo "   CCDASH_API_KEY=your-secure-api-key"
+    echo "   CORS_ALLOWED_ORIGINS=https://your-domain.com"
+    echo
+    echo "   # Frontend (.env.local)"
+    echo "   NEXT_PUBLIC_API_URL=https://your-domain.com/api"
+    echo "   NEXT_PUBLIC_API_KEY=your-secure-api-key"
+    echo
+    echo "5. Test and reload:"
+    echo "   sudo nginx -t && sudo nginx -s reload"
+    echo
+}
+
 main() {
     echo "CCDash Nginx Setup - Template Configuration"
     echo "==========================================="
     echo
     
-    setup_config
-    echo
-    show_manual_steps
-    check_services
-    
-    echo
-    print_info "Configuration Summary:"
-    echo "  - Frontend: http://localhost -> http://127.0.0.1:3000"
-    echo "  - API: http://localhost/api -> http://127.0.0.1:6060/api"
-    echo "  - Template: $SCRIPT_DIR/$NGINX_TEMPLATE_NAME (tracked in git)"
-    echo "  - Personal config: $SCRIPT_DIR/$NGINX_CONF_NAME (gitignored)"
+    if [ "$1" = "https" ]; then
+        setup_https_config
+        echo
+        show_https_steps
+    else
+        setup_config
+        echo
+        show_manual_steps
+        check_services
+        
+        echo
+        print_info "Configuration Summary:"
+        echo "  - Frontend: http://localhost -> http://127.0.0.1:3000"
+        echo "  - API: http://localhost/api -> http://127.0.0.1:6060/api"
+        echo "  - Template: $SCRIPT_DIR/$NGINX_TEMPLATE_NAME (tracked in git)"
+        echo "  - Personal config: $SCRIPT_DIR/$NGINX_CONF_NAME (gitignored)"
+        
+        echo
+        print_info "For HTTPS setup, run:"
+        echo "  ./setup.sh https"
+    fi
 }
 
 main "$@"

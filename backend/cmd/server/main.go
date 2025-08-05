@@ -18,6 +18,7 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 )
 
 // isPrivateIP checks if an IP address is in private ranges
@@ -93,6 +94,14 @@ func isAllowedOrigin(origin string, allowedOrigins []string) bool {
 }
 
 func main() {
+	// Load .env file if it exists
+	if err := godotenv.Load(); err != nil {
+		// .env file is optional, so just log if not found
+		log.Printf("No .env file found or error loading: %v", err)
+	} else {
+		log.Println("Loaded .env file")
+	}
+
 	// Load configuration
 	cfg, err := config.GetConfig()
 	if err != nil {

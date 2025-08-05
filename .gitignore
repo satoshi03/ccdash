@@ -49,6 +49,7 @@ backend/bin
 
 # nginx personal configuration
 nginx/ccdash.conf
+nginx/ccdash-https.conf
 
 # log files
 *.log

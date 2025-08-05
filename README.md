@@ -144,7 +144,7 @@ export CCDASH_DISABLE_COMMAND_WHITELIST=true
 
 For production deployments, use HTTPS to encrypt all communications:
 
-See [docs/https-setup.md](docs/https-setup.md) for nginx/Apache configuration examples.
+See [nginx/README.md](nginx/README.md) for complete HTTPS setup guide with nginx configuration.
 
 ### Environment Variables
 
