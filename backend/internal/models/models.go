@@ -181,3 +181,93 @@ type CreateJobRequest struct {
 	ScheduleType   string          `json:"schedule_type"`
 	ScheduleParams *ScheduleParams `json:"schedule_params,omitempty"`
 }
+
+// Authentication models
+
+// User represents a user in the system
+type User struct {
+	ID                   string     `json:"id" db:"id"`
+	Email                string     `json:"email" db:"email"`
+	PasswordHash         string     `json:"-" db:"password_hash"` // Never expose password hash in JSON
+	Roles                []string   `json:"roles" db:"roles"`     // Will be serialized as JSON array
+	CreatedAt            time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt            time.Time  `json:"updated_at" db:"updated_at"`
+	LastLogin            *time.Time `json:"last_login" db:"last_login"`
+	IsActive             bool       `json:"is_active" db:"is_active"`
+	FailedLoginAttempts  int        `json:"failed_login_attempts" db:"failed_login_attempts"`
+	LockedUntil          *time.Time `json:"locked_until" db:"locked_until"`
+}
+
+// UserRegistrationRequest represents user registration request
+type UserRegistrationRequest struct {
+	Email    string   `json:"email" binding:"required,email"`
+	Password string   `json:"password" binding:"required,min=8"`
+	Roles    []string `json:"roles,omitempty"`
+}
+
+// UserLoginRequest represents user login request
+type UserLoginRequest struct {
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required"`
+}
+
+// LoginResponse represents the response after successful login
+type LoginResponse struct {
+	User         User   `json:"user"`
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresIn    int64  `json:"expires_in"` // seconds
+}
+
+// RefreshTokenRequest represents refresh token request
+type RefreshTokenRequest struct {
+	RefreshToken string `json:"refresh_token" binding:"required"`
+}
+
+// RefreshToken represents a refresh token in the database
+type RefreshToken struct {
+	ID        string     `json:"id" db:"id"`
+	UserID    string     `json:"user_id" db:"user_id"`
+	TokenHash string     `json:"-" db:"token_hash"` // Never expose token hash
+	ExpiresAt time.Time  `json:"expires_at" db:"expires_at"`
+	CreatedAt time.Time  `json:"created_at" db:"created_at"`
+	RevokedAt *time.Time `json:"revoked_at" db:"revoked_at"`
+	IsRevoked bool       `json:"is_revoked" db:"is_revoked"`
+}
+
+// AuditLog represents an audit log entry
+type AuditLog struct {
+	ID        string     `json:"id" db:"id"`
+	UserID    *string    `json:"user_id" db:"user_id"`
+	UserEmail *string    `json:"user_email" db:"user_email"`
+	Action    string     `json:"action" db:"action"`
+	Resource  string     `json:"resource" db:"resource"`
+	Details   *string    `json:"details" db:"details"` // JSON string
+	IPAddress *string    `json:"ip_address" db:"ip_address"`
+	UserAgent *string    `json:"user_agent" db:"user_agent"`
+	Success   bool       `json:"success" db:"success"`
+	Timestamp time.Time  `json:"timestamp" db:"timestamp"`
+}
+
+// Permission represents a permission in the system
+type Permission string
+
+// Permission constants
+const (
+	PermissionViewDashboard   Permission = "dashboard:view"
+	PermissionSyncLogs        Permission = "logs:sync"
+	PermissionExecuteTasks    Permission = "tasks:execute"
+	PermissionManageSystem    Permission = "system:manage"
+	PermissionManageUsers     Permission = "users:manage"
+	PermissionViewAuditLogs   Permission = "audit:view"
+)
+
+// RolePermissions maps roles to their permissions
+type RolePermissions map[string][]Permission
+
+// DefaultRoles defines the default role-permission mappings
+var DefaultRoles = RolePermissions{
+	"viewer": {PermissionViewDashboard},
+	"user":   {PermissionViewDashboard, PermissionSyncLogs},
+	"admin":  {PermissionViewDashboard, PermissionSyncLogs, PermissionExecuteTasks, PermissionManageSystem, PermissionManageUsers, PermissionViewAuditLogs},
+}

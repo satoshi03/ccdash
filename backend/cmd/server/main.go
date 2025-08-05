@@ -13,6 +13,7 @@ import (
 	"ccdash-backend/internal/config"
 	"ccdash-backend/internal/database"
 	"ccdash-backend/internal/handlers"
+	"ccdash-backend/internal/middleware"
 	"ccdash-backend/internal/services"
 
 	"github.com/gin-contrib/cors"
@@ -117,6 +118,12 @@ func main() {
 	projectService := services.NewProjectService(db) // Phase 3: Add ProjectService
 	jobService := services.NewJobService(db)         // Phase 2: Add JobService
 	jobExecutor := services.NewJobExecutor(jobService, cfg.JobExecutorWorkerCount) // Phase 2: Add JobExecutor with configurable workers
+
+	// Authentication services (Phase 4: Authentication)
+	auditService := services.NewAuditService(db)
+	authService := services.NewAuthService(db, cfg.JWTSecret, auditService)
+	authMiddleware := middleware.NewAuthMiddleware(authService, auditService)
+	authHandler := handlers.NewAuthHandler(authService, auditService)
 
 	// Perform initial log sync if this is a new database (in background)
 	if isNewDatabase {
@@ -228,45 +235,112 @@ func main() {
 		c.Next()
 	})
 
+	// Apply rate limiting to all API routes
+	r.Use(middleware.APIRateLimit())
+
 	api := r.Group("/api")
 	{
 		api.GET("/health", func(c *gin.Context) {
 			c.JSON(http.StatusOK, gin.H{
-				"status":  "healthy",
-				"message": "CCDash API is running",
+				"status":       "healthy",
+				"message":      "CCDash API is running",
+				"auth_enabled": cfg.AuthEnabled,
 			})
 		})
 
-		api.GET("/initialization-status", handler.GetInitializationStatus)
-		api.GET("/token-usage", handler.GetTokenUsage)
-		api.GET("/sessions", handler.GetSessions)
-		api.GET("/sessions/:id", handler.GetSessionDetails)
-		api.GET("/sessions/:id/activity", handler.GetSessionActivityReport)
-		api.GET("/claude/sessions/recent", handler.GetRecentSessions)
-		api.GET("/claude/available-tokens", handler.GetAvailableTokens)
-		api.GET("/costs/current-month", handler.GetCurrentMonthCosts)
-		api.GET("/tasks", handler.GetTasks)
-		api.GET("/session-windows", handler.GetSessionWindows)
-		api.GET("/predictions/p90", handler.GetP90Predictions)
-		api.GET("/predictions/p90/project/:project", handler.GetP90PredictionsByProject)
-		api.GET("/predictions/burn-rate-history", handler.GetBurnRateHistory)
-		api.POST("/sync-logs", handler.SyncLogs)
+		// Authentication endpoints (always available)
+		auth := api.Group("/auth")
+		auth.Use(middleware.AuthRateLimit()) // Stricter rate limiting for auth
+		{
+			auth.POST("/register", authHandler.Register)
+			auth.POST("/login", authHandler.Login)
+			auth.POST("/refresh", authHandler.RefreshToken)
+			auth.POST("/logout", authMiddleware.RequireAuth(), authHandler.Logout)
+			auth.GET("/profile", authMiddleware.RequireAuth(), authHandler.GetProfile)
+			auth.GET("/validate", authMiddleware.RequireAuth(), authHandler.ValidateToken)
+		}
+
+		// Admin-only authentication management endpoints
+		authAdmin := api.Group("/auth/admin")
+		if cfg.AuthEnabled {
+			authAdmin.Use(authMiddleware.RequireAuth())
+			authAdmin.Use(authMiddleware.RequireRole("admin"))
+		}
+		{
+			authAdmin.GET("/users/:id", authHandler.GetUser)
+			authAdmin.PUT("/users/:id/status", authHandler.UpdateUserStatus)
+			authAdmin.GET("/audit-logs", authHandler.GetAuditLogs)
+			authAdmin.GET("/audit-logs/stats", authHandler.GetAuditLogStats)
+		}
+
+		// Dashboard and monitoring endpoints (viewer level access when auth enabled)
+		dashboard := api.Group("/")
+		if cfg.AuthEnabled {
+			dashboard.Use(authMiddleware.RequireAuth())
+		}
+		{
+			dashboard.GET("/initialization-status", handler.GetInitializationStatus)
+			dashboard.GET("/token-usage", handler.GetTokenUsage)
+			dashboard.GET("/sessions", handler.GetSessions)
+			dashboard.GET("/sessions/:id", handler.GetSessionDetails)
+			dashboard.GET("/sessions/:id/activity", handler.GetSessionActivityReport)
+			dashboard.GET("/claude/sessions/recent", handler.GetRecentSessions)
+			dashboard.GET("/claude/available-tokens", handler.GetAvailableTokens)
+			dashboard.GET("/costs/current-month", handler.GetCurrentMonthCosts)
+			dashboard.GET("/tasks", handler.GetTasks)
+			dashboard.GET("/session-windows", handler.GetSessionWindows)
+			dashboard.GET("/predictions/p90", handler.GetP90Predictions)
+			dashboard.GET("/predictions/p90/project/:project", handler.GetP90PredictionsByProject)
+			dashboard.GET("/predictions/burn-rate-history", handler.GetBurnRateHistory)
+		}
+
+		// Log sync endpoints (user level access when auth enabled)
+		sync := api.Group("/")
+		if cfg.AuthEnabled {
+			sync.Use(authMiddleware.RequireAuth())
+			sync.Use(authMiddleware.RequirePermission("logs:sync"))
+		}
+		{
+			sync.POST("/sync-logs", handler.SyncLogs)
+		}
 		
-		// Phase 3: Projects API endpoints
-		api.GET("/projects", handler.GetAllProjects)
-		api.GET("/projects/:id", handler.GetProject)
-		api.PUT("/projects/:id", handler.UpdateProject)
-		api.DELETE("/projects/:id", handler.DeleteProject)
-		api.GET("/projects/:id/sessions", handler.GetProjectSessions)
-		// Note: migrate-sessions endpoint removed - migration is handled automatically by DiffSyncService
+		// Phase 3: Projects API endpoints (user level access when auth enabled)
+		projects := api.Group("/")
+		if cfg.AuthEnabled {
+			projects.Use(authMiddleware.RequireAuth())
+		}
+		{
+			projects.GET("/projects", handler.GetAllProjects)
+			projects.GET("/projects/:id", handler.GetProject)
+			projects.GET("/projects/:id/sessions", handler.GetProjectSessions)
+		}
+
+		// Project management endpoints (admin level access when auth enabled)
+		projectsAdmin := api.Group("/")
+		if cfg.AuthEnabled {
+			projectsAdmin.Use(authMiddleware.RequireAuth())
+			projectsAdmin.Use(authMiddleware.RequirePermission("system:manage"))
+		}
+		{
+			projectsAdmin.PUT("/projects/:id", handler.UpdateProject)
+			projectsAdmin.DELETE("/projects/:id", handler.DeleteProject)
+		}
 		
-		// Phase 2: Jobs API endpoints
-		api.POST("/jobs", handler.CreateJob)
-		api.GET("/jobs", handler.GetJobs)
-		api.GET("/jobs/:id", handler.GetJobByID)
-		api.POST("/jobs/:id/cancel", handler.CancelJob)
-		api.DELETE("/jobs/:id", handler.DeleteJob)
-		api.GET("/jobs/queue/status", handler.GetJobQueueStatus)
+		// Phase 2: Jobs API endpoints (task execution permission required when auth enabled)
+		jobs := api.Group("/")
+		if cfg.AuthEnabled {
+			jobs.Use(authMiddleware.RequireAuth())
+			jobs.Use(authMiddleware.RequirePermission("tasks:execute"))
+		}
+		jobs.Use(middleware.TaskRateLimit()) // Always apply strict rate limiting for job operations
+		{
+			jobs.POST("/jobs", handler.CreateJob)
+			jobs.GET("/jobs", handler.GetJobs)
+			jobs.GET("/jobs/:id", handler.GetJobByID)
+			jobs.POST("/jobs/:id/cancel", handler.CancelJob)
+			jobs.DELETE("/jobs/:id", handler.DeleteJob)
+			jobs.GET("/jobs/queue/status", handler.GetJobQueueStatus)
+		}
 	}
 
 	log.Printf("Server starting on %s:%s", cfg.ServerHost, cfg.ServerPort)
@@ -275,6 +349,15 @@ func main() {
 	log.Printf("Frontend URL: %s", cfg.FrontendURL)
 	log.Printf("Job Scheduler polling interval: %v", cfg.JobSchedulerPollingInterval)
 	log.Printf("Job Executor worker count: %d", cfg.JobExecutorWorkerCount)
+	log.Printf("Authentication enabled: %v", cfg.AuthEnabled)
+	if cfg.AuthEnabled {
+		log.Printf("JWT secret configured: %v", len(cfg.JWTSecret) > 0)
+		log.Printf("Authentication endpoints available at /api/auth/*")
+		log.Printf("Admin endpoints protected with role-based access control")
+	} else {
+		log.Printf("Running in development mode - authentication disabled")
+		log.Printf("Set AUTH_ENABLED=true to enable authentication")
+	}
 
 	if err := r.Run(cfg.ServerHost + ":" + cfg.ServerPort); err != nil {
 		log.Fatal("Failed to start server:", err)
