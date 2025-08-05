@@ -111,7 +111,7 @@ export default function Dashboard() {
           <TabsList>
             <TabsTrigger value="overview">{t('common.overview')}</TabsTrigger>
             <TabsTrigger value="sessions">{t('common.sessions')}</TabsTrigger>
-            <TabsTrigger value="tasks">タスク実行</TabsTrigger>
+            <TabsTrigger value="tasks">{t('job.execution')}</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">

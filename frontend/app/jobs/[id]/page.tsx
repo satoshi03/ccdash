@@ -156,10 +156,10 @@ function JobDetailContent() {
         <div className="flex items-center gap-4">
           <Button variant="outline" size="sm" onClick={() => router.push('/?tab=tasks')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
-            戻る
+{t('common.back')}
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">ジョブ詳細</h1>
+            <h1 className="text-2xl font-bold">{t('job.title')}</h1>
             <p className="text-muted-foreground">
               ジョブID: {jobId}
             </p>
@@ -275,7 +275,7 @@ function JobDetailContent() {
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm flex items-center gap-2">
                 <Terminal className="h-4 w-4" />
-                コマンド
+{t('job.command')}
               </CardTitle>
               <Button
                 variant="outline"
@@ -303,11 +303,11 @@ function JobDetailContent() {
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="output" className="flex items-center gap-2">
               <FileText className="h-4 w-4" />
-              出力ログ
+              {t('job.outputLog')}
             </TabsTrigger>
             <TabsTrigger value="error" className="flex items-center gap-2">
               <XCircle className="h-4 w-4" />
-              エラーログ
+              {t('job.errorLog')}
             </TabsTrigger>
           </TabsList>
           
@@ -341,7 +341,7 @@ function JobDetailContent() {
                       </pre>
                     ) : (
                       <div className="text-sm text-muted-foreground">
-                        出力ログがありません
+                        {t('job.noOutputLog')}
                       </div>
                     )}
                   </div>
@@ -380,7 +380,7 @@ function JobDetailContent() {
                       </pre>
                     ) : (
                       <div className="text-sm text-muted-foreground">
-                        エラーログがありません
+                        {t('job.noErrorLog')}
                       </div>
                     )}
                   </div>

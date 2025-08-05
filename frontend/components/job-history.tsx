@@ -80,10 +80,10 @@ export function JobHistory({ refreshTrigger }: JobHistoryProps) {
     }
 
     const scheduleTypeLabel = {
-      immediate: '即時実行',
-      after_reset: 'リセット後',
-      delayed: '遅延実行',
-      scheduled: '時刻指定'
+      immediate: t('job.schedule.immediate'),
+      after_reset: t('job.schedule.afterReset'),
+      delayed: t('job.schedule.delayed'),
+      scheduled: t('job.schedule.scheduled')
     }
 
     return {
@@ -118,9 +118,9 @@ export function JobHistory({ refreshTrigger }: JobHistoryProps) {
     const diffHours = Math.floor(diffMinutes / 60)
     const diffDays = Math.floor(diffHours / 24)
     
-    if (diffDays > 0) return `${diffDays}日後`
-    if (diffHours > 0) return `${diffHours}時間${diffMinutes % 60}分後`
-    if (diffMinutes > 0) return `${diffMinutes}分後`
+    if (diffDays > 0) return `${diffDays}${t('job.daysAfter')}`
+    if (diffHours > 0) return `${diffHours}${t('tokenUsage.hours')}${diffMinutes % 60}${t('job.minutesAfter')}`
+    if (diffMinutes > 0) return `${diffMinutes}${t('job.minutesAfter')}`
     return '間もなく実行'
   }
 
@@ -134,7 +134,7 @@ export function JobHistory({ refreshTrigger }: JobHistoryProps) {
   }
 
   const handleDelete = async (jobId: string) => {
-    if (!confirm('このジョブを削除しますか？')) return
+    if (!confirm(t('job.confirmDelete'))) return
     
     try {
       await deleteJob(jobId)
@@ -158,7 +158,7 @@ export function JobHistory({ refreshTrigger }: JobHistoryProps) {
           <div>
             <CardTitle className="flex items-center gap-2">
               <History className="h-5 w-5" />
-              ジョブ履歴
+{t('job.history')}
             </CardTitle>
             <CardDescription>
               実行されたタスクの履歴と状態を確認できます。
@@ -228,13 +228,13 @@ export function JobHistory({ refreshTrigger }: JobHistoryProps) {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>ステータス</TableHead>
-                <TableHead>プロジェクト</TableHead>
-                <TableHead>コマンド</TableHead>
-                <TableHead>スケジュール</TableHead>
-                <TableHead>実行時間</TableHead>
-                <TableHead>作成日時</TableHead>
-                <TableHead className="text-right">アクション</TableHead>
+                <TableHead>{t('session.status')}</TableHead>
+                <TableHead>{t('session.project')}</TableHead>
+                <TableHead>{t('job.command')}</TableHead>
+                <TableHead>{t('job.schedule')}</TableHead>
+                <TableHead>{t('job.duration')}</TableHead>
+                <TableHead>{t('job.createdAt')}</TableHead>
+                <TableHead className="text-right">{t('job.actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -247,7 +247,7 @@ export function JobHistory({ refreshTrigger }: JobHistoryProps) {
               ) : !jobs || jobs.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                    ジョブが見つかりません
+{t('job.notFound')}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -360,7 +360,7 @@ export function JobHistory({ refreshTrigger }: JobHistoryProps) {
         {/* Pagination Info */}
         {jobs && jobs.length > 0 && (
           <div className="mt-4 text-sm text-muted-foreground">
-            {jobs.length} 件のジョブを表示
+            {jobs.length} {t('job.totalJobs')}
           </div>
         )}
       </CardContent>

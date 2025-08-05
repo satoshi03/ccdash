@@ -134,7 +134,7 @@ export function JobDetailModal({ jobId, open, onOpenChange }: JobDetailModalProp
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Terminal className="h-5 w-5" />
-            ジョブ詳細
+{t('job.title')}
           </DialogTitle>
           <DialogDescription>
             ジョブID: {jobId}
@@ -262,7 +262,7 @@ export function JobDetailModal({ jobId, open, onOpenChange }: JobDetailModalProp
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm flex items-center gap-2">
                     <Terminal className="h-4 w-4" />
-                    コマンド
+{t('job.command')}
                   </CardTitle>
                   <Button
                     variant="outline"
@@ -293,11 +293,11 @@ export function JobDetailModal({ jobId, open, onOpenChange }: JobDetailModalProp
               <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="output" className="flex items-center gap-2">
                   <FileText className="h-4 w-4" />
-                  出力ログ
+                  {t('job.outputLog')}
                 </TabsTrigger>
                 <TabsTrigger value="error" className="flex items-center gap-2">
                   <XCircle className="h-4 w-4" />
-                  エラーログ
+                  {t('job.errorLog')}
                 </TabsTrigger>
               </TabsList>
               
@@ -305,7 +305,7 @@ export function JobDetailModal({ jobId, open, onOpenChange }: JobDetailModalProp
                 <Card>
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-sm">標準出力</CardTitle>
+                      <CardTitle className="text-sm">{t('job.standardOutput')}</CardTitle>
                       {job.output_log && (
                         <Button
                           variant="outline"
@@ -338,7 +338,7 @@ export function JobDetailModal({ jobId, open, onOpenChange }: JobDetailModalProp
                           </pre>
                         ) : (
                           <div className="text-sm text-muted-foreground">
-                            出力ログがありません
+                            {t('job.noOutputLog')}
                           </div>
                         )}
                       </div>
@@ -384,7 +384,7 @@ export function JobDetailModal({ jobId, open, onOpenChange }: JobDetailModalProp
                           </pre>
                         ) : (
                           <div className="text-sm text-muted-foreground">
-                            エラーログがありません
+                            {t('job.noErrorLog')}
                           </div>
                         )}
                       </div>

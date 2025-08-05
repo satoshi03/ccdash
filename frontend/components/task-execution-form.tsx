@@ -45,7 +45,7 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
     const now = new Date()
     
     if (scheduledDateTime <= now) {
-      setValidationError('スケジュール日時は現在時刻より後に設定してください')
+      setValidationError(t('job.validation.futureTime'))
       return false
     }
     
@@ -53,7 +53,7 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
     const oneYearFromNow = new Date()
     oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1)
     if (scheduledDateTime > oneYearFromNow) {
-      setValidationError('スケジュール日時は1年以内に設定してください')
+      setValidationError(t('job.validation.withinYear'))
       return false
     }
     
@@ -97,7 +97,7 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
       }
 
       const job = await createJob(request)
-      setSuccess(`ジョブが正常に作成されました: ${job.id}`)
+      setSuccess(`${t('job.created')}: ${job.id}`)
       
       // Reset form
       setCommand('')
@@ -124,17 +124,17 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Play className="h-5 w-5" />
-          タスク実行
+{t('job.execution')}
         </CardTitle>
         <CardDescription>
-          Claude Codeタスクを実行します。プロジェクトを選択してコマンドを入力してください。
+          {t('job.description')}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Project Selection */}
           <div className="space-y-2">
-            <Label htmlFor="project">プロジェクト</Label>
+            <Label htmlFor="project">{t('session.project')}</Label>
             <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
               <SelectTrigger>
                 <SelectValue placeholder="プロジェクトを選択してください" />
@@ -170,7 +170,7 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
 
           {/* Command Input */}
           <div className="space-y-2">
-            <Label htmlFor="command">コマンド</Label>
+            <Label htmlFor="command">{t('job.command')}</Label>
             <Textarea
               id="command"
               placeholder="例: 新しい機能を実装して..."
@@ -216,10 +216,10 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="immediate">即座に実行</SelectItem>
-                <SelectItem value="after_reset">次回リセット後</SelectItem>
-                <SelectItem value="delayed">N時間後に実行</SelectItem>
-                <SelectItem value="scheduled">日時を指定</SelectItem>
+                <SelectItem value="immediate">{t('job.schedule.immediate')}</SelectItem>
+                <SelectItem value="after_reset">{t('job.schedule.afterReset')}</SelectItem>
+                <SelectItem value="delayed">{t('job.schedule.delayed')}</SelectItem>
+                <SelectItem value="scheduled">{t('job.schedule.scheduled')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -227,7 +227,7 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
           {/* Delayed Schedule Options */}
           {scheduleType === 'delayed' && (
             <div className="space-y-2">
-              <Label>実行まで: {delayHours}時間後</Label>
+              <Label>{t('job.timeUntil')}: {delayHours}{t('job.hoursAfter')}</Label>
               <Slider
                 value={[delayHours]}
                 onValueChange={([value]) => setDelayHours(value)}
@@ -286,8 +286,8 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
             <Alert>
               <Clock className="h-4 w-4" />
               <AlertDescription>
-                {scheduleType === 'after_reset' && 'セッションウィンドウがリセットされた後に実行されます。'}
-                {scheduleType === 'delayed' && `${delayHours}時間後に実行されます。`}
+                {scheduleType === 'after_reset' && t('job.resetDescription')}
+                {scheduleType === 'delayed' && `${delayHours}${t('job.delayDescription')}`}
                 {scheduleType === 'scheduled' && scheduledDate && scheduledTime && 
                   `${format(new Date(`${scheduledDate}T${scheduledTime}:00`), 'yyyy年MM月dd日 HH:mm', { locale: ja })}に実行されます。`}
               </AlertDescription>
@@ -327,12 +327,12 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
             {createLoading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                実行中...
+{t('job.executing')}
               </>
             ) : (
               <>
                 <Play className="mr-2 h-4 w-4" />
-                タスクを実行
+{t('job.create')}
               </>
             )}
           </Button>

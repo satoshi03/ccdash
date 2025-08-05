@@ -121,6 +121,81 @@ export const translations: Record<Language, Translations> = {
       messages: 'メッセージ',
       tokensLabel: 'tokens',
     },
+    job: {
+      // Basic job terms
+      title: 'ジョブ詳細',
+      history: 'ジョブ履歴',
+      execution: 'タスク実行',
+      command: 'コマンド',
+      output: '出力',
+      error: 'エラー',
+      logs: 'ログ',
+      
+      // Status
+      status: {
+        running: '実行中',
+        completed: '完了',
+        pending: '待機中',
+        failed: '失敗',
+        cancelled: 'キャンセル済み',
+      },
+      
+      // Schedule types
+      schedule: {
+        immediate: '即時実行',
+        afterReset: 'リセット後',
+        delayed: '遅延実行',
+        scheduled: '時刻指定',
+      },
+      
+      // Time related
+      duration: '実行時間',
+      executionTime: '実行時間',
+      completedAt: '完了日時',
+      scheduledAt: '予定実行時刻',
+      timeUntil: '実行まで',
+      hoursAfter: '時間後',
+      minutesAfter: '分後',
+      daysAfter: '日後',
+      
+      // Actions and messages
+      create: 'ジョブを作成',
+      cancel: 'キャンセル',
+      delete: '削除',
+      executing: '実行中...',
+      created: 'ジョブが正常に作成されました',
+      notFound: 'ジョブが見つかりません',
+      loading: 'ジョブ詳細を読み込み中...',
+      confirmDelete: 'このジョブを削除しますか？',
+      
+      // Output logs
+      outputLog: '出力ログ',
+      errorLog: 'エラーログ',
+      standardOutput: '標準出力',
+      standardError: '標準エラー出力',
+      noOutputLog: '出力ログがありません',
+      noErrorLog: 'エラーログがありません',
+      
+      // Form validation
+      validation: {
+        futureTime: 'スケジュール日時は現在時刻より後に設定してください',
+        withinYear: 'スケジュール日時は1年以内に設定してください',
+      },
+      
+      // Descriptions
+      description: 'Claude Codeタスクを実行します。プロジェクトを選択してコマンドを入力してください。',
+      resetDescription: 'セッションウィンドウがリセットされた後に実行されます。',
+      delayDescription: '時間後に実行されます。',
+      scheduleDescription: '指定した時刻に実行されます。',
+      
+      // Counters
+      totalJobs: '件のジョブを表示',
+      
+      // Table headers
+      schedule: 'スケジュール',
+      createdAt: '作成日時',
+      actions: 'アクション',
+    },
     settings: {
       title: '設定',
       description: 'タイムゾーン、自動更新間隔、使用量表示モードを設定してください。',
@@ -283,6 +358,81 @@ export const translations: Record<Language, Translations> = {
       sessionsText: 'sessions',
       messages: 'messages',
       tokensLabel: 'tokens',
+    },
+    job: {
+      // Basic job terms
+      title: 'Job Details',
+      history: 'Job History',
+      execution: 'Task Execution',
+      command: 'Command',
+      output: 'Output',
+      error: 'Error',
+      logs: 'Logs',
+      
+      // Status
+      status: {
+        running: 'Running',
+        completed: 'Completed',
+        pending: 'Pending',
+        failed: 'Failed',
+        cancelled: 'Cancelled',
+      },
+      
+      // Schedule types
+      schedule: {
+        immediate: 'Immediate',
+        afterReset: 'After Reset',
+        delayed: 'Delayed',
+        scheduled: 'Scheduled',
+      },
+      
+      // Time related
+      duration: 'Duration',
+      executionTime: 'Execution Time',
+      completedAt: 'Completed At',
+      scheduledAt: 'Scheduled At',
+      timeUntil: 'Time Until',
+      hoursAfter: 'hours later',
+      minutesAfter: 'minutes later',
+      daysAfter: 'days later',
+      
+      // Actions and messages
+      create: 'Create Job',
+      cancel: 'Cancel',
+      delete: 'Delete',
+      executing: 'Executing...',
+      created: 'Job created successfully',
+      notFound: 'Job not found',
+      loading: 'Loading job details...',
+      confirmDelete: 'Are you sure you want to delete this job?',
+      
+      // Output logs
+      outputLog: 'Output Log',
+      errorLog: 'Error Log',
+      standardOutput: 'Standard Output',
+      standardError: 'Standard Error',
+      noOutputLog: 'No output log available',
+      noErrorLog: 'No error log available',
+      
+      // Form validation
+      validation: {
+        futureTime: 'Schedule time must be set in the future',
+        withinYear: 'Schedule time must be within one year',
+      },
+      
+      // Descriptions
+      description: 'Execute Claude Code tasks. Select a project and enter a command.',
+      resetDescription: 'Will be executed after the session window is reset.',
+      delayDescription: 'Will be executed after the specified hours.',
+      scheduleDescription: 'Will be executed at the specified time.',
+      
+      // Counters
+      totalJobs: 'jobs displayed',
+      
+      // Table headers
+      schedule: 'Schedule',
+      createdAt: 'Created At',
+      actions: 'Actions',
     },
     settings: {
       title: 'Settings',
