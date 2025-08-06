@@ -13,8 +13,20 @@ func TestCommandSafetyCheckerBasics(t *testing.T) {
 		t.Errorf("Expected working directory /tmp, got %s", checker.workingDir)
 	}
 
+	if checker.enabled {
+		t.Error("Expected safety checker to be disabled by default (YOLO mode)")
+	}
+}
+
+func TestCommandSafetyCheckerEnabled(t *testing.T) {
+	// Set environment variable to enable safety check
+	os.Setenv("COMMAND_WHITELIST_ENABLED", "true")
+	defer os.Unsetenv("COMMAND_WHITELIST_ENABLED")
+
+	checker := NewCommandSafetyChecker("/tmp")
+
 	if !checker.enabled {
-		t.Error("Expected safety checker to be enabled by default")
+		t.Error("Expected safety checker to be enabled when COMMAND_WHITELIST_ENABLED=true")
 	}
 }
 

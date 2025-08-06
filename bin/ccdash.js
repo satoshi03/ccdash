@@ -353,7 +353,8 @@ function startBackend(port = 6060, frontendPort = 3000, frontendUrl = null, back
   
   // Apply CLI overrides
   if (disableSafetyCheck) {
-    backendEnv.CCDASH_DISABLE_SAFETY_CHECK = 'true';
+    backendEnv.COMMAND_WHITELIST_ENABLED = 'false';
+    backendEnv.CCDASH_DISABLE_SAFETY_CHECK = 'true'; // Legacy support
   }
   if (disableAuth) {
     backendEnv.CCDASH_API_KEY = ''; // Clear API key to disable auth
@@ -659,7 +660,8 @@ async function main() {
         
         // Apply CLI overrides
         if (disableSafetyCheck) {
-          devBackendEnv.CCDASH_DISABLE_SAFETY_CHECK = 'true';
+          devBackendEnv.COMMAND_WHITELIST_ENABLED = 'false';
+          devBackendEnv.CCDASH_DISABLE_SAFETY_CHECK = 'true'; // Legacy support
         }
         if (disableAuth) {
           devBackendEnv.CCDASH_API_KEY = ''; // Clear API key to disable auth

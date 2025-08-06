@@ -142,13 +142,22 @@ CCDash uses Claude Code to analyze command safety before execution. This prevent
 
 **Safety Check Modes:**
 
-1. **Default Mode (Safety Enabled)**
+1. **Default Mode (YOLO - Safety Disabled)**
    ```bash
    npm run dev
-   # Or set in .env: CCDASH_DISABLE_SAFETY_CHECK=false
+   # Default: COMMAND_WHITELIST_ENABLED=false (YOLO mode)
    ```
 
-2. **Disable Safety Check (Temporary)**
+2. **Enable Safety Check**
+   ```bash
+   # Method 1: Environment variable
+   COMMAND_WHITELIST_ENABLED=true npm run dev
+   
+   # Method 2: .env file
+   echo "COMMAND_WHITELIST_ENABLED=true" >> .env
+   ```
+
+3. **Disable Safety Check (Legacy)**
    ```bash
    # Method 1: NPM script
    npm run dev:no-safety

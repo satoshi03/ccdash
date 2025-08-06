@@ -8,7 +8,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, Play, AlertCircle, Clock } from 'lucide-react'
+import { Loader2, Play, AlertCircle, Clock, Info } from 'lucide-react'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { useCreateJob, useProjects } from '@/hooks/use-job-api'
 import { useI18n } from '@/hooks/use-i18n'
 import { CreateJobRequest } from '@/lib/api'
@@ -196,6 +202,35 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
             <Label htmlFor="yolo-mode" className="text-sm font-medium">
               YOLOモード
             </Label>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="h-4 w-4 text-amber-500 cursor-help hover:text-amber-600" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-md p-4">
+                  <div className="space-y-2">
+                    <p className="font-semibold text-amber-600">⚠️ セキュリティ警告</p>
+                    <p className="text-sm">
+                      YOLOモードは全てのコマンドを安全性チェックなしで実行します。
+                      悪意のあるコマンドによってシステムが損傷する可能性があります。
+                    </p>
+                    <p className="text-sm">
+                      <strong>安全な実行のために:</strong><br/>
+                      Claude Codeの設定ファイルでコマンドの許可を適切に行ってください。
+                    </p>
+                    <p className="text-xs text-blue-600 underline">
+                      <a 
+                        href="https://docs.anthropic.com/ja/docs/claude-code/settings#設定ファイル" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                      >
+                        設定方法を確認する →
+                      </a>
+                    </p>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
             <div className="text-sm text-muted-foreground">
               (確認なしで変更を実行)
             </div>

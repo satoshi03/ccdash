@@ -22,12 +22,19 @@ func NewCommandSafetyChecker(workingDir string) *CommandSafetyChecker {
 	checker := &CommandSafetyChecker{
 		claudeCodePath: "claude", // Default to claude command
 		workingDir:     workingDir,
-		enabled:        true,
+		enabled:        false, // Default to disabled (yolo mode)
 		maxCheckTime:   30 * time.Second, // Max time for safety check
 	}
 
-	// Check if safety checking is disabled
-	if os.Getenv("CCDASH_DISABLE_SAFETY_CHECK") == "true" {
+	// Enable safety checking if explicitly requested
+	if os.Getenv("COMMAND_WHITELIST_ENABLED") == "true" {
+		checker.enabled = true
+	}
+
+	// Legacy environment variable support (for backward compatibility)
+	if os.Getenv("CCDASH_DISABLE_SAFETY_CHECK") == "false" {
+		checker.enabled = true
+	} else if os.Getenv("CCDASH_DISABLE_SAFETY_CHECK") == "true" {
 		checker.enabled = false
 	}
 
