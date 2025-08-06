@@ -355,12 +355,7 @@ func (je *JobExecutor) executeJob(jobID string) {
 	}
 	
 	// Set process attributes to prevent TTY conflicts
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		// Inherit the same user/group permissions as the backend process
-		Credential: nil, // nil means inherit current process credentials
-		// Prevent the process from being stopped by TTY signals
-		Setsid: true, // Create a new session to detach from controlling terminal
-	}
+	configurePlatformSpecificAttrs(cmd)
 	
 	// Set stdin to /dev/null to prevent hanging on input
 	devNull, err := os.OpenFile(os.DevNull, os.O_RDONLY, 0)
