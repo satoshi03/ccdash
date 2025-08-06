@@ -21,7 +21,7 @@ import { CreateJobRequest } from '@/lib/api'
 import { Slider } from '@/components/ui/slider'
 import { Input } from '@/components/ui/input'
 import { format } from 'date-fns'
-import { ja } from 'date-fns/locale'
+import { ja, enUS } from 'date-fns/locale'
 interface TaskExecutionFormProps {
   onJobCreated?: () => void
 }
@@ -29,7 +29,9 @@ interface TaskExecutionFormProps {
 export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
   const { createJob, loading: createLoading, error: createError } = useCreateJob()
   const { projects, loading: projectsLoading, error: projectsError } = useProjects()
-  const { t } = useI18n()
+  const { t, language } = useI18n()
+  
+  const dateLocale = language === 'ja' ? ja : enUS
   
   const [selectedProjectId, setSelectedProjectId] = useState<string>('')
   const [command, setCommand] = useState('')
@@ -45,7 +47,7 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
     if (scheduleType !== 'scheduled') return true
     
     if (!scheduledDate || !scheduledTime) {
-      setValidationError('日付と時刻を両方指定してください')
+      setValidationError(t('job.form.dateTimeRequired'))
       return false
     }
     
@@ -145,20 +147,20 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
             <Label htmlFor="project">{t('session.project')}</Label>
             <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
               <SelectTrigger>
-                <SelectValue placeholder="プロジェクトを選択してください" />
+                <SelectValue placeholder={t('job.form.selectProject')} />
               </SelectTrigger>
               <SelectContent>
                 {projectsLoading ? (
                   <SelectItem value="loading" disabled>
-                    読み込み中...
+                    {t('job.form.loadingProjects')}
                   </SelectItem>
                 ) : projectsError ? (
                   <SelectItem value="error" disabled>
-                    エラー: {projectsError}
+                    {t('job.form.errorProjects')}: {projectsError}
                   </SelectItem>
                 ) : !projects || projects.length === 0 ? (
                   <SelectItem value="no-projects" disabled>
-                    プロジェクトがありません
+                    {t('job.form.noProjects')}
                   </SelectItem>
                 ) : (
                   projects.map((project) => (
@@ -171,7 +173,7 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
             </Select>
             {selectedProject && (
               <div className="text-sm text-muted-foreground">
-                実行ディレクトリ: {selectedProject.path}
+                {t('job.form.executionDirectory')}: {selectedProject.path}
               </div>
             )}
           </div>
@@ -181,14 +183,14 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
             <Label htmlFor="command">{t('job.command')}</Label>
             <Textarea
               id="command"
-              placeholder="例: 新しい機能を実装して..."
+              placeholder={t('job.form.commandPlaceholder')}
               value={command}
               onChange={(e) => setCommand(e.target.value)}
               rows={6}
               className="resize-none"
             />
             <div className="text-sm text-muted-foreground">
-              Claude Codeに実行させたいタスクを自然言語で記述してください。
+              {t('job.form.commandHelp')}
             </div>
           </div>
 
@@ -200,7 +202,7 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
               onCheckedChange={(checked) => setYoloMode(checked as boolean)}
             />
             <Label htmlFor="yolo-mode" className="text-sm font-medium">
-              YOLOモード
+              {t('job.form.yoloMode')}
             </Label>
             <TooltipProvider>
               <Tooltip>
@@ -209,14 +211,13 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
                 </TooltipTrigger>
                 <TooltipContent className="max-w-md p-4">
                   <div className="space-y-2">
-                    <p className="font-semibold text-amber-600">⚠️ セキュリティ警告</p>
+                    <p className="font-semibold text-amber-600">⚠️ {t('job.security.warningTitle')}</p>
                     <p className="text-sm">
-                      YOLOモードは全てのコマンドを安全性チェックなしで実行します。
-                      悪意のあるコマンドによってシステムが損傷する可能性があります。
+                      {t('job.security.yoloWarning')}
                     </p>
                     <p className="text-sm">
-                      <strong>安全な実行のために:</strong><br/>
-                      Claude Codeの設定ファイルでコマンドの許可を適切に行ってください。
+                      <strong>{t('job.security.safeExecutionTitle')}</strong><br/>
+                      {t('job.security.safeExecutionText')}
                     </p>
                     <p className="text-xs text-blue-600 underline">
                       <a 
@@ -224,7 +225,7 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
                         target="_blank" 
                         rel="noopener noreferrer"
                       >
-                        設定方法を確認する →
+                        {t('job.security.settingsGuide')}
                       </a>
                     </p>
                   </div>
@@ -232,13 +233,13 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
               </Tooltip>
             </TooltipProvider>
             <div className="text-sm text-muted-foreground">
-              (確認なしで変更を実行)
+              {t('job.form.yoloModeDescription')}
             </div>
           </div>
 
           {/* Schedule Type */}
           <div className="space-y-2">
-            <Label htmlFor="schedule-type">実行タイミング</Label>
+            <Label htmlFor="schedule-type">{t('job.form.executionTiming')}</Label>
             <Select value={scheduleType} onValueChange={(value) => {
               setScheduleType(value)
               setValidationError(null)
@@ -274,7 +275,7 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
                 className="w-full"
               />
               <div className="text-sm text-muted-foreground">
-                実行予定時刻: {format(new Date(Date.now() + delayHours * 60 * 60 * 1000), 'yyyy年MM月dd日 HH:mm', { locale: ja })}
+                {t('job.form.executionScheduled')}: {format(new Date(Date.now() + delayHours * 60 * 60 * 1000), language === 'ja' ? 'yyyy年MM月dd日 HH:mm' : 'MMM dd, yyyy HH:mm', { locale: dateLocale })}
               </div>
             </div>
           )}
@@ -284,7 +285,7 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
             <div className="space-y-2">
               <div className="grid grid-cols-2 gap-2">
                 <div className="space-y-1">
-                  <Label htmlFor="scheduled-date">実行日</Label>
+                  <Label htmlFor="scheduled-date">{t('job.form.executionDate')}</Label>
                   <Input
                     id="scheduled-date"
                     type="date"
@@ -298,7 +299,7 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label htmlFor="scheduled-time">実行時刻</Label>
+                  <Label htmlFor="scheduled-time">{t('job.form.executionTime')}</Label>
                   <Input
                     id="scheduled-time"
                     type="time"
@@ -312,7 +313,7 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
               </div>
               {scheduledDate && scheduledTime && (
                 <div className="text-sm text-muted-foreground">
-                  実行予定: {format(new Date(`${scheduledDate}T${scheduledTime}:00`), 'yyyy年MM月dd日 HH:mm', { locale: ja })}
+                  {t('job.form.executionScheduled')}: {format(new Date(`${scheduledDate}T${scheduledTime}:00`), language === 'ja' ? 'yyyy年MM月dd日 HH:mm' : 'MMM dd, yyyy HH:mm', { locale: dateLocale })}
                 </div>
               )}
             </div>
@@ -326,7 +327,7 @@ export function TaskExecutionForm({ onJobCreated }: TaskExecutionFormProps) {
                 {scheduleType === 'after_reset' && t('job.resetDescription')}
                 {scheduleType === 'delayed' && `${delayHours}${t('job.delayDescription')}`}
                 {scheduleType === 'scheduled' && scheduledDate && scheduledTime && 
-                  `${format(new Date(`${scheduledDate}T${scheduledTime}:00`), 'yyyy年MM月dd日 HH:mm', { locale: ja })}に実行されます。`}
+                  `${format(new Date(`${scheduledDate}T${scheduledTime}:00`), language === 'ja' ? 'yyyy年MM月dd日 HH:mm' : 'MMM dd, yyyy HH:mm', { locale: dateLocale })}${t('job.scheduleDescription')}`}
               </AlertDescription>
             </Alert>
           )}
