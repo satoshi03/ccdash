@@ -157,22 +157,13 @@ CCDash uses Claude Code to analyze command safety before execution. This prevent
    echo "COMMAND_WHITELIST_ENABLED=true" >> .env
    ```
 
-3. **Disable Safety Check (Legacy)**
+3. **Disable Safety Check (NPX option)**
    ```bash
-   # Method 1: NPM script
-   npm run dev:no-safety
-   
-   # Method 2: NPX command option
+   # NPX command option
    npx ccdash --no-safety
-   
-   # Method 3: Environment variable
-   CCDASH_DISABLE_SAFETY_CHECK=true npm run dev
-   
-   # Method 4: .env file
-   echo "CCDASH_DISABLE_SAFETY_CHECK=true" >> .env
    ```
 
-3. **Disable API Authentication**
+4. **Disable API Authentication**
    ```bash
    # NPM script
    npm run dev:no-auth
@@ -181,7 +172,7 @@ CCDash uses Claude Code to analyze command safety before execution. This prevent
    npx ccdash --no-auth
    ```
 
-4. **Disable All Security (Development Only)**
+5. **Disable All Security (Development Only)**
    ```bash
    # NPM script (disables both safety check and auth)
    npm run dev:unsafe
@@ -190,10 +181,6 @@ CCDash uses Claude Code to analyze command safety before execution. This prevent
    npx ccdash --no-safety --no-auth
    ```
 
-5. **Using Shell Script**
-   ```bash
-   ./backend/scripts/run-no-safety.sh
-   ```
 
 **⚠️ WARNING**: Disabling safety checks allows ALL commands to execute without validation. Use only in trusted environments.
 

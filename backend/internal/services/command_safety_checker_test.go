@@ -30,15 +30,14 @@ func TestCommandSafetyCheckerEnabled(t *testing.T) {
 	}
 }
 
-func TestCommandSafetyCheckerDisabled(t *testing.T) {
-	// Set environment variable to disable safety check
-	os.Setenv("CCDASH_DISABLE_SAFETY_CHECK", "true")
-	defer os.Unsetenv("CCDASH_DISABLE_SAFETY_CHECK")
+func TestCommandSafetyCheckerDisabledByDefault(t *testing.T) {
+	// Ensure no environment variables are set
+	os.Unsetenv("COMMAND_WHITELIST_ENABLED")
 
 	checker := NewCommandSafetyChecker("/tmp")
 
 	if checker.enabled {
-		t.Error("Expected safety checker to be disabled when CCDASH_DISABLE_SAFETY_CHECK=true")
+		t.Error("Expected safety checker to be disabled by default")
 	}
 
 	// Test that disabled checker allows any command

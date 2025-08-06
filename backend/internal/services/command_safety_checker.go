@@ -31,13 +31,6 @@ func NewCommandSafetyChecker(workingDir string) *CommandSafetyChecker {
 		checker.enabled = true
 	}
 
-	// Legacy environment variable support (for backward compatibility)
-	if os.Getenv("CCDASH_DISABLE_SAFETY_CHECK") == "false" {
-		checker.enabled = true
-	} else if os.Getenv("CCDASH_DISABLE_SAFETY_CHECK") == "true" {
-		checker.enabled = false
-	}
-
 	// Allow custom Claude Code path
 	if customPath := os.Getenv("CCDASH_CLAUDE_CODE_PATH"); customPath != "" {
 		checker.claudeCodePath = customPath

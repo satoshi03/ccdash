@@ -352,15 +352,14 @@ curl -X POST http://localhost:6060/api/sync-logs
 #### 環境変数の変更
 - `CCDASH_DISABLE_SAFETY_CHECK` → `COMMAND_WHITELIST_ENABLED` に変更
 - **デフォルトが変更**: 安全性チェックは無効（YOLOモード）がデフォルトに
-- 後方互換性を保持：レガシー環境変数も引き続きサポート
+- レガシー環境変数は削除（同一ブランチ内での開発のため不要）
 
 #### 新しい環境変数設定:
 ```bash
 # 安全性チェックを有効にする（推奨）
 COMMAND_WHITELIST_ENABLED=true
 
-# レガシーサポート（下位互換性のため）
-CCDASH_DISABLE_SAFETY_CHECK=false  # 安全性チェック有効
+# デフォルト（未設定時）：YOLOモード（安全性チェック無効）
 ```
 
 #### フロントエンド改善
