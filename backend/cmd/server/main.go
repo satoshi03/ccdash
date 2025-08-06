@@ -215,7 +215,7 @@ func main() {
 					c.Header("Access-Control-Allow-Origin", origin)
 					c.Header("Access-Control-Allow-Credentials", "true")
 					c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
-					c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With, DNT, User-Agent, If-Modified-Since, Cache-Control, Range")
+					c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization, X-Requested-With, DNT, User-Agent, If-Modified-Since, Cache-Control, Range, X-API-Key")
 					c.Header("Access-Control-Max-Age", "86400")
 					c.AbortWithStatus(204)
 					return
