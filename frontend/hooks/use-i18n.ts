@@ -11,7 +11,7 @@ export function useI18n() {
 
   useEffect(() => {
     // URLパラメータから言語を取得
-    const localeParam = searchParams.get('locale') as Language
+    const localeParam = searchParams?.get('locale') as Language
     
     if (localeParam === 'en' || localeParam === 'ja') {
       setLanguage(localeParam)

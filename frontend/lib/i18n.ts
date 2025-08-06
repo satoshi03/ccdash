@@ -186,7 +186,7 @@ export const translations: Record<Language, Translations> = {
       description: 'Claude Codeタスクを実行します。プロジェクトを選択してコマンドを入力してください。',
       resetDescription: 'セッションウィンドウがリセットされた後に実行されます。',
       delayDescription: '時間後に実行されます。',
-      scheduleDescription: '指定した時刻に実行されます。',
+      scheduleDescription: 'に実行されます。',
       
       // Counters
       totalJobs: '件のジョブを表示',
@@ -195,6 +195,33 @@ export const translations: Record<Language, Translations> = {
       scheduleHeader: 'スケジュール',
       createdAt: '作成日時',
       actions: 'アクション',
+      
+      // Task execution form
+      form: {
+        selectProject: 'プロジェクトを選択してください',
+        loadingProjects: '読み込み中...',
+        errorProjects: 'エラー',
+        noProjects: 'プロジェクトがありません',
+        executionDirectory: '実行ディレクトリ',
+        commandPlaceholder: '例: 新しい機能を実装して...',
+        commandHelp: 'Claude Codeに実行させたいタスクを自然言語で記述してください。',
+        yoloMode: 'YOLOモード',
+        yoloModeDescription: '(確認なしで変更を実行)',
+        executionTiming: '実行タイミング',
+        executionDate: '実行日',
+        executionTime: '実行時刻',
+        executionScheduled: '実行予定',
+        dateTimeRequired: '日付と時刻を両方指定してください',
+      },
+      
+      // Security warnings
+      security: {
+        warningTitle: 'セキュリティ警告',
+        yoloWarning: 'YOLOモードは全てのコマンドを安全性チェックなしで実行します。悪意のあるコマンドによってシステムが損傷する可能性があります。',
+        safeExecutionTitle: '安全な実行のために:',
+        safeExecutionText: 'Claude Codeの設定ファイルでコマンドの許可を適切に行ってください。',
+        settingsGuide: '設定方法を確認する →',
+      },
     },
     settings: {
       title: '設定',
@@ -424,7 +451,7 @@ export const translations: Record<Language, Translations> = {
       description: 'Execute Claude Code tasks. Select a project and enter a command.',
       resetDescription: 'Will be executed after the session window is reset.',
       delayDescription: 'Will be executed after the specified hours.',
-      scheduleDescription: 'Will be executed at the specified time.',
+      scheduleDescription: ' will be executed.',
       
       // Counters
       totalJobs: 'jobs displayed',
@@ -433,6 +460,33 @@ export const translations: Record<Language, Translations> = {
       scheduleHeader: 'Schedule',
       createdAt: 'Created At',
       actions: 'Actions',
+      
+      // Task execution form
+      form: {
+        selectProject: 'Select a project',
+        loadingProjects: 'Loading...',
+        errorProjects: 'Error',
+        noProjects: 'No projects available',
+        executionDirectory: 'Execution Directory',
+        commandPlaceholder: 'e.g., Implement a new feature...',
+        commandHelp: 'Describe the task you want Claude Code to execute in natural language.',
+        yoloMode: 'YOLO Mode',
+        yoloModeDescription: '(Execute changes without confirmation)',
+        executionTiming: 'Execution Timing',
+        executionDate: 'Execution Date',
+        executionTime: 'Execution Time',
+        executionScheduled: 'Scheduled for',
+        dateTimeRequired: 'Please specify both date and time',
+      },
+      
+      // Security warnings
+      security: {
+        warningTitle: 'Security Warning',
+        yoloWarning: 'YOLO mode executes all commands without safety checks. Malicious commands could damage your system.',
+        safeExecutionTitle: 'For safe execution:',
+        safeExecutionText: 'Configure command permissions appropriately in the Claude Code settings file.',
+        settingsGuide: 'View configuration guide →',
+      },
     },
     settings: {
       title: 'Settings',

@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/sheet"
 import { LanguageSelector } from "@/components/language-selector"
 import { SettingsModal } from "@/components/settings-modal"
+import { AuthStatus } from "@/components/auth"
 import { useI18n } from "@/hooks/use-i18n"
 import { useSyncLogs } from "@/hooks/use-api"
 import { Settings } from "@/lib/settings"
@@ -72,6 +73,7 @@ export function Header({ onSettingsChange }: HeaderProps) {
         {/* Right side controls */}
         <div className="flex flex-1 items-center justify-end space-x-2">
           <div className="hidden items-center space-x-2 sm:flex">
+            <AuthStatus showFullStatus={false} />
             <Button variant="ghost" size="sm" asChild>
               <Link href="https://github.com/satoshi03/ccdash" target="_blank" rel="noopener noreferrer">
                 <Github className="h-4 w-4" />
@@ -112,6 +114,9 @@ export function Header({ onSettingsChange }: HeaderProps) {
               </SheetHeader>
               <div className="my-4 h-px bg-border" />
               <div className="flex flex-col space-y-3">
+                <div className="flex justify-start">
+                  <AuthStatus showFullStatus={true} />
+                </div>
                 <Button variant="ghost" size="sm" asChild className="justify-start">
                   <Link href="https://github.com/satoshi03/ccdash" target="_blank" rel="noopener noreferrer">
                     <Github className="h-4 w-4 mr-2" />

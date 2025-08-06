@@ -30,7 +30,7 @@ import { Header } from "@/components/header"
 function JobDetailContent() {
   const params = useParams()
   const router = useRouter()
-  const jobId = params.id as string
+  const jobId = params?.id as string
   const { t } = useI18n()
 
   const { job, loading, error, isRunning, refetch } = useJob(jobId)

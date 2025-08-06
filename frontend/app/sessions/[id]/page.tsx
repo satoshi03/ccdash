@@ -46,7 +46,7 @@ function SessionDetailContent() {
   const params = useParams()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const sessionId = params.id as string
+  const sessionId = params?.id as string
 
   const [sessionDetail, setSessionDetail] = useState<SessionDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -56,7 +56,7 @@ function SessionDetailContent() {
   const [copiedSessionId, setCopiedSessionId] = useState(false)
 
   useEffect(() => {
-    const page = parseInt(searchParams.get('page') || '1')
+    const page = parseInt(searchParams?.get('page') || '1')
     setCurrentPage(page)
   }, [searchParams])
 

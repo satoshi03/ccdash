@@ -156,24 +156,85 @@ export interface ApiResponse<T> {
 
 class ApiClient {
   private baseURL: string
+  private apiKey: string | null = null
 
   constructor(baseURL: string) {
     this.baseURL = baseURL
   }
 
+  // Set API key (called from authentication flow)
+  setApiKey(key: string): void {
+    this.apiKey = key
+    // Store in sessionStorage for persistence during the session
+    if (typeof window !== 'undefined') {
+      sessionStorage.setItem('ccdash_api_key', key)
+    }
+  }
+
+  // Get API key with fallback strategy
+  private getApiKey(): string | null {
+    // Priority 1: Manually set API key
+    if (this.apiKey) {
+      return this.apiKey
+    }
+
+    // Priority 2: SessionStorage (for authenticated sessions)
+    if (typeof window !== 'undefined') {
+      const storedKey = sessionStorage.getItem('ccdash_api_key')
+      if (storedKey) {
+        this.apiKey = storedKey
+        return storedKey
+      }
+    }
+
+    // Priority 3: Environment variable (only for development)
+    const envKey = process.env.NEXT_PUBLIC_API_KEY
+    if (envKey && process.env.NODE_ENV === 'development') {
+      console.warn('⚠️  Using API key from environment variable. This is only safe in development!')
+      return envKey
+    }
+
+    return null
+  }
+
+  // Clear API key (logout)
+  clearApiKey(): void {
+    this.apiKey = null
+    if (typeof window !== 'undefined') {
+      sessionStorage.removeItem('ccdash_api_key')
+    }
+  }
+
+  // Check if API key is available
+  hasApiKey(): boolean {
+    return this.getApiKey() !== null
+  }
+
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const url = `${this.baseURL}${endpoint}`
     
+    const baseHeaders = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    }
+    
+    // API Key handling strategy
+    const apiKey = this.getApiKey()
+    const headers: HeadersInit = apiKey 
+      ? { ...baseHeaders, 'X-API-Key': apiKey }
+      : baseHeaders
     
     const response = await fetch(url, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+      headers,
       ...options,
     })
 
     if (!response.ok) {
+      if (response.status === 401) {
+        // Clear invalid API key and throw specific error
+        this.clearApiKey()
+        throw new Error('Authentication required. Please provide a valid API key.')
+      }
       throw new Error(`HTTP error! status: ${response.status}`)
     }
 

@@ -215,7 +215,7 @@ func TestJobExecutor_ValidateCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := executor.validateCommand(tt.command)
+			err := executor.validateCommand(tt.command, "/tmp/test")
 			if tt.wantErr {
 				if err == nil {
 					t.Errorf("Expected error for command '%s', got nil", tt.command)
@@ -535,6 +535,6 @@ func BenchmarkJobExecutor_ValidateCommand(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		command := commands[i%len(commands)]
-		executor.validateCommand(command)
+		executor.validateCommand(command, "/tmp/test")
 	}
 }

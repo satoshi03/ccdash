@@ -18,14 +18,14 @@ import (
 
 // JobExecutor manages the execution of jobs
 type JobExecutor struct {
-	jobService   *JobService
-	workerCount  int
-	jobQueue     chan string
-	cancelMap    map[string]context.CancelFunc
-	cancelMutex  sync.RWMutex
-	ctx          context.Context
-	cancel       context.CancelFunc
-	wg           sync.WaitGroup
+	jobService      *JobService
+	workerCount     int
+	jobQueue        chan string
+	cancelMap       map[string]context.CancelFunc
+	cancelMutex     sync.RWMutex
+	ctx             context.Context
+	cancel          context.CancelFunc
+	wg              sync.WaitGroup
 }
 
 // NewJobExecutor creates a new job executor
@@ -33,12 +33,12 @@ func NewJobExecutor(jobService *JobService, workerCount int) *JobExecutor {
 	ctx, cancel := context.WithCancel(context.Background())
 	
 	return &JobExecutor{
-		jobService:  jobService,
-		workerCount: workerCount,
-		jobQueue:    make(chan string, 100), // Buffer for pending jobs
-		cancelMap:   make(map[string]context.CancelFunc),
-		ctx:         ctx,
-		cancel:      cancel,
+		jobService:      jobService,
+		workerCount:     workerCount,
+		jobQueue:        make(chan string, 100), // Buffer for pending jobs
+		cancelMap:       make(map[string]context.CancelFunc),
+		ctx:             ctx,
+		cancel:          cancel,
 	}
 }
 
@@ -297,8 +297,8 @@ func (je *JobExecutor) executeJob(jobID string) {
 		return
 	}
 	
-	// Validate command
-	if err := je.validateCommand(job.Command); err != nil {
+	// Validate command with job's execution directory
+	if err := je.validateCommand(job.Command, job.ExecutionDirectory); err != nil {
 		log.Printf("Invalid command for job %s: %v", jobID, err)
 		je.jobService.UpdateJobStatus(jobID, models.JobStatusFailed, nil)
 		errMsg := err.Error()
@@ -511,13 +511,21 @@ func (je *JobExecutor) executeJob(jobID string) {
 }
 
 // validateCommand validates that the command is safe to execute
-func (je *JobExecutor) validateCommand(command string) error {
+func (je *JobExecutor) validateCommand(command string, executionDir string) error {
 	// Basic command validation
 	if command == "" {
 		return fmt.Errorf("command cannot be empty")
 	}
 	
-	// Check for extremely dangerous patterns only (since commands go through Claude Code CLI)
+	// Create a safety checker for the specific execution directory
+	jobSafetyChecker := NewCommandSafetyChecker(executionDir)
+	
+	// Use Claude Code safety checker with job's directory context
+	if err := jobSafetyChecker.CheckCommandSafety(command); err != nil {
+		return err
+	}
+	
+	// Additional basic safety checks as fallback
 	dangerousPatterns := []string{
 		`rm -rf /`, `del /`, `format c:`, `shutdown -h`, `reboot`, 
 		`mkfs`, `fdisk`, `parted`, `sudo rm -rf`, `chmod 777 /`,
@@ -528,11 +536,6 @@ func (je *JobExecutor) validateCommand(command string) error {
 		if strings.Contains(commandLower, pattern) {
 			return fmt.Errorf("command contains potentially dangerous pattern: %s", pattern)
 		}
-	}
-	
-	// Check for path traversal
-	if strings.Contains(command, "..") {
-		return fmt.Errorf("command contains path traversal pattern")
 	}
 	
 	return nil
@@ -590,10 +593,14 @@ func (je *JobExecutor) GetQueueStatus() map[string]interface{} {
 	runningCount := len(je.cancelMap)
 	je.cancelMutex.RUnlock()
 	
+	// Check safety check configuration
+	safetyCheckEnabled := os.Getenv("CCDASH_DISABLE_SAFETY_CHECK") != "true"
+	
 	return map[string]interface{}{
-		"running_jobs":  runningCount,
-		"queued_jobs":   len(je.jobQueue),
-		"worker_count":  je.workerCount,
-		"claude_available": je.isClaudeCodeAvailable(),
+		"running_jobs":       runningCount,
+		"queued_jobs":        len(je.jobQueue),
+		"worker_count":       je.workerCount,
+		"claude_available":   je.isClaudeCodeAvailable(),
+		"safety_check_enabled": safetyCheckEnabled,
 	}
 }
