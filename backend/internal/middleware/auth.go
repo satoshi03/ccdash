@@ -1,10 +1,13 @@
 package middleware
 
 import (
+	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
+	"ccdash-backend/internal/config"
 	"github.com/gin-gonic/gin"
 )
 
@@ -17,27 +20,54 @@ type AuthMiddleware struct {
 
 // NewAuthMiddleware creates a new authentication middleware instance
 func NewAuthMiddleware() *AuthMiddleware {
-	apiKey := os.Getenv("CCDASH_API_KEY")
-	if apiKey == "" {
-		// In development mode, if no API key is set, we'll allow access
-		// In production, this should be a fatal error
-		if os.Getenv("GIN_MODE") != "release" {
-			return &AuthMiddleware{
-				apiKey: "",
-				publicPaths: []string{
-					"/api/v1/health",
-					"/api/health",
-				},
-			}
+	publicPaths := []string{
+		"/api/v1/health",
+		"/api/health",
+	}
+	
+	// Check if auth is explicitly disabled
+	if os.Getenv("GIN_MODE") != "release" && os.Getenv("CCDASH_API_KEY") == "" {
+		log.Printf("🔓 Development mode: API authentication disabled (no CCDASH_API_KEY set)")
+		return &AuthMiddleware{
+			apiKey:      "",
+			publicPaths: publicPaths,
 		}
 	}
-
+	
+	// Try to get existing API key or generate one
+	envFilePath := filepath.Join(".", ".env")
+	if homeDir, err := os.UserHomeDir(); err == nil {
+		// Prefer .env in user's home directory if it exists
+		homeEnvPath := filepath.Join(homeDir, ".env")
+		if _, err := os.Stat(homeEnvPath); err == nil {
+			envFilePath = homeEnvPath
+		}
+	}
+	
+	keyManager := config.NewAPIKeyManager(envFilePath)
+	apiKey, isNewKey, err := keyManager.EnsureAPIKey()
+	if err != nil {
+		log.Printf("❌ Failed to ensure API key: %v", err)
+		if os.Getenv("GIN_MODE") == "release" {
+			log.Printf("🚨 Production mode requires API key - server will not start")
+			os.Exit(1)
+		}
+		// In development mode, continue without auth
+		log.Printf("🔓 Continuing in development mode without authentication")
+		return &AuthMiddleware{
+			apiKey:      "",
+			publicPaths: publicPaths,
+		}
+	}
+	
+	if isNewKey {
+		log.Printf("🎯 Copy the API key above and use it for authentication")
+		log.Printf("🌐 Frontend users: Set this key in the authentication form")
+	}
+	
 	return &AuthMiddleware{
-		apiKey: apiKey,
-		publicPaths: []string{
-			"/api/v1/health",
-			"/api/health",
-		},
+		apiKey:      apiKey,
+		publicPaths: publicPaths,
 	}
 }
 

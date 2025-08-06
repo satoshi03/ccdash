@@ -56,6 +56,10 @@ npx ccdash --frontend-port 3001
 # Custom frontend URL
 npx ccdash --frontend-url https://app.example.com
 
+# Specify API key
+npx ccdash --api-key your-secret-key-here
+npx ccdash -k your-secret-key-here
+
 # Other commands
 npx ccdash build
 npx ccdash help
@@ -106,39 +110,83 @@ CCDash now includes basic security features to protect your deployment:
 
 ### API Key Authentication
 
-Protect your API endpoints with API key authentication:
+CCDash automatically generates and manages API keys for secure access:
 
+#### **Automatic Key Generation**
+- **First Run**: CCDash generates a secure 256-bit API key automatically
+- **Key Storage**: Saved to `.env` file for persistence
+- **Console Display**: Key shown during startup (truncated in production mode)
+
+#### **Manual Configuration**
 ```bash
-# Backend
+# Method 1: Command line option (recommended for temporary use)
+npx ccdash --api-key your-secret-key-here
+npx ccdash -k your-secret-key-here
+
+# Method 2: Environment variable
 export CCDASH_API_KEY=your-secret-key-here
+npx ccdash
 
-# Frontend
-export NEXT_PUBLIC_API_KEY=your-secret-key-here
+# Method 3: Add to .env file (recommended for persistent use)
+echo "CCDASH_API_KEY=your-secret-key-here" >> .env
+npx ccdash
 ```
 
-In development mode (default), authentication is disabled. For production:
-- Set `GIN_MODE=release` to enforce authentication
-- Generate a strong API key (e.g., `openssl rand -hex 32`)
+#### **Security Modes**
+- **Development Mode** (`GIN_MODE=debug`): Shows full key in console
+- **Production Mode** (`GIN_MODE=release`): Shows truncated key for security
 
-### Command Whitelist
+### Command Safety Check
 
-The job execution feature includes a command whitelist to prevent dangerous operations:
+CCDash uses Claude Code to analyze command safety before execution. This prevents dangerous operations while allowing flexible natural language commands.
 
-**Allowed by default:**
-- Git read-only commands (`git status`, `git diff`, `git log`)
-- Package managers read-only (`npm list`, `yarn list`, `go list`)
-- Testing commands (`npm test`, `go test`, `pytest`)
-- Linting and formatting (`eslint`, `prettier`, `go fmt`)
-- Development servers (`npm run dev`, `yarn dev`)
+**Safety Check Modes:**
 
-**Configuration:**
-```bash
-# Add custom commands
-export CCDASH_ALLOWED_COMMANDS=custom-tool,another-tool
+1. **Default Mode (Safety Enabled)**
+   ```bash
+   npm run dev
+   # Or set in .env: CCDASH_DISABLE_SAFETY_CHECK=false
+   ```
 
-# Disable whitelist (NOT recommended)
-export CCDASH_DISABLE_COMMAND_WHITELIST=true
-```
+2. **Disable Safety Check (Temporary)**
+   ```bash
+   # Method 1: NPM script
+   npm run dev:no-safety
+   
+   # Method 2: NPX command option
+   npx ccdash --no-safety
+   
+   # Method 3: Environment variable
+   CCDASH_DISABLE_SAFETY_CHECK=true npm run dev
+   
+   # Method 4: .env file
+   echo "CCDASH_DISABLE_SAFETY_CHECK=true" >> .env
+   ```
+
+3. **Disable API Authentication**
+   ```bash
+   # NPM script
+   npm run dev:no-auth
+   
+   # NPX command option
+   npx ccdash --no-auth
+   ```
+
+4. **Disable All Security (Development Only)**
+   ```bash
+   # NPM script (disables both safety check and auth)
+   npm run dev:unsafe
+   
+   # NPX command option  
+   npx ccdash --no-safety --no-auth
+   ```
+
+5. **Using Shell Script**
+   ```bash
+   ./backend/scripts/run-no-safety.sh
+   ```
+
+**⚠️ WARNING**: Disabling safety checks allows ALL commands to execute without validation. Use only in trusted environments.
 
 ### HTTPS Setup
 

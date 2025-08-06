@@ -28,7 +28,7 @@ export default function Dashboard() {
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   
   // Tab state from URL
-  const currentTab = searchParams.get('tab') || 'overview'
+  const currentTab = searchParams?.get('tab') || 'overview'
   
   const handleSettingsChange = (newSettings: Settings) => {
     setSettings(newSettings)
@@ -40,7 +40,7 @@ export default function Dashboard() {
   }
   
   const handleTabChange = (value: string) => {
-    const params = new URLSearchParams(searchParams.toString())
+    const params = new URLSearchParams(searchParams?.toString() || '')
     params.set('tab', value)
     router.push(`/?${params.toString()}`)
   }

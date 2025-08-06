@@ -404,6 +404,142 @@ cd backend/cmd/database-reset && go run main.go
 cd backend/cmd/sync-reset && go run main.go
 ```
 
+## セキュリティ設定の変更 (2025-08-05)
+
+### コマンド安全性チェック機能への移行
+
+従来の固定ホワイトリスト方式から、Claude Codeを使用した動的安全性チェック方式に変更しました。
+
+#### 新しい環境変数
+
+```bash
+# コマンド安全性チェック設定（旧ホワイトリスト設定から変更）
+CCDASH_DISABLE_SAFETY_CHECK=false  # 安全性チェックを無効化
+CCDASH_CLAUDE_CODE_PATH=claude     # Claude Codeのパス（デフォルト: claude）
+```
+
+#### 動作の変更点
+
+1. **従来**: 事前定義されたコマンドのみ許可
+2. **新方式**: Claude Codeが各コマンドの危険性を動的に分析
+3. **利点**: 自然言語コマンドに対応、柔軟性向上
+4. **安全性**: 明らかに安全なコマンドは即座に許可、不明なコマンドはAI分析
+
+#### 実行方法
+
+```bash
+# コマンド安全性チェック実行例
+claude --print "以下のコマンドについて安全性をチェックしてください: npm install express"
+```
+
+#### 重要な仕様
+
+- **安全性チェックは各ジョブの実行ディレクトリで行われます**
+- ジョブごとに異なるプロジェクトディレクトリのコンテキストで判定
+- プロジェクトの構成や依存関係を考慮した安全性判定が可能
+
+#### 安全性チェックの無効化方法
+
+安全性チェックが不安定な場合やテスト時に無効化する複数の方法：
+
+1. **環境変数で無効化（.env推奨）**
+   ```bash
+   # .envファイルに追加
+   CCDASH_DISABLE_SAFETY_CHECK=true
+   ```
+
+2. **NPMスクリプトで一時的に無効化**
+   ```bash
+   # 安全性チェックなしで開発サーバー起動
+   npm run dev:no-safety
+   
+   # API認証なしで開発サーバー起動
+   npm run dev:no-auth
+   
+   # 両方とも無効化（開発専用）
+   npm run dev:unsafe
+   ```
+
+3. **NPXコマンドオプションで無効化**
+   ```bash
+   # 安全性チェック無効化
+   npx ccdash --no-safety
+   
+   # API認証無効化
+   npx ccdash --no-auth
+   
+   # 両方とも無効化
+   npx ccdash --no-safety --no-auth
+   ```
+
+4. **環境変数で一時的に無効化**
+   ```bash
+   # 一回限りの実行
+   CCDASH_DISABLE_SAFETY_CHECK=true npm run dev
+   ```
+
+5. **シェルスクリプトで無効化**
+   ```bash
+   ./backend/scripts/run-no-safety.sh
+   ```
+
+⚠️ **注意**: 安全性チェックを無効化すると、すべてのコマンドが検証なしで実行されます。信頼できる環境でのみ使用してください。
+
+## API Key自動生成機能 (2025-08-06)
+
+### セキュアなAPI Key管理
+
+CCDashは初回起動時に自動的に安全なAPI Keyを生成・管理します。
+
+#### 主要機能
+
+1. **自動生成**: 256bit暗号学的に安全なランダムキー
+2. **自動保存**: `.env`ファイルへの永続化
+3. **セキュア表示**: 本番環境では省略表示
+4. **環境別動作**: 開発/本番モードで適切な動作
+
+#### 実装された機能
+
+- `backend/internal/config/api_key_manager.go`: API Key管理コア機能
+- `backend/internal/config/api_key_manager_test.go`: 包括的テストスイート
+- `backend/internal/middleware/auth.go`: 認証ミドルウェア統合
+
+#### 動作例
+
+```bash
+# 初回起動時（開発モード）
+🔐 New API key generated!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔑 API Key: a1b2c3d4e5f6...890f1234567890abcdef1234567890ab
+⚠️  Development mode: Full key displayed above
+💾 Key saved to: .env
+🔧 Use this key for API authentication
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+# 本番モード
+🔑 API Key: a1b2c3d4...7890 (full key in .env file)
+🔒 Production mode: Key truncated for security
+```
+
+#### セキュリティ設計
+
+- **暗号学的安全性**: crypto/randを使用した真の乱数生成
+- **適切な長さ**: 256bit（64文字hex）で十分な強度
+- **安全な表示**: 本番では先頭8文字+末尾4文字のみ表示
+- **ファイル保護**: 適切なファイル権限で.envファイル作成
+
+⚠️ **注意**: 安全性チェックを無効化すると、すべてのコマンドが検証なしで実行されます。信頼できる環境でのみ使用してください。
+
+#### 削除されたファイル
+
+- `backend/internal/services/command_whitelist.go`
+- `backend/internal/services/command_whitelist_test.go`
+
+#### 新規追加ファイル
+
+- `backend/internal/services/command_safety_checker.go`
+- `backend/internal/services/command_safety_checker_test.go`
+
 ## 更新履歴
 
 - **2025-07-11**: 初回実装完了、基本機能の実装
@@ -414,6 +550,8 @@ cd backend/cmd/sync-reset && go run main.go
 - **2025-07-25**: コマンドライン管理ツール整備（backend/cmd/配下）
 - **2025-07-25**: 不要ファイル削除、プロジェクト構成整理
 - **2025-07-25**: リリース手順の標準化、バージョン管理ルール追加
+- **2025-08-05**: コマンドホワイトリストからClaude Code安全性チェック機能に移行
+- **2025-08-06**: API Key自動生成・管理機能追加、NPXコマンドオプション拡張
 
 ---
 
