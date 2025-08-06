@@ -5,7 +5,7 @@
 
 import React, { useState, useEffect } from 'react'
 import { apiClient } from '@/lib/api'
-import { ApiKeyAuth } from './ApiKeyAuth'
+import { ApiKeyAuth } from './api-key-auth'
 
 interface AuthGuardProps {
   children: React.ReactNode

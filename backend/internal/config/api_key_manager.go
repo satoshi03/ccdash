@@ -57,7 +57,12 @@ func (m *APIKeyManager) EnsureAPIKey() (string, bool, error) {
 		log.Printf("⚠️  Warning: Failed to save API key to .env file: %v", err)
 		log.Printf("🔧 Please manually add: CCDASH_API_KEY=%s", key)
 	} else {
-		log.Printf("💾 API key saved to %s", m.envFilePath)
+		// Convert to absolute path for display
+		absPath, err := filepath.Abs(m.envFilePath)
+		if err != nil {
+			absPath = m.envFilePath // fallback to relative path
+		}
+		log.Printf("💾 API key saved to %s", absPath)
 	}
 	
 	// 5. Display key information
@@ -185,7 +190,12 @@ func (m *APIKeyManager) displayKeyInfo(key string, isNewKey bool) {
 	}
 	
 	if isNewKey {
-		log.Printf("💾 Key saved to: %s", m.envFilePath)
+		// Convert to absolute path for display
+		absPath, err := filepath.Abs(m.envFilePath)
+		if err != nil {
+			absPath = m.envFilePath // fallback to relative path
+		}
+		log.Printf("💾 Key saved to: %s", absPath)
 		log.Printf("🔧 Use this key for API authentication")
 		log.Printf("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
 		log.Printf("")

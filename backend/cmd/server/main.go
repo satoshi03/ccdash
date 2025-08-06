@@ -94,12 +94,17 @@ func isAllowedOrigin(origin string, allowedOrigins []string) bool {
 }
 
 func main() {
-	// Load .env file if it exists
+	// Load .env file if it exists (must be done before checking GIN_MODE)
 	if err := godotenv.Load(); err != nil {
 		// .env file is optional, so just log if not found
 		log.Printf("No .env file found or error loading: %v", err)
 	} else {
 		log.Println("Loaded .env file")
+	}
+
+	// Set Gin mode based on environment (after loading .env)
+	if os.Getenv("GIN_MODE") == "release" {
+		gin.SetMode(gin.ReleaseMode)
 	}
 
 	// Load configuration

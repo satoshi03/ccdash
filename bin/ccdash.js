@@ -253,7 +253,7 @@ function parseArgs() {
   let frontendUrl = null;
   let openBrowserFlag = true; // Default: open browser automatically
   let disableSafetyCheck = false;
-  let disableAuth = false;
+  // disableAuth removed - API key is now auto-generated
   let apiKey = null;
 
   for (let i = 0; i < args.length; i++) {
@@ -277,8 +277,7 @@ function parseArgs() {
       openBrowserFlag = true;
     } else if (arg === '--no-safety' || arg === '--disable-safety-check') {
       disableSafetyCheck = true;
-    } else if (arg === '--no-auth' || arg === '--disable-auth') {
-      disableAuth = true;
+    // --no-auth flag removed - API key is now auto-generated if not provided
     } else if (arg === '--api-key' || arg === '-k') {
       apiKey = args[i + 1];
       if (!apiKey || apiKey.startsWith('-')) {
@@ -307,11 +306,11 @@ function parseArgs() {
     }
   }
 
-  return { command, backendPort, frontendPort, backendUrl, frontendUrl, openBrowser: openBrowserFlag, disableSafetyCheck, disableAuth, apiKey };
+  return { command, backendPort, frontendPort, backendUrl, frontendUrl, openBrowser: openBrowserFlag, disableSafetyCheck, apiKey };
 }
 
 // Start backend server with fixed port 6060
-function startBackend(port = 6060, frontendPort = 3000, frontendUrl = null, backendUrl = null, disableSafetyCheck = false, disableAuth = false, apiKey = null) {
+function startBackend(port = 6060, frontendPort = 3000, frontendUrl = null, backendUrl = null, disableSafetyCheck = false, apiKey = null) {
   const serverPath = path.join(packageRoot, 'bin', 'ccdash-server');
 
   if (!fs.existsSync(serverPath)) {
@@ -338,9 +337,7 @@ function startBackend(port = 6060, frontendPort = 3000, frontendUrl = null, back
   if (disableSafetyCheck) {
     log.warning('⚠️  Command safety checks are DISABLED - all commands will execute without validation!');
   }
-  if (disableAuth) {
-    log.warning('⚠️  API authentication is DISABLED - no API key required!');
-  }
+  // API authentication is always enabled - key auto-generated if needed
   
   log.info(`Starting backend server on ${backendDisplayUrl}`);
   
@@ -355,14 +352,12 @@ function startBackend(port = 6060, frontendPort = 3000, frontendUrl = null, back
   if (disableSafetyCheck) {
     backendEnv.COMMAND_WHITELIST_ENABLED = 'false';
   }
-  if (disableAuth) {
-    backendEnv.CCDASH_API_KEY = ''; // Clear API key to disable auth
-    backendEnv.GIN_MODE = 'debug'; // Force debug mode to disable auth
-  } else if (apiKey) {
+  if (apiKey) {
     // Set API key from command line
     backendEnv.CCDASH_API_KEY = apiKey;
     log.info(`🔑 Using API key from command line`);
   }
+  // If no API key provided, backend will auto-generate one and display it
   
   const backendProcess = spawn(serverPath, [], {
     stdio: 'inherit',
@@ -498,7 +493,7 @@ function startFrontend(port = 3000, backendPort = 6060, backendUrl = null, front
 
 // Main CLI function
 async function main() {
-  const { command, backendPort, frontendPort, backendUrl, frontendUrl, openBrowser: shouldOpenBrowser, disableSafetyCheck, disableAuth, apiKey } = parseArgs();
+  const { command, backendPort, frontendPort, backendUrl, frontendUrl, openBrowser: shouldOpenBrowser, disableSafetyCheck, apiKey } = parseArgs();
 
   log.logo();
 
@@ -541,7 +536,7 @@ async function main() {
         }
 
         // Start both services
-        const backendProcess = startBackend(backendPort, frontendPort, frontendUrl, backendUrl, disableSafetyCheck, disableAuth, apiKey);
+        const backendProcess = startBackend(backendPort, frontendPort, frontendUrl, backendUrl, disableSafetyCheck, apiKey);
         const frontendProcess = startFrontend(frontendPort, backendPort, backendUrl, frontendUrl);
 
         // Handle process cleanup
@@ -646,9 +641,7 @@ async function main() {
         if (disableSafetyCheck) {
           log.warning('⚠️  Command safety checks are DISABLED - all commands will execute without validation!');
         }
-        if (disableAuth) {
-          log.warning('⚠️  API authentication is DISABLED - no API key required!');
-        }
+        // API authentication is always enabled - key auto-generated if not provided
         
         const devBackendEnv = {
           ...process.env,
@@ -661,14 +654,12 @@ async function main() {
         if (disableSafetyCheck) {
           devBackendEnv.COMMAND_WHITELIST_ENABLED = 'false';
         }
-        if (disableAuth) {
-          devBackendEnv.CCDASH_API_KEY = ''; // Clear API key to disable auth
-          devBackendEnv.GIN_MODE = 'debug'; // Force debug mode to disable auth
-        } else if (apiKey) {
+        if (apiKey) {
           // Set API key from command line
           devBackendEnv.CCDASH_API_KEY = apiKey;
           log.info(`🔑 Using API key from command line`);
         }
+        // If no API key provided, backend will auto-generate one and display it
         
         const devBackend = spawn('go', ['run', 'cmd/server/main.go'], {
           cwd: backendPath,
@@ -758,7 +749,6 @@ Options:
   --no-open, --no-browser     Don't open browser automatically
   --open, --browser           Open browser automatically (default)
   --no-safety, --disable-safety-check    Disable command safety checks (⚠️ DANGEROUS)
-  --no-auth, --disable-auth              Disable API authentication
   --api-key, -k               Specify API key for authentication
 
 Note: Backend port is fixed at 6060 for npm package distribution
@@ -773,8 +763,6 @@ Examples:
   npx ccdash --api-key=abc123xyz                          # Use specific API key (alternative syntax)
   npx ccdash -k abc123xyz                                 # Use specific API key (short form)
   npx ccdash --no-safety                                  # Start without command safety checks (⚠️ DANGEROUS)
-  npx ccdash --no-auth                                    # Start without API authentication
-  npx ccdash --no-safety --no-auth                        # Disable all security features (⚠️ VERY DANGEROUS)
   npx ccdash dev --frontend-port 3001 --no-browser        # Development mode without browser
   npx ccdash build                                        # Build the application
 
