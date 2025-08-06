@@ -1,5 +1,5 @@
 // Authentication Components Export
 
-export { ApiKeyAuth } from './ApiKeyAuth'
-export { AuthGuard } from './AuthGuard'
-export { AuthStatus } from './AuthStatus'
+export { ApiKeyAuth } from './api-key-auth'
+export { AuthGuard } from './auth-guard'
+export { AuthStatus } from './auth-status'

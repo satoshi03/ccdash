@@ -25,14 +25,7 @@ func NewAuthMiddleware() *AuthMiddleware {
 		"/api/health",
 	}
 	
-	// Check if auth is explicitly disabled
-	if os.Getenv("GIN_MODE") != "release" && os.Getenv("CCDASH_API_KEY") == "" {
-		log.Printf("🔓 Development mode: API authentication disabled (no CCDASH_API_KEY set)")
-		return &AuthMiddleware{
-			apiKey:      "",
-			publicPaths: publicPaths,
-		}
-	}
+	// API Key is now always required - if not set, it will be auto-generated
 	
 	// Try to get existing API key or generate one
 	envFilePath := filepath.Join(".", ".env")
@@ -48,16 +41,8 @@ func NewAuthMiddleware() *AuthMiddleware {
 	apiKey, isNewKey, err := keyManager.EnsureAPIKey()
 	if err != nil {
 		log.Printf("❌ Failed to ensure API key: %v", err)
-		if os.Getenv("GIN_MODE") == "release" {
-			log.Printf("🚨 Production mode requires API key - server will not start")
-			os.Exit(1)
-		}
-		// In development mode, continue without auth
-		log.Printf("🔓 Continuing in development mode without authentication")
-		return &AuthMiddleware{
-			apiKey:      "",
-			publicPaths: publicPaths,
-		}
+		log.Printf("🚨 API key generation failed - server will not start")
+		os.Exit(1)
 	}
 	
 	if isNewKey {
@@ -83,11 +68,7 @@ func (a *AuthMiddleware) Authenticate() gin.HandlerFunc {
 			}
 		}
 
-		// In development mode with no API key set, allow all requests
-		if a.apiKey == "" && os.Getenv("GIN_MODE") != "release" {
-			c.Next()
-			return
-		}
+		// API key is now always required (no development bypass)
 
 		// Check for API key in header
 		providedKey := c.GetHeader("X-API-Key")
