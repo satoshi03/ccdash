@@ -1,0 +1,16 @@
+# Development environment CORS configuration
+cors:
+  allowed_origins:
+    - "http://localhost:3000"
+    - "http://127.0.0.1:3000"
+  allow_private_ips: true
+  strict_port_validation: false
+  max_age: 3600
+  
+security:
+  api_authentication_required: false
+  rate_limit_enabled: false
+  
+logging:
+  level: "debug"
+  cors_requests: true

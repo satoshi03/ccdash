@@ -1,0 +1,18 @@
+# Production environment CORS configuration
+cors:
+  allowed_origins:
+    # Add your production frontend URLs here
+    # - "https://your-production-domain.com"
+    # - "https://app.your-company.com"
+  allow_private_ips: false
+  strict_port_validation: true
+  max_age: 86400
+  
+security:
+  api_authentication_required: true
+  rate_limit_enabled: true
+  rate_limit_requests_per_minute: 60
+  
+logging:
+  level: "info"
+  cors_requests: false
