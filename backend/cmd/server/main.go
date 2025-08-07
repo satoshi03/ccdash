@@ -1,13 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
-	"runtime"
+	"strconv"
 	"strings"
 
 	"ccdash-backend/internal/config"
@@ -16,7 +15,6 @@ import (
 	"ccdash-backend/internal/middleware"
 	"ccdash-backend/internal/services"
 
-	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 )
@@ -84,13 +82,26 @@ func isAllowedOrigin(origin string, allowedOrigins []string) bool {
 			return false
 		}
 		
-		// Allow standard ports or no port specified
-		if port == "" || port == "80" || port == "443" || port == "3000" || port == "8080" {
+		// SECURITY: Only allow specific development ports for local development
+		// No arbitrary port access allowed
+		if port == "" || port == "3000" { // Only allow frontend dev server port
+			return true
+		}
+		// Allow standard web ports only if explicitly configured in production
+		if (port == "80" || port == "443") && os.Getenv("GIN_MODE") == "release" {
 			return true
 		}
 	}
 	
 	return false
+}
+
+// parseInt parses a string to int with a default value
+func parseInt(s string, defaultValue int) int {
+	if parsed, err := strconv.Atoi(s); err == nil {
+		return parsed
+	}
+	return defaultValue
 }
 
 func main() {
@@ -140,33 +151,22 @@ func main() {
 
 		log.Println("Starting initial log sync in background...")
 
-		// Run initialization in a separate goroutine with panic recovery
-		go func() {
-			defer func() {
-				if r := recover(); r != nil {
-					// Capture the stack trace
-					buf := make([]byte, 1024*64)
-					buf = buf[:runtime.Stack(buf, false)]
-
-					log.Printf("PANIC in initialization goroutine: %v\nStack trace:\n%s", r, buf)
-
-					// Report panic as initialization failure
-					panicErr := fmt.Errorf("initialization panic: %v", r)
-					initService.FailInitialization(panicErr)
-				}
-			}()
-
+		// Run initialization using safe goroutine with panic recovery
+		middleware.SafeGoRoutineWithErrorCallback("initialization", func() error {
 			diffSyncService := services.NewDiffSyncService(db, tokenService, sessionService)
 			stats, err := diffSyncService.SyncAllLogs()
 			if err != nil {
 				log.Printf("Warning: Initial log sync failed: %v", err)
-				initService.FailInitialization(err)
-			} else {
-				log.Printf("Initial sync completed: %d files processed, %d new lines",
-					stats.ProcessedFiles, stats.NewLines)
-				initService.CompleteInitialization(stats.ProcessedFiles, stats.NewLines)
+				return err
 			}
-		}()
+			
+			log.Printf("Initial sync completed: %d files processed, %d new lines",
+				stats.ProcessedFiles, stats.NewLines)
+			initService.CompleteInitialization(stats.ProcessedFiles, stats.NewLines)
+			return nil
+		}, func(err error) {
+			initService.FailInitialization(err)
+		})
 	}
 
 	// Start job executor
@@ -183,18 +183,31 @@ func main() {
 	// Initialize authentication middleware
 	authMiddleware := middleware.NewAuthMiddleware()
 
+	// Initialize rate limiting (60 requests per minute by default)
+	rateLimitRequests := 60
+	if customLimit := os.Getenv("RATE_LIMIT_REQUESTS_PER_MINUTE"); customLimit != "" {
+		if parsed := parseInt(customLimit, 60); parsed > 0 {
+			rateLimitRequests = parsed
+		}
+	}
+
 	r := gin.Default()
 
-	// Check for permissive CORS mode (useful for development)
-	if os.Getenv("CORS_ALLOW_ALL") == "true" {
-		corsConfig := cors.DefaultConfig()
-		corsConfig.AllowAllOrigins = true
-		corsConfig.AllowCredentials = true
-		corsConfig.AllowMethods = []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"}
-		corsConfig.AllowHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With", "DNT", "User-Agent", "If-Modified-Since", "Cache-Control", "Range"}
-		r.Use(cors.New(corsConfig))
-		log.Println("CORS: Allowing all origins (CORS_ALLOW_ALL=true)")
-	} else {
+	// Apply global panic recovery middleware
+	r.Use(middleware.RecoveryMiddleware())
+
+	// Apply rate limiting globally (except for OPTIONS requests)
+	r.Use(func(c *gin.Context) {
+		if c.Request.Method != "OPTIONS" {
+			middleware.RateLimitMiddleware(rateLimitRequests)(c)
+		} else {
+			c.Next()
+		}
+	})
+
+	// SECURITY: Removed CORS_ALLOW_ALL functionality to prevent wildcard origin attacks
+	// Always use strict CORS policy with explicit origin checking
+	{
 		// Use custom CORS logic that allows private IP addresses
 		explicitlyAllowedOrigins := []string{
 			cfg.FrontendURL, // Default: http://localhost:3000
@@ -238,7 +251,7 @@ func main() {
 		})
 		
 		log.Printf("CORS: Allowing explicit origins: %v", explicitlyAllowedOrigins)
-		log.Println("CORS: Also allowing all private IP addresses (10.x.x.x, 172.16-31.x.x, 192.168.x.x, localhost)")
+		log.Println("CORS: Also allowing private IP addresses (10.x.x.x, 172.16-31.x.x, 192.168.x.x, localhost) with strict port validation")
 	}
 
 	r.Use(func(c *gin.Context) {

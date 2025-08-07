@@ -1,0 +1,17 @@
+# Staging environment CORS configuration
+cors:
+  allowed_origins:
+    - "http://localhost:3000"
+    - "https://staging-frontend.your-domain.com"
+  allow_private_ips: true
+  strict_port_validation: true
+  max_age: 3600
+  
+security:
+  api_authentication_required: true
+  rate_limit_enabled: true
+  rate_limit_requests_per_minute: 120
+  
+logging:
+  level: "info"
+  cors_requests: true

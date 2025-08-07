@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { LogOut, Key, AlertCircle } from 'lucide-react'
 import { apiClient } from '@/lib/api'
+import { useI18n } from '@/hooks/use-i18n'
 
 interface AuthStatusProps {
   className?: string
@@ -15,6 +16,7 @@ interface AuthStatusProps {
 }
 
 export function AuthStatus({ className = '', showFullStatus = true }: AuthStatusProps) {
+  const { t } = useI18n()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
 
@@ -43,7 +45,7 @@ export function AuthStatus({ className = '', showFullStatus = true }: AuthStatus
     return (
       <div className={`flex items-center gap-2 ${className}`}>
         <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-500"></div>
-        {showFullStatus && <span className="text-sm text-gray-500">認証確認中...</span>}
+        {showFullStatus && <span className="text-sm text-gray-500">{t('auth.status.checking')}</span>}
       </div>
     )
   }
@@ -53,10 +55,10 @@ export function AuthStatus({ className = '', showFullStatus = true }: AuthStatus
       <div className={`flex items-center gap-2 ${className}`}>
         <Badge variant="destructive" className="bg-red-100 text-red-800">
           <AlertCircle className="w-3 h-3 mr-1" />
-          未認証
+          {t('auth.status.unauthenticated')}
         </Badge>
         {showFullStatus && (
-          <span className="text-sm text-gray-500">APIキーが必要です</span>
+          <span className="text-sm text-gray-500">{t('auth.status.apiKeyRequired')}</span>
         )}
       </div>
     )
@@ -66,7 +68,7 @@ export function AuthStatus({ className = '', showFullStatus = true }: AuthStatus
     <div className={`flex items-center gap-2 ${className}`}>
       <Badge variant="secondary" className="bg-green-100 text-green-800">
         <Key className="w-3 h-3 mr-1" />
-        認証済み
+        {t('auth.status.authenticated')}
       </Badge>
       {showFullStatus && (
         <Button
@@ -76,7 +78,7 @@ export function AuthStatus({ className = '', showFullStatus = true }: AuthStatus
           className="h-8 px-2 text-xs"
         >
           <LogOut className="w-3 h-3 mr-1" />
-          ログアウト
+          {t('auth.logout')}
         </Button>
       )}
     </div>
