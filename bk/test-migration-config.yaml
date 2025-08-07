@@ -1,3 +1,0 @@
-port: 7070
-database_path: ~/.ccdash-test/migration-test.db
-logs_dir: ~/.claude/projects
