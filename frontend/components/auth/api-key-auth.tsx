@@ -11,12 +11,14 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Badge } from '@/components/ui/badge'
 import { Eye, EyeOff, Key, LogOut, Check } from 'lucide-react'
 import { apiClient } from '@/lib/api'
+import { useI18n } from '@/hooks/use-i18n'
 
 interface ApiKeyAuthProps {
   onAuthStateChange?: (isAuthenticated: boolean) => void
 }
 
 export function ApiKeyAuth({ onAuthStateChange }: ApiKeyAuthProps) {
+  const { t } = useI18n()
   const [apiKey, setApiKey] = useState('')
   const [showApiKey, setShowApiKey] = useState(false)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
@@ -36,7 +38,7 @@ export function ApiKeyAuth({ onAuthStateChange }: ApiKeyAuthProps) {
     setIsValidating(true)
 
     if (!apiKey.trim()) {
-      setError('APIキーを入力してください')
+      setError(t('auth.errors.required'))
       setIsValidating(false)
       return
     }
@@ -53,7 +55,7 @@ export function ApiKeyAuth({ onAuthStateChange }: ApiKeyAuthProps) {
       setApiKey('')
       onAuthStateChange?.(true)
     } catch {
-      setError('無効なAPIキーです。正しいAPIキーを入力してください。')
+      setError(t('auth.errors.invalid'))
       apiClient.clearApiKey()
       setIsAuthenticated(false)
       onAuthStateChange?.(false)
@@ -77,12 +79,12 @@ export function ApiKeyAuth({ onAuthStateChange }: ApiKeyAuthProps) {
           <div className="flex items-center justify-center gap-2">
             <Badge variant="secondary" className="bg-green-100 text-green-800">
               <Check className="w-3 h-3 mr-1" />
-              認証済み
+              {t('auth.status.authenticated')}
             </Badge>
           </div>
-          <CardTitle className="text-lg">API認証</CardTitle>
+          <CardTitle className="text-lg">{t('auth.title')}</CardTitle>
           <CardDescription>
-            APIキーが設定されています
+            {t('auth.status.apiKeySet')}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -92,7 +94,7 @@ export function ApiKeyAuth({ onAuthStateChange }: ApiKeyAuthProps) {
             className="w-full"
           >
             <LogOut className="w-4 h-4 mr-2" />
-            ログアウト
+            {t('auth.logout')}
           </Button>
         </CardContent>
       </Card>
@@ -105,16 +107,16 @@ export function ApiKeyAuth({ onAuthStateChange }: ApiKeyAuthProps) {
         <div className="flex justify-center mb-2">
           <Key className="w-8 h-8 text-blue-500" />
         </div>
-        <CardTitle className="text-xl">API認証</CardTitle>
+        <CardTitle className="text-xl">{t('auth.title')}</CardTitle>
         <CardDescription>
-          CCDashにアクセスするためのAPIキーを入力してください
+          {t('auth.description')}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <label htmlFor="apiKey" className="text-sm font-medium">
-              APIキー
+              {t('auth.apiKey')}
             </label>
             <div className="relative">
               <Input
@@ -122,7 +124,7 @@ export function ApiKeyAuth({ onAuthStateChange }: ApiKeyAuthProps) {
                 type={showApiKey ? 'text' : 'password'}
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                placeholder="APIキーを入力してください"
+                placeholder={t('auth.apiKeyPlaceholder')}
                 className="pr-10"
                 disabled={isValidating}
               />
@@ -154,13 +156,13 @@ export function ApiKeyAuth({ onAuthStateChange }: ApiKeyAuthProps) {
             className="w-full" 
             disabled={isValidating}
           >
-            {isValidating ? '検証中...' : '認証'}
+            {isValidating ? t('auth.authenticating') : t('auth.authenticate')}
           </Button>
         </form>
 
         <div className="mt-6 pt-4 border-t text-center">
           <p className="text-xs text-gray-500">
-            APIキーはブラウザのセッションストレージに安全に保存されます
+            {t('auth.securityNote')}
           </p>
         </div>
       </CardContent>
