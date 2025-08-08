@@ -309,12 +309,51 @@ function parseArgs() {
   return { command, backendPort, frontendPort, backendUrl, frontendUrl, openBrowser: openBrowserFlag, disableSafetyCheck, apiKey };
 }
 
+// Find available backend server binary
+function findBackendServer() {
+  // Try generic binary first
+  const genericPath = path.join(packageRoot, 'bin', 'ccdash-server');
+  if (fs.existsSync(genericPath)) {
+    return genericPath;
+  }
+
+  // For npm packages, try to find platform-specific binary
+  if (isNpmPackage()) {
+    const PlatformDetector = require(path.join(packageRoot, 'scripts', 'platform-detector'));
+    const detector = new PlatformDetector();
+    
+    try {
+      const platformBinaryPath = detector.getBinaryPath(path.join(packageRoot, 'bin'));
+      if (fs.existsSync(platformBinaryPath)) {
+        log.info(`Found platform-specific binary: ${detector.getBinaryName()}`);
+        return platformBinaryPath;
+      }
+    } catch (error) {
+      log.warning(`Could not detect platform binary: ${error.message}`);
+    }
+
+    // List available binaries for debugging
+    const binDir = path.join(packageRoot, 'bin');
+    if (fs.existsSync(binDir)) {
+      const availableFiles = fs.readdirSync(binDir).filter(f => f.startsWith('ccdash-server'));
+      log.info(`Available binaries in ${binDir}: ${availableFiles.join(', ') || 'none'}`);
+    }
+  }
+
+  return null;
+}
+
 // Start backend server with fixed port 6060
 function startBackend(port = 6060, frontendPort = 3000, frontendUrl = null, backendUrl = null, disableSafetyCheck = false, apiKey = null) {
-  const serverPath = path.join(packageRoot, 'bin', 'ccdash-server');
+  const serverPath = findBackendServer();
 
-  if (!fs.existsSync(serverPath)) {
-    log.error('Backend server not found. Please run build first.');
+  if (!serverPath) {
+    if (isNpmPackage()) {
+      log.error('Backend server not found in npm package. This may indicate a packaging issue.');
+      log.info('Try reinstalling: npm uninstall -g ccdash && npm install -g ccdash');
+    } else {
+      log.error('Backend server not found. Please run build first.');
+    }
     process.exit(1);
   }
 
@@ -516,13 +555,13 @@ async function main() {
         }
 
         // Build backend if needed
-        const serverPath = path.join(packageRoot, 'bin', 'ccdash-server');
-        if (!fs.existsSync(serverPath)) {
+        const serverPath = findBackendServer();
+        if (!serverPath) {
           if (!isNpmPackage()) {
             await buildBackend();
           } else {
             log.error('Backend server not found in npm package. This may indicate a packaging issue.');
-            log.info('Expected server location: ' + serverPath);
+            log.info('Try reinstalling: npm uninstall -g ccdash && npm install -g ccdash');
             process.exit(1);
           }
         }

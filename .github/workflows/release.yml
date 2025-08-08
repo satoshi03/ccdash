@@ -242,8 +242,8 @@ jobs:
           mkdir -p dist/bin/frontend-dist
           mkdir -p dist/scripts
           
-          # Copy backend binaries to bin/
-          cp binaries/* dist/bin/ || echo "No backend binaries found"
+          # Copy backend binaries to bin/ (only platform-specific binaries)
+          cp binaries/ccdash-server-* dist/bin/ || echo "No backend binaries found"
           
           # Set executable permissions
           chmod +x dist/bin/ccdash-server-* || echo "No backend binaries to set permissions"
