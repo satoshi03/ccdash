@@ -31,11 +31,11 @@ jobs:
             goarch: arm64
             suffix: darwin-arm64
             runner: macos-latest  # M1/M2 Mac runner
-          # Linux build - native on Linux runner (Ubuntu 20.04 for GLIBC compatibility)
+          # Linux build - use Docker container for GLIBC 2.31 compatibility
           - goos: linux
             goarch: amd64
             suffix: linux-amd64
-            runner: ubuntu-20.04  # Use Ubuntu 20.04 for better compatibility with older GLIBC versions
+            runner: ubuntu-latest  # Use latest runner with Docker
           # Windows build - native on Windows runner
           - goos: windows
             goarch: amd64
@@ -49,12 +49,45 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      # For Linux builds, use Docker container with Ubuntu 20.04 for GLIBC 2.31 compatibility
+      - name: Build Linux binary in Docker container
+        if: matrix.goos == 'linux'
+        run: |
+          docker run --rm -v ${{ github.workspace }}:/workspace \
+            -w /workspace \
+            -e GO_VERSION=${{ env.GO_VERSION }} \
+            ubuntu:20.04 bash -c '
+              # Install required tools
+              apt-get update && \
+              apt-get install -y wget build-essential git && \
+              
+              # Install Go
+              wget -q https://go.dev/dl/go$GO_VERSION.linux-amd64.tar.gz && \
+              tar -C /usr/local -xzf go$GO_VERSION.linux-amd64.tar.gz && \
+              export PATH=/usr/local/go/bin:$PATH && \
+              
+              # Build the backend
+              cd backend && \
+              go mod download && \
+              CGO_ENABLED=1 go build -ldflags="-s -w" \
+                -o ../ccdash-server-linux-amd64 cmd/server/main.go && \
+              
+              # Verify the binary
+              file ../ccdash-server-linux-amd64 && \
+              ldd ../ccdash-server-linux-amd64 | grep -i glibc || true && \
+              ls -lh ../ccdash-server-linux-amd64 && \
+              chmod +x ../ccdash-server-linux-amd64
+            '
+
+      # For non-Linux builds, use native environment
       - name: Set up Go
+        if: matrix.goos != 'linux'
         uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
 
       - name: Cache Go modules
+        if: matrix.goos != 'linux'
         uses: actions/cache@v4
         with:
           path: |
@@ -65,7 +98,8 @@ jobs:
             ${{ runner.os }}-${{ matrix.goarch }}-go-
             ${{ runner.os }}-go-
 
-      - name: Build backend binary
+      - name: Build backend binary (non-Linux)
+        if: matrix.goos != 'linux'
         shell: bash
         env:
           CGO_ENABLED: 1  # DuckDB requires CGO
@@ -97,6 +131,22 @@ jobs:
         with:
           name: backend-binary-${{ matrix.suffix }}
           path: ccdash-server-${{ matrix.suffix }}${{ matrix.ext }}
+
+      # Verify Linux binary GLIBC compatibility
+      - name: Verify Linux binary GLIBC version
+        if: matrix.goos == 'linux'
+        run: |
+          echo "=== Checking GLIBC version requirement ==="
+          # Extract required GLIBC version from the binary
+          objdump -T ccdash-server-linux-amd64 | grep GLIBC | \
+            sed 's/.*GLIBC_\([0-9.]*\).*/\1/' | sort -V | tail -1 || echo "Could not determine GLIBC version"
+          
+          echo "=== Binary details ==="
+          file ccdash-server-linux-amd64
+          
+          echo "=== Shared library dependencies ==="
+          # This will fail on non-Linux runners, which is expected
+          ldd ccdash-server-linux-amd64 2>/dev/null || echo "ldd not available on this platform"
 
   build-frontend:
     name: Build Frontend
