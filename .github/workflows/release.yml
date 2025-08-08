@@ -13,7 +13,7 @@ on:
 
 env:
   NODE_VERSION: '18'
-  GO_VERSION: '1.24'
+  GO_VERSION: '1.21'  # Use stable Go version (1.24 doesn't exist)
 
 jobs:
   build-backend:
@@ -50,7 +50,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ env.GO_VERSION }}
 
