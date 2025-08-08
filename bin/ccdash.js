@@ -503,18 +503,28 @@ async function main() {
       case 'run':
         log.info('Starting ccdash...');
 
-        // Check prerequisites
-        const hasGo = await checkGoInstallation();
-        if (!hasGo) {
-          log.error('Go is not installed. Please install Go 1.21 or later.');
-          log.info('Visit https://golang.org/dl/ to download Go');
-          process.exit(1);
+        // Check prerequisites - skip Go check for npm packages
+        if (!isNpmPackage()) {
+          const hasGo = await checkGoInstallation();
+          if (!hasGo) {
+            log.error('Go is not installed. Please install Go 1.21 or later.');
+            log.info('Visit https://golang.org/dl/ to download Go');
+            process.exit(1);
+          }
+        } else {
+          log.info('Running from npm package, skipping Go installation check');
         }
 
         // Build backend if needed
         const serverPath = path.join(packageRoot, 'bin', 'ccdash-server');
         if (!fs.existsSync(serverPath)) {
-          await buildBackend();
+          if (!isNpmPackage()) {
+            await buildBackend();
+          } else {
+            log.error('Backend server not found in npm package. This may indicate a packaging issue.');
+            log.info('Expected server location: ' + serverPath);
+            process.exit(1);
+          }
         }
 
         // Skip frontend setup for npm packages
@@ -596,7 +606,11 @@ async function main() {
 
       case 'build':
         log.info('Building ccdash...');
-        await buildBackend();
+        if (!isNpmPackage()) {
+          await buildBackend();
+        } else {
+          log.info('Running from npm package, skipping backend build');
+        }
 
         if (!isNpmPackage()) {
           if (!checkNodeDependencies()) {
