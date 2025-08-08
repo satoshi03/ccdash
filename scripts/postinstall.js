@@ -117,14 +117,95 @@ class PostInstallSetup {
   }
 
   /**
+   * Check if binary file is corrupted (appears as text/script)
+   * @param {string} binaryPath - Path to binary to check
+   */
+  checkBinaryIntegrity(binaryPath) {
+    try {
+      if (!fs.existsSync(binaryPath)) {
+        return { valid: false, reason: 'Binary file does not exist' };
+      }
+
+      // Read first few bytes to check if it's a proper binary
+      const buffer = fs.readFileSync(binaryPath, { start: 0, end: 16 });
+      
+      // Check for ELF header (Linux binary)
+      if (this.detector.platform === 'linux') {
+        const elfHeader = buffer.slice(0, 4);
+        if (elfHeader.toString() !== '\x7fELF') {
+          return { 
+            valid: false, 
+            reason: 'Linux binary missing ELF header - file may be corrupted or text',
+            hexDump: buffer.toString('hex')
+          };
+        }
+      }
+      
+      // Check for Mach-O header (macOS binary)
+      if (this.detector.platform === 'darwin') {
+        const magic = buffer.readUInt32BE(0);
+        if (magic !== 0xcafebabe && magic !== 0xfeedface && magic !== 0xfeedfacf) {
+          return { 
+            valid: false, 
+            reason: 'macOS binary missing Mach-O header - file may be corrupted',
+            hexDump: buffer.toString('hex')
+          };
+        }
+      }
+      
+      // Check for PE header (Windows binary)
+      if (this.detector.platform === 'win32') {
+        const dosHeader = buffer.slice(0, 2).toString();
+        if (dosHeader !== 'MZ') {
+          return { 
+            valid: false, 
+            reason: 'Windows binary missing PE header - file may be corrupted',
+            hexDump: buffer.toString('hex')
+          };
+        }
+      }
+      
+      // Check if file starts with shebang or looks like text
+      const firstLine = buffer.toString('utf8', 0, Math.min(buffer.length, 16));
+      if (firstLine.startsWith('#!') || firstLine.includes('command can only contain')) {
+        return { 
+          valid: false, 
+          reason: 'Binary appears to be a text file or script - corruption detected',
+          firstLine: firstLine
+        };
+      }
+
+      return { valid: true };
+    } catch (error) {
+      return { 
+        valid: false, 
+        reason: `Error checking binary: ${error.message}` 
+      };
+    }
+  }
+
+  /**
    * Validate the setup binary
    * @param {string} binaryPath - Path to binary to validate
    */
   async validateBinary(binaryPath) {
+    // First check binary integrity
+    const integrityCheck = this.checkBinaryIntegrity(binaryPath);
+    if (!integrityCheck.valid) {
+      this.log(`Binary integrity check failed: ${integrityCheck.reason}`, 'error');
+      if (integrityCheck.hexDump) {
+        this.log(`Hex dump: ${integrityCheck.hexDump}`, 'error');
+      }
+      if (integrityCheck.firstLine) {
+        this.log(`First line content: "${integrityCheck.firstLine}"`, 'error');
+      }
+      return false;
+    }
+
     return new Promise((resolve) => {
       const { spawn } = require('child_process');
       
-      // Try to run the binary with --help flag (most binaries support this)
+      // Try to run the binary with --version flag (most binaries support this)
       const child = spawn(binaryPath, ['--version'], {
         stdio: 'pipe',
         timeout: 5000
@@ -146,7 +227,8 @@ class PostInstallSetup {
         resolve(hasOutput || code !== null);
       });
 
-      child.on('error', () => {
+      child.on('error', (error) => {
+        this.log(`Binary execution failed: ${error.message}`, 'error');
         resolve(false);
       });
 
