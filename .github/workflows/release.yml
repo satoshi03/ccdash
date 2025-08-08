@@ -31,11 +31,11 @@ jobs:
             goarch: arm64
             suffix: darwin-arm64
             runner: macos-latest  # M1/M2 Mac runner
-          # Linux build - native on Linux runner
+          # Linux build - native on Linux runner (Ubuntu 20.04 for GLIBC compatibility)
           - goos: linux
             goarch: amd64
             suffix: linux-amd64
-            runner: ubuntu-latest
+            runner: ubuntu-20.04  # Use Ubuntu 20.04 for better compatibility with older GLIBC versions
           # Windows build - native on Windows runner
           - goos: windows
             goarch: amd64
