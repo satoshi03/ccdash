@@ -1,6 +1,6 @@
 {
   "name": "ccdash",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "description": "Claude Code Dashboard - A comprehensive monitoring dashboard for Claude Code",
   "main": "bin/ccdash.js",
   "bin": {
