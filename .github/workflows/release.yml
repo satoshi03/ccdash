@@ -26,30 +26,22 @@ jobs:
             goarch: amd64
             suffix: darwin-amd64
             runner: macos-13  # Intel-based macOS
-            cgo_enabled: 1
-            native_build: true
-          # macOS Apple Silicon - cross compile from Intel due to runner limitations
+          # macOS Apple Silicon build on Apple Silicon Mac
           - goos: darwin
             goarch: arm64
             suffix: darwin-arm64
-            runner: macos-13  # Use Intel Mac for cross-compile
-            cgo_enabled: 0  # Disable CGO for cross-compile
-            native_build: false
+            runner: macos-latest  # M1/M2 Mac runner
           # Linux build - native on Linux runner
           - goos: linux
             goarch: amd64
             suffix: linux-amd64
             runner: ubuntu-latest
-            cgo_enabled: 1
-            native_build: true
           # Windows build - native on Windows runner
           - goos: windows
             goarch: amd64
             suffix: windows-amd64
             ext: .exe
             runner: windows-latest
-            cgo_enabled: 1
-            native_build: true
     
     runs-on: ${{ matrix.runner }}
 
@@ -76,20 +68,15 @@ jobs:
       - name: Build backend binary
         shell: bash
         env:
-          GOOS: ${{ matrix.goos }}
-          GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: ${{ matrix.cgo_enabled }}
+          CGO_ENABLED: 1  # DuckDB requires CGO
         run: |
           cd backend
           go mod tidy
           
-          # Build with appropriate CGO settings
-          if [ "${{ matrix.native_build }}" = "true" ]; then
-            echo "Building native binary for ${{ matrix.goos }}-${{ matrix.goarch }} with CGO_ENABLED=${{ matrix.cgo_enabled }}"
-          else
-            echo "Cross-compiling for ${{ matrix.goos }}-${{ matrix.goarch }} with CGO_ENABLED=${{ matrix.cgo_enabled }}"
-          fi
+          # Build native binary (CGO required for DuckDB)
+          echo "Building native binary for ${{ matrix.goos }}-${{ matrix.goarch }} with CGO_ENABLED=1"
           
+          # No need to set GOOS/GOARCH for native builds
           go build -ldflags="-s -w" -o ../ccdash-server-${{ matrix.suffix }}${{ matrix.ext }} cmd/server/main.go
           
           # Verify the built binary is a valid executable (skip on Windows)
