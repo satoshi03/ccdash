@@ -21,26 +21,35 @@ jobs:
     strategy:
       matrix:
         include:
-          # macOS builds (Intel & Apple Silicon)
+          # macOS Intel build on Intel Mac
           - goos: darwin
             goarch: amd64
             suffix: darwin-amd64
             runner: macos-13  # Intel-based macOS
+            cgo_enabled: 1
+            native_build: true
+          # macOS Apple Silicon - cross compile from Intel due to runner limitations
           - goos: darwin
             goarch: arm64
             suffix: darwin-arm64
-            runner: macos-latest  # Apple Silicon macOS
-          # Linux build
+            runner: macos-13  # Use Intel Mac for cross-compile
+            cgo_enabled: 0  # Disable CGO for cross-compile
+            native_build: false
+          # Linux build - native on Linux runner
           - goos: linux
             goarch: amd64
             suffix: linux-amd64
             runner: ubuntu-latest
-          # Windows build
+            cgo_enabled: 1
+            native_build: true
+          # Windows build - native on Windows runner
           - goos: windows
             goarch: amd64
             suffix: windows-amd64
             ext: .exe
             runner: windows-latest
+            cgo_enabled: 1
+            native_build: true
     
     runs-on: ${{ matrix.runner }}
 
@@ -68,11 +77,28 @@ jobs:
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
-          CGO_ENABLED: 1
+          CGO_ENABLED: ${{ matrix.cgo_enabled }}
         run: |
           cd backend
           go mod tidy
+          
+          # Build with appropriate CGO settings
+          if [ "${{ matrix.native_build }}" = "true" ]; then
+            echo "Building native binary for ${{ matrix.goos }}-${{ matrix.goarch }} with CGO_ENABLED=${{ matrix.cgo_enabled }}"
+          else
+            echo "Cross-compiling for ${{ matrix.goos }}-${{ matrix.goarch }} with CGO_ENABLED=${{ matrix.cgo_enabled }}"
+          fi
+          
           go build -ldflags="-s -w" -o ../ccdash-server-${{ matrix.suffix }}${{ matrix.ext }} cmd/server/main.go
+          
+          # Verify the built binary is a valid executable
+          file ../ccdash-server-${{ matrix.suffix }}${{ matrix.ext }} || true
+          
+          # Show binary size for verification
+          ls -lh ../ccdash-server-${{ matrix.suffix }}${{ matrix.ext }}
+          
+          # Make the binary executable (important for Linux/macOS)
+          chmod +x ../ccdash-server-${{ matrix.suffix }}${{ matrix.ext }} || true
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
