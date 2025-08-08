@@ -74,6 +74,7 @@ jobs:
             ${{ runner.os }}-go-
 
       - name: Build backend binary
+        shell: bash
         env:
           GOOS: ${{ matrix.goos }}
           GOARCH: ${{ matrix.goarch }}
@@ -91,14 +92,18 @@ jobs:
           
           go build -ldflags="-s -w" -o ../ccdash-server-${{ matrix.suffix }}${{ matrix.ext }} cmd/server/main.go
           
-          # Verify the built binary is a valid executable
-          file ../ccdash-server-${{ matrix.suffix }}${{ matrix.ext }} || true
+          # Verify the built binary is a valid executable (skip on Windows)
+          if [ "${{ matrix.goos }}" != "windows" ]; then
+            file ../ccdash-server-${{ matrix.suffix }}${{ matrix.ext }} || true
+          fi
           
           # Show binary size for verification
           ls -lh ../ccdash-server-${{ matrix.suffix }}${{ matrix.ext }}
           
-          # Make the binary executable (important for Linux/macOS)
-          chmod +x ../ccdash-server-${{ matrix.suffix }}${{ matrix.ext }} || true
+          # Make the binary executable (skip on Windows)
+          if [ "${{ matrix.goos }}" != "windows" ]; then
+            chmod +x ../ccdash-server-${{ matrix.suffix }}${{ matrix.ext }} || true
+          fi
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
