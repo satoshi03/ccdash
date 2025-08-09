@@ -58,6 +58,7 @@ jobs:
           ls -la
           echo ""
           
+          # Build the binary directly in the workspace root
           docker run --rm -v ${{ github.workspace }}:/workspace \
             -w /workspace \
             -e GO_VERSION=${{ env.GO_VERSION }} \
@@ -80,7 +81,7 @@ jobs:
               go version
               echo ""
               
-              # Build the backend
+              # Build the backend (output directly to workspace root)
               cd backend && \
               echo "=== Debug: Building in directory ==="
               pwd
@@ -89,20 +90,13 @@ jobs:
               
               go mod download && \
               CGO_ENABLED=1 go build -ldflags="-s -w" \
-                -o ccdash-server-linux-amd64 cmd/server/main.go && \
+                -o ../ccdash-server-linux-amd64 cmd/server/main.go && \
               
-              echo "=== Debug: After build in backend directory ==="
-              ls -la ccdash-server-linux-amd64
-              echo ""
-              
-              # Move binary to workspace root
-              mv ccdash-server-linux-amd64 ../ && \
-              
-              echo "=== Debug: After moving to parent directory ==="
+              echo "=== Debug: After build - checking workspace root ==="
               ls -la ../ccdash-server-linux-amd64
               echo ""
               
-              # Verify the binary (in parent directory)
+              # Verify the binary
               echo "=== Debug: Binary verification ==="
               file ../ccdash-server-linux-amd64 && \
               ldd ../ccdash-server-linux-amd64 | grep -i glibc || true && \
