@@ -61,7 +61,6 @@ jobs:
           # Build the binary directly in the workspace root
           docker run --rm -v ${{ github.workspace }}:/workspace \
             -w /workspace \
-            -e GO_VERSION=${{ env.GO_VERSION }} \
             ubuntu:20.04 bash -c '
               echo "=== Debug: Inside Docker container ==="
               echo "Current directory: $(pwd)"
@@ -72,9 +71,11 @@ jobs:
               apt-get update && \
               apt-get install -y wget build-essential git && \
               
-              # Install Go
-              wget -q https://go.dev/dl/go$GO_VERSION.linux-amd64.tar.gz && \
-              tar -C /usr/local -xzf go$GO_VERSION.linux-amd64.tar.gz && \
+              # Install Go (hardcode version 1.21)
+              GO_VERSION=1.21
+              echo "Installing Go version: $GO_VERSION"
+              wget -q https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz && \
+              tar -C /usr/local -xzf go${GO_VERSION}.linux-amd64.tar.gz && \
               export PATH=/usr/local/go/bin:$PATH && \
               
               echo "=== Debug: Go version ==="
