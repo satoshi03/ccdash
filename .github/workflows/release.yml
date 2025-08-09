@@ -74,13 +74,12 @@ jobs:
               
               # Move binary to workspace root
               mv ccdash-server-linux-amd64 ../ && \
-              cd .. && \
               
-              # Verify the binary
-              file ccdash-server-linux-amd64 && \
-              ldd ccdash-server-linux-amd64 | grep -i glibc || true && \
-              ls -lh ccdash-server-linux-amd64 && \
-              chmod +x ccdash-server-linux-amd64
+              # Verify the binary (in parent directory)
+              file ../ccdash-server-linux-amd64 && \
+              ldd ../ccdash-server-linux-amd64 | grep -i glibc || true && \
+              ls -lh ../ccdash-server-linux-amd64 && \
+              chmod +x ../ccdash-server-linux-amd64
             '
 
       # For non-Linux builds, use native environment
