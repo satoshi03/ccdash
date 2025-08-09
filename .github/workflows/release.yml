@@ -53,10 +53,20 @@ jobs:
       - name: Build Linux binary in Docker container
         if: matrix.goos == 'linux'
         run: |
+          echo "=== Debug: Workspace directory before Docker build ==="
+          pwd
+          ls -la
+          echo ""
+          
           docker run --rm -v ${{ github.workspace }}:/workspace \
             -w /workspace \
             -e GO_VERSION=${{ env.GO_VERSION }} \
             ubuntu:20.04 bash -c '
+              echo "=== Debug: Inside Docker container ==="
+              echo "Current directory: $(pwd)"
+              ls -la
+              echo ""
+              
               # Install required tools
               apt-get update && \
               apt-get install -y wget build-essential git && \
@@ -66,21 +76,50 @@ jobs:
               tar -C /usr/local -xzf go$GO_VERSION.linux-amd64.tar.gz && \
               export PATH=/usr/local/go/bin:$PATH && \
               
+              echo "=== Debug: Go version ==="
+              go version
+              echo ""
+              
               # Build the backend
               cd backend && \
+              echo "=== Debug: Building in directory ==="
+              pwd
+              ls -la
+              echo ""
+              
               go mod download && \
               CGO_ENABLED=1 go build -ldflags="-s -w" \
                 -o ccdash-server-linux-amd64 cmd/server/main.go && \
               
+              echo "=== Debug: After build in backend directory ==="
+              ls -la ccdash-server-linux-amd64
+              echo ""
+              
               # Move binary to workspace root
               mv ccdash-server-linux-amd64 ../ && \
               
+              echo "=== Debug: After moving to parent directory ==="
+              ls -la ../ccdash-server-linux-amd64
+              echo ""
+              
               # Verify the binary (in parent directory)
+              echo "=== Debug: Binary verification ==="
               file ../ccdash-server-linux-amd64 && \
               ldd ../ccdash-server-linux-amd64 | grep -i glibc || true && \
               ls -lh ../ccdash-server-linux-amd64 && \
               chmod +x ../ccdash-server-linux-amd64
+              
+              echo "=== Debug: Final workspace root contents ==="
+              ls -la ../
+              echo ""
             '
+          
+          echo "=== Debug: After Docker container exit ==="
+          ls -la
+          echo ""
+          echo "=== Debug: Looking for Linux binary ==="
+          find . -name "ccdash-server-linux-amd64" -type f
+          echo ""
 
       # For non-Linux builds, use native environment
       - name: Set up Go
@@ -139,17 +178,35 @@ jobs:
       - name: Verify Linux binary GLIBC version
         if: matrix.goos == 'linux'
         run: |
-          echo "=== Checking GLIBC version requirement ==="
-          # Extract required GLIBC version from the binary
-          objdump -T ccdash-server-linux-amd64 | grep GLIBC | \
-            sed 's/.*GLIBC_\([0-9.]*\).*/\1/' | sort -V | tail -1 || echo "Could not determine GLIBC version"
+          echo "=== Debug: Current directory ==="
+          pwd
+          echo ""
+          echo "=== Debug: Directory contents ==="
+          ls -la
+          echo ""
+          echo "=== Debug: Searching for binary ==="
+          find . -name "ccdash-server-linux-amd64" -type f
+          echo ""
           
-          echo "=== Binary details ==="
-          file ccdash-server-linux-amd64
-          
-          echo "=== Shared library dependencies ==="
-          # This will fail on non-Linux runners, which is expected
-          ldd ccdash-server-linux-amd64 2>/dev/null || echo "ldd not available on this platform"
+          if [ -f "ccdash-server-linux-amd64" ]; then
+            echo "=== Binary found at root level ==="
+            echo "=== Checking GLIBC version requirement ==="
+            # Extract required GLIBC version from the binary
+            objdump -T ccdash-server-linux-amd64 | grep GLIBC | \
+              sed 's/.*GLIBC_\([0-9.]*\).*/\1/' | sort -V | tail -1 || echo "Could not determine GLIBC version"
+            
+            echo "=== Binary details ==="
+            file ccdash-server-linux-amd64
+            
+            echo "=== Shared library dependencies ==="
+            # This will fail on non-Linux runners, which is expected
+            ldd ccdash-server-linux-amd64 2>/dev/null || echo "ldd not available on this platform"
+          else
+            echo "ERROR: Binary ccdash-server-linux-amd64 not found!"
+            echo "Checking if binary exists elsewhere:"
+            find . -type f -name "*ccdash*" | head -20
+            exit 1
+          fi
 
   build-frontend:
     name: Build Frontend
