@@ -70,13 +70,17 @@ jobs:
               cd backend && \
               go mod download && \
               CGO_ENABLED=1 go build -ldflags="-s -w" \
-                -o ../ccdash-server-linux-amd64 cmd/server/main.go && \
+                -o ccdash-server-linux-amd64 cmd/server/main.go && \
+              
+              # Move binary to workspace root
+              mv ccdash-server-linux-amd64 ../ && \
+              cd .. && \
               
               # Verify the binary
-              file ../ccdash-server-linux-amd64 && \
-              ldd ../ccdash-server-linux-amd64 | grep -i glibc || true && \
-              ls -lh ../ccdash-server-linux-amd64 && \
-              chmod +x ../ccdash-server-linux-amd64
+              file ccdash-server-linux-amd64 && \
+              ldd ccdash-server-linux-amd64 | grep -i glibc || true && \
+              ls -lh ccdash-server-linux-amd64 && \
+              chmod +x ccdash-server-linux-amd64
             '
 
       # For non-Linux builds, use native environment
