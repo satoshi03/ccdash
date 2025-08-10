@@ -71,11 +71,10 @@ jobs:
               apt-get update && \
               apt-get install -y wget build-essential git && \
               
-              # Install Go (hardcode version 1.21)
-              GO_VERSION=1.21
-              echo "Installing Go version: $GO_VERSION"
-              wget -q https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz && \
-              tar -C /usr/local -xzf go${GO_VERSION}.linux-amd64.tar.gz && \
+              # Install Go 1.21 (hardcoded version)
+              echo "Installing Go version: 1.21.13"
+              wget -q https://go.dev/dl/go1.21.13.linux-amd64.tar.gz && \
+              tar -C /usr/local -xzf go1.21.13.linux-amd64.tar.gz && \
               export PATH=/usr/local/go/bin:$PATH && \
               
               echo "=== Debug: Go version ==="
